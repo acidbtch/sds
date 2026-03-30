@@ -1,0 +1,36 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@layer base {
+  html {
+    /* Scale down the entire UI by reducing the root font size. 
+       Default is 16px. Setting it to 14px scales everything down by ~12.5% */
+    font-size: 14px;
+  }
+  
+  @media (max-width: 380px) {
+    html {
+      /* Scale down a bit more on very small screens */
+      font-size: 13px;
+    }
+  }
+}
+
+@layer utilities {
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Hide scrollbar globally for a cleaner mobile app feel */
+* {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
+}

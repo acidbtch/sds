@@ -1,0 +1,2120 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { ViewState } from '../types';
+import { 
+  ChevronLeft, Users, Briefcase, FileText, CreditCard, 
+  Image as ImageIcon, ShieldCheck, MessageSquare, Settings,
+  Search, Filter, MoreVertical, CheckCircle, XCircle, AlertCircle,
+  Menu, X, Car, Upload, ChevronDown, ArrowUp, ArrowDown, Send
+} from 'lucide-react';
+import RegionSelector from './RegionSelector';
+import { CustomSelect } from './CustomSelect';
+import { useData } from '../context/DataContext';
+import { ScheduleSelector, formatSchedule, defaultSchedule } from './ScheduleSelector';
+
+interface Props {
+  onNavigate: (view: ViewState) => void;
+  carModels: Record<string, string[]>;
+  setCarModels: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
+}
+
+type AdminTab = 'dashboard' | 'customers' | 'contractors' | 'orders' | 'payments' | 'banners' | 'moderation' | 'support' | 'content' | 'cars' | 'services';
+
+export default function AdminPanel({ onNavigate, carModels, setCarModels }: Props) {
+  const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const {
+    customers, setCustomers,
+    contractors, setContractors,
+    orders, setOrders,
+    payments, setPayments,
+    banners, setBanners,
+    moderation, setModeration,
+    support, setSupport,
+    content, setContent,
+    serviceCategories, setServiceCategories
+  } = useData();
+
+  const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'dashboard', label: 'Общая панель', icon: <Settings className="w-5 h-5" /> },
+    { id: 'customers', label: 'Заказчики', icon: <Users className="w-5 h-5" /> },
+    { id: 'contractors', label: 'Исполнители', icon: <Briefcase className="w-5 h-5" /> },
+    { id: 'orders', label: 'Заказы', icon: <FileText className="w-5 h-5" /> },
+    { id: 'payments', label: 'Платежи', icon: <CreditCard className="w-5 h-5" /> },
+    { id: 'banners', label: 'Баннеры', icon: <ImageIcon className="w-5 h-5" /> },
+    { id: 'moderation', label: 'Модерация', icon: <ShieldCheck className="w-5 h-5" /> },
+    { id: 'support', label: 'Поддержка', icon: <MessageSquare className="w-5 h-5" /> },
+    { id: 'content', label: 'Контент', icon: <FileText className="w-5 h-5" /> },
+    { id: 'cars', label: 'Авто', icon: <Car className="w-5 h-5" /> },
+    { id: 'services', label: 'Услуги', icon: <Settings className="w-5 h-5" /> },
+  ];
+
+  const handleTabChange = (tabId: AdminTab) => {
+    setActiveTab(tabId);
+    setIsMenuOpen(false);
+  };
+
+  return (
+    <div className="flex flex-col min-h-screen bg-white relative">
+      {/* Header */}
+      <div className="bg-slate-900 text-white p-4 flex items-center justify-center shadow-md sticky top-0 z-30 relative">
+        <button 
+          onClick={() => onNavigate('home')}
+          className="absolute left-4 p-2 -ml-2 bg-slate-800 text-slate-200 hover:bg-slate-700 rounded-full transition-colors"
+        >
+          <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
+        </button>
+        <h1 className="text-xl font-bold">SDS Admin</h1>
+      </div>
+
+      {/* Permanent Grid Menu */}
+      <div className="bg-white border-b border-gray-200 p-2 z-20">
+        <div className="grid grid-cols-3 gap-1">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                if (tab.id === 'contractors') {
+                  onNavigate('contractors_catalog');
+                } else {
+                  setActiveTab(tab.id);
+                }
+              }}
+              className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${
+                activeTab === tab.id 
+                  ? 'bg-slate-900 text-white' 
+                  : 'text-gray-600 hover:bg-[#E8EDF2]'
+              }`}
+            >
+              <div className="mb-1">{tab.icon}</div>
+              <span className="text-[10px] font-bold text-center leading-tight">{tab.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="p-4 flex-1 overflow-y-auto pb-24">
+        {activeTab === 'dashboard' && <DashboardView onNavigateTab={setActiveTab} onNavigate={onNavigate} />}
+        {activeTab === 'customers' && <CustomersView customers={customers} setCustomers={setCustomers} orders={orders} />}
+        {activeTab === 'contractors' && <ContractorsView contractors={contractors} setContractors={setContractors} orders={orders} />}
+        {activeTab === 'orders' && <OrdersView orders={orders} />}
+        {activeTab === 'payments' && <PaymentsView payments={payments} />}
+        {activeTab === 'banners' && <BannersView banners={banners} setBanners={setBanners} contractors={contractors} setContractors={setContractors} />}
+        {activeTab === 'moderation' && <ModerationView moderation={moderation} setModeration={setModeration} contractors={contractors} setContractors={setContractors} banners={banners} setBanners={setBanners} />}
+        {activeTab === 'support' && <SupportView support={support} setSupport={setSupport} />}
+        {activeTab === 'content' && <ContentView content={content} setContent={setContent} />}
+        {activeTab === 'cars' && <CarsView carModels={carModels} setCarModels={setCarModels} />}
+        {activeTab === 'services' && <ServicesView serviceCategories={serviceCategories} setServiceCategories={setServiceCategories} contractors={contractors} setContractors={setContractors} orders={orders} setOrders={setOrders} />}
+      </div>
+    </div>
+  );
+}
+
+// --- View Components ---
+
+function DashboardView({ onNavigateTab, onNavigate }: { onNavigateTab: (tab: AdminTab) => void, onNavigate: (view: ViewState) => void }) {
+  const { customers, orders, payments, contractors, moderation, support } = useData();
+
+  const parseDate = (dateStr: string) => {
+    if (!dateStr) return new Date(0);
+    const parts = dateStr.split(' ')[0].split('.');
+    if (parts.length === 3) {
+      return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+    }
+    return new Date(0);
+  };
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1)); // Monday
+  
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+  const ordersToday = orders.filter(o => parseDate(o.date) >= today).length;
+  const ordersWeek = orders.filter(o => parseDate(o.date) >= startOfWeek).length;
+  const ordersMonth = orders.filter(o => parseDate(o.date) >= startOfMonth).length;
+
+  const completedOrders = orders.filter(o => o.status === 'completed').length;
+  const successfulPayments = payments.filter(p => p.status === 'Успешно').length;
+  
+  const newModeration = moderation.filter(m => m.status === 'new').length;
+  const newSupport = support.filter(s => s.status === 'in_progress').length;
+
+  const partnerCount = contractors.filter(c => c.profileType === 'partner' || c.profileType === 'Партнёр').length;
+  const proCount = contractors.filter(c => c.profileType === 'pro' || c.profileType === 'Профи').length;
+  const leaderCount = contractors.filter(c => c.profileType === 'leader' || c.profileType === 'Лидер').length;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4">
+        <StatCard title="Гости" value={customers.length.toString()} subtitle="открыли приложение" color="bg-blue-50 text-blue-600" />
+        <StatCard title="Выполнено" value={completedOrders.toString()} subtitle="заказов всего" color="bg-green-50 text-green-600" />
+        <StatCard title="Успешных оплат" value={successfulPayments.toString()} subtitle="всего транзакций" color="bg-purple-50 text-purple-600" />
+        <StatCard title="Исполнителей" value={contractors.length.toString()} subtitle="всего в базе" color="bg-orange-50 text-orange-600" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <button onClick={() => onNavigateTab('moderation')} className="bg-white p-4 rounded-xl shadow-md border border-gray-100 flex flex-col items-center justify-center gap-2 text-gray-700 hover:bg-gray-50">
+          <ShieldCheck className="w-8 h-8 text-blue-500" />
+          <span className="font-bold text-sm">Модерация ({newModeration})</span>
+        </button>
+        <button onClick={() => onNavigateTab('support')} className="bg-white p-4 rounded-xl shadow-md border border-gray-100 flex flex-col items-center justify-center gap-2 text-gray-700 hover:bg-gray-50">
+          <MessageSquare className="w-8 h-8 text-orange-500" />
+          <span className="font-bold text-sm">Поддержка ({newSupport})</span>
+        </button>
+      </div>
+
+      <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
+        <h3 className="font-bold text-gray-900 mb-3">Оформленные заказы</h3>
+        <div className="flex justify-between text-sm">
+          <div className="text-center"><div className="font-bold text-lg">{ordersToday}</div><div className="text-gray-500">Сегодня</div></div>
+          <div className="text-center"><div className="font-bold text-lg">{ordersWeek}</div><div className="text-gray-500">Неделя</div></div>
+          <div className="text-center"><div className="font-bold text-lg">{ordersMonth}</div><div className="text-gray-500">Месяц</div></div>
+        </div>
+      </div>
+
+      <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
+        <h3 className="font-bold text-gray-900 mb-3">Исполнители по подпискам</h3>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Партнёр (Бесплатно)</span>
+            <span className="font-bold">{partnerCount}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-blue-600">Профи (30 BYN)</span>
+            <span className="font-bold">{proCount}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-orange-600">Лидер (50 BYN)</span>
+            <span className="font-bold">{leaderCount}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ title, value, subtitle, color, onClick }: { title: string, value: string, subtitle: string, color: string, onClick?: () => void }) {
+  return (
+    <div 
+      onClick={onClick}
+      className={`p-4 rounded-xl ${color} ${onClick ? 'cursor-pointer active:scale-[0.98] transition-transform' : ''}`}
+    >
+      <div className="text-2xl font-bold mb-1">{value}</div>
+      <div className="font-medium text-sm">{title}</div>
+      <div className="text-xs opacity-80 mt-1">{subtitle}</div>
+    </div>
+  );
+}
+
+function CustomersView({ customers, setCustomers, orders }: { customers: any[], setCustomers: any, orders: any[] }) {
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [search, setSearch] = useState('');
+
+  const filtered = customers.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search));
+
+  const toggleStatus = () => {
+    setCustomers(customers.map(c => 
+      c.id === selectedCustomer.id 
+        ? { ...c, status: c.status === 'active' ? 'blocked' : 'active' } 
+        : c
+    ));
+    setSelectedCustomer({ ...selectedCustomer, status: selectedCustomer.status === 'active' ? 'blocked' : 'active' });
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pending': return 'Новый';
+      case 'active': return 'В работе';
+      case 'completed': return 'Выполнен';
+      case 'cancelled': return 'Отменен';
+      default: return status;
+    }
+  };
+
+  if (selectedCustomer) {
+    const customerOrders = orders.filter(o => o.phone === selectedCustomer.phone || o.customerName === selectedCustomer.name);
+
+    return (
+      <div className="space-y-4">
+        <button onClick={() => setSelectedCustomer(null)} className="text-sm text-blue-600 font-medium flex items-center">
+          <ChevronLeft className="w-4 h-4 mr-1" /> Назад к списку
+        </button>
+        <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
+          <div className="flex justify-between items-start mb-4">
+            <h2 className="text-xl font-bold">{selectedCustomer.name}</h2>
+            <span className={`px-2 py-1 text-xs rounded-md font-bold ${selectedCustomer.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+              {selectedCustomer.status === 'active' ? 'Активен' : 'Заблокирован'}
+            </span>
+          </div>
+          <div className="space-y-2 text-sm mb-6">
+            <p><span className="text-gray-500">Телефон:</span> {selectedCustomer.phone}</p>
+            <p><span className="text-gray-500">Telegram:</span> {selectedCustomer.tgId}</p>
+            <p><span className="text-gray-500">Регистрация:</span> {selectedCustomer.regDate}</p>
+            <p><span className="text-gray-500">Всего заказов:</span> {customerOrders.length}</p>
+          </div>
+          
+          <h3 className="font-bold mb-2">История заказов</h3>
+          <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600 mb-6 space-y-2">
+            {customerOrders.length > 0 ? (
+              customerOrders.map(o => (
+                <div key={o.id} className="flex justify-between items-center border-b border-gray-200 last:border-0 pb-2 last:pb-0">
+                  <div>
+                    <span className="font-medium">Заказ #{o.id}</span> - {o.serviceType}
+                  </div>
+                  <span className={`text-xs font-bold px-2 py-1 rounded ${
+                    o.status === 'completed' ? 'bg-green-100 text-green-700' : 
+                    o.status === 'active' ? 'bg-blue-100 text-blue-700' : 
+                    o.status === 'cancelled' ? 'bg-red-100 text-red-700' : 
+                    'bg-orange-100 text-orange-700'
+                  }`}>
+                    {getStatusLabel(o.status)}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500">Нет заказов</p>
+            )}
+          </div>
+
+          <button 
+            onClick={toggleStatus}
+            className={`w-full py-3 rounded-xl font-bold text-white ${selectedCustomer.status === 'active' ? 'bg-red-500' : 'bg-green-500'}`}
+          >
+            {selectedCustomer.status === 'active' ? 'Заблокировать пользователя' : 'Разблокировать пользователя'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2 mb-4">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
+          <input 
+            type="text" 
+            placeholder="Поиск заказчиков..." 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-lg text-sm" 
+          />
+        </div>
+      </div>
+
+      {filtered.map(c => (
+        <div key={c.id} onClick={() => setSelectedCustomer(c)} className="bg-white p-4 rounded-xl shadow-md border border-gray-100 cursor-pointer hover:bg-gray-50">
+          <div className="flex justify-between items-start mb-1">
+            <h3 className="font-bold text-gray-900">{c.name}</h3>
+            <span className={`w-2 h-2 rounded-full mt-1.5 ${c.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+          </div>
+          <p className="text-sm text-gray-500">{c.phone} • {c.tgId}</p>
+          <div className="flex justify-between mt-2 text-xs text-gray-400">
+            <span>Заказов: {c.orders}</span>
+            <span>Рег: {c.regDate}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ContractorsView({ contractors, setContractors, orders }: { contractors: any[], setContractors: any, orders: any[] }) {
+  const { serviceCategories } = useData();
+  const [selected, setSelected] = useState<any>(null);
+  const [search, setSearch] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState<any>(null);
+  const [isRegionModalOpen, setIsRegionModalOpen] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
+
+  const toggleCategoryExpand = (categoryId: string) => {
+    setExpandedCategories(prev => 
+      prev.includes(categoryId) 
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    );
+  };
+
+  const filtered = contractors.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
+
+  const handleSave = () => {
+    setContractors(contractors.map(c => c.id === editForm.id ? editForm : c));
+    setSelected(editForm);
+    setIsEditing(false);
+  };
+
+  if (selected) {
+    if (isEditing) {
+      return (
+        <div className="space-y-4">
+          <button onClick={() => setIsEditing(false)} className="text-sm text-blue-600 font-medium flex items-center">
+            <ChevronLeft className="w-4 h-4 mr-1" /> Назад к просмотру
+          </button>
+          <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
+            <h2 className="text-xl font-bold mb-4">Редактирование исполнителя</h2>
+            
+            <div className="space-y-4 text-sm mb-6">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Статус юридического лица <span className="text-red-500">*</span></label>
+                <CustomSelect
+                  value={editForm.legalStatus || 'ООО'}
+                  onChange={(val) => setEditForm({...editForm, legalStatus: val})}
+                  options={[
+                    { value: 'ИП', label: 'ИП' },
+                    { value: 'ООО', label: 'ООО' },
+                    { value: 'ЧУП', label: 'ЧУП' },
+                    { value: 'ОАО', label: 'ОАО' },
+                  ]}
+                  placeholder="Выберите статус"
+                  theme="blue"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Полное юридическое наименование <span className="text-red-500">*</span></label>
+                <input 
+                  type="text" 
+                  value={editForm.name} 
+                  onChange={e => setEditForm({...editForm, name: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">УНП <span className="text-red-500">*</span></label>
+                <input 
+                  type="text" 
+                  value={editForm.unp || ''} 
+                  onChange={e => setEditForm({...editForm, unp: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Краткое название (для приложения) <span className="text-red-500">*</span></label>
+                <input 
+                  type="text" 
+                  value={editForm.shortName || ''} 
+                  onChange={e => setEditForm({...editForm, shortName: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Описание вашей деятельности <span className="text-red-500">*</span></label>
+                <textarea 
+                  rows={3}
+                  value={editForm.description || ''} 
+                  onChange={e => setEditForm({...editForm, description: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none"
+                />
+              </div>
+              {(editForm.profileType === 'leader' || editForm.profileType === 'Лидер') && (
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Текст рекламного баннера</label>
+                  <textarea 
+                    rows={2}
+                    value={editForm.bannerText || ''} 
+                    onChange={e => setEditForm({...editForm, bannerText: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-xs text-gray-500 mb-2">Виды оказываемых услуг <span className="text-red-500">*</span></label>
+                <div className="space-y-3 max-h-80 overflow-y-auto pr-2 rounded-lg p-2 border border-gray-200">
+                  {serviceCategories.map(category => {
+                    const currentServices = Array.isArray(editForm.services) ? editForm.services : [];
+                    const allSelected = category.services.length > 0 && category.services.every(s => currentServices.includes(s));
+                    const someSelected = category.services.some(s => currentServices.includes(s)) && !allSelected;
+                    const isExpanded = expandedCategories.includes(category.id);
+                    
+                    return (
+                      <div key={category.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                        <div 
+                          className="flex items-center justify-between bg-gray-50 p-3 cursor-pointer hover:bg-gray-100 transition-colors"
+                          onClick={() => toggleCategoryExpand(category.id)}
+                        >
+                          <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
+                            <input 
+                              type="checkbox" 
+                              checked={allSelected}
+                              ref={input => { if (input) input.indeterminate = someSelected; }}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  const newServices = new Set([...currentServices, ...category.services]);
+                                  setEditForm({...editForm, services: Array.from(newServices)});
+                                } else {
+                                  const newServices = currentServices.filter((s: string) => !category.services.includes(s));
+                                  setEditForm({...editForm, services: newServices});
+                                }
+                              }}
+                              className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                            />
+                            <h4 className="font-medium text-sm text-gray-900 select-none">{category.name}</h4>
+                          </div>
+                          <ChevronDown className={`w-5 h-5 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                        </div>
+                        
+                        {isExpanded && (
+                          <div className="p-3 bg-white border-t border-gray-100 space-y-1">
+                            {category.services.map(type => (
+                              <label key={type} className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors">
+                                <input 
+                                  type="checkbox" 
+                                  checked={currentServices.includes(type)}
+                                  onChange={() => {
+                                    if (currentServices.includes(type)) {
+                                      setEditForm({...editForm, services: currentServices.filter((s: string) => s !== type)});
+                                    } else {
+                                      setEditForm({...editForm, services: [...currentServices, type]});
+                                    }
+                                  }}
+                                  className="mt-1 w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" 
+                                />
+                                <span className="text-sm text-gray-700">{type}</span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Регион оказания услуг <span className="text-red-500">*</span></label>
+                <button 
+                  type="button"
+                  onClick={() => setIsRegionModalOpen(true)}
+                  className="w-full border border-gray-300 rounded-lg p-2 text-sm bg-gray-50 text-left text-gray-700 outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {editForm.regions && editForm.regions.length > 0 ? editForm.regions.join(', ') : 'Выберите регион'}
+                </button>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">График работы</label>
+                <ScheduleSelector 
+                  value={editForm.schedule || defaultSchedule}
+                  onChange={val => setEditForm({...editForm, schedule: val})}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Контактный телефон (Telegram) <span className="text-red-500">*</span></label>
+                <input 
+                  type="text" 
+                  value={editForm.phone || ''} 
+                  onChange={e => setEditForm({...editForm, phone: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Ссылка на Instagram</label>
+                <input 
+                  type="text" 
+                  value={editForm.instagram || ''} 
+                  onChange={e => setEditForm({...editForm, instagram: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Ссылка на сайт</label>
+                <input 
+                  type="text" 
+                  value={editForm.website || ''} 
+                  onChange={e => setEditForm({...editForm, website: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none"
+                />
+              </div>
+              
+              <div className="pt-2">
+                <label className="block text-xs text-gray-500 mb-2">Медиафайлы</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" className="border border-dashed border-gray-300 rounded-lg p-3 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors">
+                    <Upload className="w-5 h-5 mb-1" />
+                    <span className="text-[10px] text-center">Документы юр. лица</span>
+                  </button>
+                  <button type="button" className="border border-dashed border-gray-300 rounded-lg p-3 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors">
+                    <Upload className="w-5 h-5 mb-1" />
+                    <span className="text-[10px] text-center">Логотип</span>
+                  </button>
+                  <button type="button" className="border border-dashed border-gray-300 rounded-lg p-3 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors">
+                    <Upload className="w-5 h-5 mb-1" />
+                    <span className="text-[10px] text-center">Фото работ</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-gray-200 mt-6">
+                <h3 className="font-bold text-gray-900 mb-4">Настройки администратора</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Тип подписки</label>
+                    <select 
+                      value={editForm.profile} 
+                      onChange={e => setEditForm({...editForm, profile: e.target.value})}
+                      className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    >
+                      <option value="Лидер">Лидер</option>
+                      <option value="Партнёр">Партнёр</option>
+                      <option value="Базовый">Базовый</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Статус подписки</label>
+                    <select 
+                      value={editForm.subStatus} 
+                      onChange={e => setEditForm({...editForm, subStatus: e.target.value})}
+                      className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    >
+                      <option value="Активна">Активна</option>
+                      <option value="Неактивна">Неактивна</option>
+                      <option value="Бесплатно">Бесплатно</option>
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Начало подписки</label>
+                      <input 
+                        type="date" 
+                        value={editForm.subStart || ''} 
+                        onChange={e => setEditForm({...editForm, subStart: e.target.value})}
+                        className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Конец подписки</label>
+                      <input 
+                        type="date" 
+                        value={editForm.subEnd || ''} 
+                        onChange={e => setEditForm({...editForm, subEnd: e.target.value})}
+                        className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Статус аккаунта</label>
+                    <select 
+                      value={editForm.status || 'active'} 
+                      onChange={e => setEditForm({...editForm, status: e.target.value})}
+                      className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    >
+                      <option value="active">Активен</option>
+                      <option value="blocked">Заблокирован</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button onClick={handleSave} className="flex-1 py-3 rounded-xl font-bold text-white bg-green-500 text-sm">
+                Сохранить
+              </button>
+              <button onClick={() => setIsEditing(false)} className="flex-1 py-3 rounded-xl font-bold bg-[#E8EDF2] text-[#0F2846] hover:bg-[#D8DFE8] text-sm">
+                Отмена
+              </button>
+            </div>
+          </div>
+          <RegionSelector 
+            isOpen={isRegionModalOpen}
+            onClose={() => setIsRegionModalOpen(false)}
+            selectedRegions={editForm.regions || []}
+            onSelect={(regions) => setEditForm({...editForm, regions})}
+            multiSelect={true}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <button onClick={() => setSelected(null)} className="text-sm text-blue-600 font-medium flex items-center">
+          <ChevronLeft className="w-4 h-4 mr-1" /> Назад к списку
+        </button>
+        <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h2 className="text-xl font-bold">{selected.name}</h2>
+              <span className="text-xs font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded mt-1 inline-block">{selected.profile}</span>
+            </div>
+            <span className={`px-2 py-1 text-xs rounded-md font-bold ${selected.status === 'blocked' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+              {selected.status === 'blocked' ? 'Заблокирован' : 'Активен'}
+            </span>
+          </div>
+          
+          <div className="space-y-3 text-sm mb-6">
+            <div>
+              <span className="text-gray-500 block text-xs">Юридическое наименование</span>
+              <span className="font-medium text-gray-900">{selected.legalStatus || 'ООО'} "{selected.name.replace(/ООО |ИП |ЧУП |ОАО |"/g, '')}"</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block text-xs">УНП</span>
+              <span className="font-medium text-gray-900">{selected.unp || 'Не указан'}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block text-xs">Краткое название</span>
+              <span className="font-medium text-gray-900">{selected.shortName || 'Не указано'}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block text-xs">Описание</span>
+              <span className="font-medium text-gray-900">{selected.description || 'Не указано'}</span>
+            </div>
+            {(selected.profileType === 'leader' || selected.profileType === 'Лидер') && (
+              <div>
+                <span className="text-gray-500 block text-xs">Текст рекламного баннера</span>
+                <span className="font-medium text-gray-900">{selected.bannerText || 'Не указано'}</span>
+              </div>
+            )}
+            <div>
+              <span className="text-gray-500 block text-xs">Услуги</span>
+              <span className="font-medium text-gray-900">{Array.isArray(selected.services) ? selected.services.join(', ') : selected.services || 'Не указаны'}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block text-xs">Регион</span>
+              <span className="font-medium text-gray-900">{selected.regions && selected.regions.length > 0 ? selected.regions.join(', ') : selected.region}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block text-xs">График работы</span>
+              <span className="font-medium text-gray-900">{selected.schedule ? formatSchedule(selected.schedule) : selected.workingHours || 'Не указан'}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block text-xs">Телефон</span>
+              <span className="font-medium text-gray-900">{selected.phone || 'Не указан'}</span>
+            </div>
+            {selected.instagram && (
+              <div>
+                <span className="text-gray-500 block text-xs">Instagram</span>
+                <a href={selected.instagram} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-500 underline">{selected.instagram}</a>
+              </div>
+            )}
+            {selected.website && (
+              <div>
+                <span className="text-gray-500 block text-xs">Сайт</span>
+                <a href={selected.website} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-500 underline">{selected.website}</a>
+              </div>
+            )}
+            
+            <div className="pt-4 border-t border-gray-200 mt-4">
+              <h3 className="font-bold text-gray-900 mb-3">Настройки администратора</h3>
+              <div className="space-y-3">
+                <div>
+                  <span className="text-gray-500 block text-xs">Тип подписки</span>
+                  <span className="font-medium text-gray-900">{selected.profile}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block text-xs">Статус подписки</span>
+                  <span className="font-medium text-gray-900">{selected.subStatus}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block text-xs">Период подписки</span>
+                  <span className="font-medium text-gray-900">{selected.subStart || 'Не указано'} - {selected.subEnd || 'Не указано'}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block text-xs">Статистика</span>
+                  <span className="font-medium text-gray-900">Выполнено заказов: {selected.completedOrders}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-gray-200 mt-4">
+              <h3 className="font-bold text-gray-900 mb-3">История заказов (отклики)</h3>
+              <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600 mb-6 space-y-2">
+                {orders.filter(o => o.responses?.some((r: any) => r.contractorId === selected.id)).length > 0 ? (
+                  orders.filter(o => o.responses?.some((r: any) => r.contractorId === selected.id)).map(o => (
+                    <div key={o.id} className="flex flex-col border-b border-gray-200 last:border-0 pb-3 last:pb-0">
+                      <div className="flex justify-between items-center mb-1">
+                        <div>
+                          <span className="font-medium">Заказ #{o.id}</span> - {o.serviceType}
+                        </div>
+                        <span className={`text-[10px] font-bold px-2 py-1 rounded ${
+                          o.status === 'completed' ? 'bg-green-100 text-green-700' : 
+                          o.status === 'active' ? 'bg-blue-100 text-blue-700' : 
+                          o.status === 'cancelled' ? 'bg-red-100 text-red-700' : 
+                          'bg-orange-100 text-orange-700'
+                        }`}>
+                          {o.status === 'completed' ? 'Выполнен' : o.status === 'active' ? 'В работе' : o.status === 'cancelled' ? 'Отменен' : 'Новый'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {o.carMake} {o.carModel} {o.year ? `(${o.year})` : ''}
+                      </div>
+                      {o.acceptedContractorId === selected.id && (
+                        <div className="mt-1 text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block self-start">
+                          Выбран исполнителем
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 italic text-center py-2">Нет откликов на заказы</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <button 
+              onClick={() => {
+                const newStatus = selected.status === 'blocked' ? 'active' : 'blocked';
+                const updated = { ...selected, status: newStatus };
+                setContractors(contractors.map(c => c.id === selected.id ? updated : c));
+                setSelected(updated);
+              }}
+              className={`flex-1 py-3 rounded-xl font-bold text-white text-sm ${selected.status === 'blocked' ? 'bg-green-500' : 'bg-red-500'}`}
+            >
+              {selected.status === 'blocked' ? 'Разблокировать' : 'Заблокировать'}
+            </button>
+            <button 
+              onClick={() => {
+                setEditForm({ ...selected });
+                setIsEditing(true);
+              }} 
+              className="flex-1 py-3 rounded-xl font-bold bg-[#E8EDF2] text-[#0F2846] hover:bg-[#D8DFE8] text-sm"
+            >
+              Редактировать
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2 mb-4">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
+          <input 
+            type="text" 
+            placeholder="Поиск СТО..." 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-lg text-sm" 
+          />
+        </div>
+      </div>
+
+      {filtered.map(c => (
+        <div key={c.id} onClick={() => setSelected(c)} className="bg-white p-4 rounded-xl shadow-md border border-gray-100 cursor-pointer hover:bg-gray-50">
+          <div className="flex justify-between items-start mb-1">
+            <h3 className="font-bold text-gray-900">{c.name}</h3>
+            <span className="text-xs font-bold text-orange-500">{c.profile}</span>
+          </div>
+          <p className="text-sm text-gray-500">{c.regions && c.regions.length > 0 ? c.regions.join(', ') : c.region} • Выполнено: {c.completedOrders}</p>
+          <div className="flex justify-between mt-2 text-xs">
+            <span className="text-green-600">Модерация: {c.modStatus}</span>
+            <span className="text-blue-600">Подписка: {c.subStatus}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function OrdersView({ orders }: { orders: any[] }) {
+  const [search, setSearch] = useState('');
+  const filtered = orders.filter(o => o.serviceType?.toLowerCase().includes(search.toLowerCase()) || o.customerName?.toLowerCase().includes(search.toLowerCase()));
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending': return <span className="text-xs font-bold px-2 py-1 rounded bg-orange-100 text-orange-700">Новый</span>;
+      case 'active': return <span className="text-xs font-bold px-2 py-1 rounded bg-blue-100 text-blue-700">В работе</span>;
+      case 'completed': return <span className="text-xs font-bold px-2 py-1 rounded bg-green-100 text-green-700">Выполнен</span>;
+      case 'cancelled': return <span className="text-xs font-bold px-2 py-1 rounded bg-red-100 text-red-700">Отменен</span>;
+      default: return <span className="text-xs font-bold px-2 py-1 rounded bg-gray-100 text-gray-700">{status}</span>;
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2 mb-4">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
+          <input 
+            type="text" 
+            placeholder="Поиск заказов..." 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-lg text-sm" 
+          />
+        </div>
+      </div>
+
+      {filtered.map(o => (
+        <div key={o.id} className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
+          <div className="flex justify-between items-start mb-2">
+            <span className="text-xs font-bold text-gray-500">#{o.id} от {o.date}</span>
+            {getStatusBadge(o.status)}
+          </div>
+          <h3 className="font-bold text-gray-900 mb-1">{o.serviceType}</h3>
+          <div className="text-sm text-gray-600 space-y-1">
+            <p><span className="font-medium text-gray-700">Заказчик:</span> {o.customerName || 'Не указан'} {o.phone ? `(${o.phone})` : ''}</p>
+            <p><span className="font-medium text-gray-700">Автомобиль:</span> {o.carMake} {o.carModel} {o.year ? `(${o.year})` : ''}</p>
+            <div className="grid grid-cols-2 gap-2 mt-2 mb-2 bg-gray-50 p-2 rounded-lg text-xs">
+              {o.engine && <div><span className="text-gray-500">Двигатель:</span> <span className="font-medium text-gray-900">{o.engine}</span></div>}
+              {o.gearbox && <div><span className="text-gray-500">КПП:</span> <span className="font-medium text-gray-900">{o.gearbox}</span></div>}
+              {o.drive && <div><span className="text-gray-500">Привод:</span> <span className="font-medium text-gray-900">{o.drive}</span></div>}
+              {o.body && <div><span className="text-gray-500">Кузов:</span> <span className="font-medium text-gray-900">{o.body}</span></div>}
+              {o.vin && <div className="col-span-2"><span className="text-gray-500">VIN:</span> <span className="font-medium text-gray-900 uppercase">{o.vin}</span></div>}
+              {o.region && <div className="col-span-2"><span className="text-gray-500">Регион:</span> <span className="font-medium text-gray-900">{o.region}</span></div>}
+              {o.deadline && <div className="col-span-2"><span className="text-gray-500">Срок:</span> <span className="font-medium text-gray-900">{o.deadline}</span></div>}
+            </div>
+            {o.description && <p><span className="font-medium text-gray-700">Описание:</span> {o.description}</p>}
+            {o.media && o.media.length > 0 && (
+              <div className="mt-2">
+                <span className="font-medium text-gray-700 text-xs">Медиафайлы:</span>
+                <div className="flex gap-2 mt-1 overflow-x-auto">
+                  {o.media.map((file: string, idx: number) => (
+                    <img key={idx} src={file} alt={`Фото ${idx + 1}`} className="w-12 h-12 object-cover rounded-md border border-gray-200" />
+                  ))}
+                </div>
+              </div>
+            )}
+            {o.responses && o.responses.length > 0 && (
+              <div className="mt-3">
+                <p className="font-medium text-gray-700 text-xs mb-2">Все отклики ({o.responses.length}):</p>
+                <div className="space-y-2">
+                  {o.responses.map((r: any) => (
+                    <div key={r.id} className={`p-2 rounded-lg border text-xs ${r.contractorId === o.acceptedContractorId ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="font-bold text-gray-900">{r.contractorName}</span>
+                        {r.contractorId === o.acceptedContractorId && (
+                          <span className="text-[10px] font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">Выбран</span>
+                        )}
+                      </div>
+                      {r.workingHours && <p className="text-gray-500 mb-1">Часы работы: {r.workingHours}</p>}
+                      {r.message && <p className="text-gray-700 italic">"{r.message}"</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PaymentsView({ payments }: { payments: any[] }) {
+  return (
+    <div className="space-y-4">
+      {payments.map(p => (
+        <div key={p.id} className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
+          <div className="flex justify-between items-start mb-2">
+            <span className="text-xs font-mono text-gray-500">{p.id}</span>
+            <span className={`text-xs font-bold px-2 py-1 rounded ${p.status === 'Успешно' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{p.status}</span>
+          </div>
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-bold text-gray-900">{p.amount}</h3>
+            <span className="text-xs text-gray-500">{p.date}</span>
+          </div>
+          <div className="text-sm text-gray-600 space-y-1">
+            <p>Пользователь: {p.user}</p>
+            <p>Назначение: {p.purpose}</p>
+            {p.error && <p className="text-red-500 text-xs mt-1">Ошибка: {p.error}</p>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BannersView({ banners, setBanners, contractors, setContractors }: { banners: any[], setBanners: any, contractors: any[], setContractors: any }) {
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<any>(null);
+
+  const toggleBanner = (id: number) => {
+    setBanners(banners.map((b: any) => b.id === id ? { ...b, status: b.status === 'active' ? 'inactive' : 'active' } : b));
+  };
+
+  const startEdit = (banner: any) => {
+    setEditingId(banner.id);
+    setEditForm({ ...banner });
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditForm({ ...editForm, logo: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const saveEdit = () => {
+    if (editingId === -1) {
+      setBanners([{ ...editForm, id: Date.now() }, ...banners]);
+    } else {
+      setBanners(banners.map((b: any) => b.id === editingId ? editForm : b));
+    }
+    
+    // Update contractor profile if linked
+    if (editForm.contractorId) {
+      setContractors(contractors.map((c: any) => 
+        c.id === editForm.contractorId 
+          ? { ...c, logo: editForm.logo, bannerText: editForm.description } 
+          : c
+      ));
+    }
+    
+    setEditingId(null);
+  };
+
+  const deleteBanner = (id: number) => {
+    setBanners(banners.filter((b: any) => b.id !== id));
+  };
+
+  const addBanner = () => {
+    setEditingId(-1);
+    setEditForm({
+      id: -1,
+      contractorId: '',
+      contractor: '',
+      description: '',
+      status: 'inactive',
+      views: 0,
+      clicks: 0
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      {editingId !== -1 && (
+        <button onClick={addBanner} className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl shadow-md mb-4">
+          + Добавить баннер
+        </button>
+      )}
+
+      {editingId === -1 && (
+        <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100 mb-4">
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-bold text-gray-500 mb-1 block">Исполнитель</label>
+              <select 
+                value={editForm.contractorId} 
+                onChange={e => {
+                  const contractor = contractors.find(c => c.id === e.target.value);
+                  setEditForm({
+                    ...editForm, 
+                    contractorId: e.target.value,
+                    contractor: contractor ? contractor.shortName || contractor.name : ''
+                  });
+                }} 
+                className="w-full border border-gray-300 p-2 rounded-lg text-sm"
+              >
+                <option value="">Выберите исполнителя</option>
+                {contractors.map(c => (
+                  <option key={c.id} value={c.id}>{c.shortName || c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-500 mb-1 block">Текст на баннере</label>
+              <textarea 
+                value={editForm.description || ''} 
+                onChange={e => setEditForm({...editForm, description: e.target.value})} 
+                className="w-full border border-gray-300 p-2 rounded-lg text-sm"
+                rows={3}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-500 mb-1 block">Логотип / Баннер</label>
+              <label className="w-full h-24 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors cursor-pointer relative overflow-hidden">
+                {editForm.logo ? (
+                  <img src={editForm.logo} alt="Логотип" className="absolute inset-0 w-full h-full object-contain p-2" />
+                ) : (
+                  <span className="text-xs">Загрузить изображение</span>
+                )}
+                <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+              </label>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => setEditingId(null)} className="flex-1 bg-gray-100 text-gray-700 font-bold py-2 rounded-lg text-sm">Отмена</button>
+              <button onClick={saveEdit} className="flex-1 bg-blue-500 text-white font-bold py-2 rounded-lg text-sm">Сохранить</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {banners.map((b: any) => {
+        const contractor = contractors.find(c => c.id === b.contractorId || c.name === b.contractor || c.shortName === b.contractor);
+        const period = contractor?.subEnd ? `До ${contractor.subEnd}` : 'Неограничен';
+
+        return (
+          <div key={b.id} className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
+            {editingId === b.id ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">Текст на баннере</label>
+                  <textarea 
+                    value={editForm.description || ''} 
+                    onChange={e => setEditForm({...editForm, description: e.target.value})} 
+                    className="w-full border border-gray-300 p-2 rounded-lg text-sm"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">Логотип / Баннер</label>
+                  <label className="w-full h-24 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors cursor-pointer relative overflow-hidden">
+                    {editForm.logo ? (
+                      <img src={editForm.logo} alt="Логотип" className="absolute inset-0 w-full h-full object-contain p-2" />
+                    ) : (
+                      <span className="text-xs">Загрузить изображение</span>
+                    )}
+                    <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                  </label>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button onClick={saveEdit} className="flex-1 bg-green-500 text-white py-2 rounded-lg font-bold text-sm">Сохранить</button>
+                  <button onClick={() => setEditingId(null)} className="flex-1 bg-[#E8EDF2] text-[#0F2846] py-2 rounded-lg font-bold text-sm">Отмена</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between items-start mb-3">
+                  <span className={`text-xs font-bold px-2 py-1 rounded ${b.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-[#E8EDF2] text-[#0F2846]'}`}>
+                    {b.status === 'active' ? 'Активен' : 'Неактивен'}
+                  </span>
+                  <div className="flex gap-3">
+                    <button onClick={() => startEdit(b)} className="text-sm text-slate-600 font-medium">Редактировать</button>
+                    <button onClick={() => toggleBanner(b.id)} className="text-sm text-blue-600 font-medium">
+                      {b.status === 'active' ? 'Отключить' : 'Включить'}
+                    </button>
+                    <button onClick={() => deleteBanner(b.id)} className="text-sm text-red-600 font-medium">Удалить</button>
+                  </div>
+                </div>
+                <div className="w-full h-24 bg-orange-100 rounded-lg mb-3 flex items-center justify-center border border-orange-200 relative overflow-hidden">
+                  {b.logo ? (
+                    <img src={b.logo} alt={b.contractor} className="absolute inset-0 w-full h-full object-contain p-2" />
+                  ) : (
+                    <span className="text-orange-800 font-bold">{b.contractor}</span>
+                  )}
+                </div>
+                <div className="text-sm text-gray-600 space-y-1">
+                  <p><span className="font-medium">Компания:</span> {b.contractor}</p>
+                  <p><span className="font-medium">Период:</span> {period}</p>
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ModerationView({ moderation, setModeration, contractors, setContractors, banners, setBanners }: { moderation: any[], setModeration: any, contractors: any[], setContractors: any, banners: any[], setBanners: any }) {
+  const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
+
+  const handleAction = (id: number, action: 'approve' | 'reject') => {
+    const request = moderation.find(m => m.id === id);
+    if (action === 'approve' && request) {
+      let contractorId = '';
+      let contractorName = '';
+      let contractorLogo = '';
+
+      if (request.type === 'new') {
+        contractorId = String(Date.now());
+        contractorName = request.data.shortName || request.data.name || request.data.companyName;
+        contractorLogo = request.data.logo;
+        const newContractor = {
+          id: contractorId,
+          ...request.data,
+          rating: 0,
+          reviewsCount: 0,
+          profileType: request.profile,
+          regDate: new Date().toLocaleDateString('ru-RU'),
+          orders: 0,
+          status: 'active'
+        };
+        setContractors([...contractors, newContractor]);
+      } else if (request.type === 'edit') {
+        contractorId = request.data.id;
+        contractorName = request.data.shortName || request.data.name || request.data.companyName;
+        contractorLogo = request.data.logo;
+        setContractors(contractors.map(c => c.id === request.data.id ? { ...c, ...request.data } : c));
+      }
+
+      // Handle banner for Leader profile
+      if (request.profile === 'leader' || request.profile === 'Лидер') {
+        const existingBannerIndex = banners.findIndex(b => b.contractorId === contractorId || b.contractor === contractorName);
+        if (existingBannerIndex !== -1) {
+          // Update existing banner
+          const updatedBanners = [...banners];
+          updatedBanners[existingBannerIndex] = {
+            ...updatedBanners[existingBannerIndex],
+            logo: contractorLogo || updatedBanners[existingBannerIndex].logo,
+            contractor: contractorName,
+            description: request.data.bannerText || updatedBanners[existingBannerIndex].description
+          };
+          setBanners(updatedBanners);
+        } else {
+          // Create new banner
+          const newBanner = {
+            id: Date.now(),
+            contractorId: contractorId,
+            contractor: contractorName,
+            description: request.data.bannerText || '',
+            status: 'active',
+            views: 0,
+            clicks: 0,
+            logo: contractorLogo
+          };
+          setBanners([...banners, newBanner]);
+        }
+      }
+    }
+    setModeration(moderation.map(m => m.id === id ? { ...m, status: action === 'approve' ? 'approved' : 'rejected' } : m));
+    setSelectedRequest(null);
+  };
+
+  if (selectedRequest) {
+    const isEdit = selectedRequest.type === 'edit';
+    const data = selectedRequest.data;
+    const oldData = selectedRequest.oldData || {};
+
+    const renderField = (label: string, key: string, isArray: boolean = false) => {
+      const newValue = isArray ? data[key]?.join(', ') : data[key];
+      const oldValue = isArray ? oldData[key]?.join(', ') : oldData[key];
+      const isChanged = isEdit && newValue !== oldValue;
+
+      return (
+        <div className="mb-4">
+          <label className="block text-xs text-gray-500 mb-1">{label}</label>
+          {isChanged ? (
+            <div className="space-y-1">
+              <div className="text-sm text-red-500 line-through bg-red-50 p-2 rounded-lg border border-red-100">{oldValue || '—'}</div>
+              <div className="text-sm text-green-600 font-medium bg-green-50 p-2 rounded-lg border border-green-200">{newValue || '—'}</div>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-900 bg-gray-50 p-2 rounded-lg border border-gray-100">{newValue || '—'}</div>
+          )}
+        </div>
+      );
+    };
+
+    return (
+      <div className="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden">
+        <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSelectedRequest(null)} className="p-2 hover:bg-[#D8DFE8] rounded-full transition-colors">
+              <ChevronLeft className="w-5 h-5 text-gray-600" />
+            </button>
+            <div>
+              <h2 className="font-bold text-gray-900">Заявка #{selectedRequest.id}</h2>
+              <p className="text-xs text-gray-500">{isEdit ? 'Редактирование профиля' : 'Новая регистрация'}</p>
+            </div>
+          </div>
+          <span className={`text-xs font-bold px-2 py-1 rounded ${isEdit ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+            {isEdit ? 'Редактирование' : 'Новая заявка'}
+          </span>
+        </div>
+
+        <div className="p-4">
+          <h3 className="font-bold text-gray-900 mb-4 border-b pb-2">Данные организации</h3>
+          {renderField('Статус юридического лица', 'legalStatus')}
+          {renderField('Полное юридическое наименование', 'name')}
+          {renderField('УНП', 'unp')}
+          {renderField('Краткое название', 'shortName')}
+          {renderField('Описание деятельности', 'description')}
+          {(selectedRequest.profile === 'leader' || selectedRequest.profile === 'Лидер' || selectedRequest.data?.profileType === 'leader' || selectedRequest.data?.profileType === 'Лидер') && renderField('Текст рекламного баннера', 'bannerText')}
+          {renderField('Виды оказываемых услуг', 'services', true)}
+          {renderField('Регион оказания услуг', 'regions', true)}
+          {renderField('Контактный телефон', 'phone')}
+          {renderField('Ссылка на Instagram', 'instagram')}
+          {renderField('Ссылка на сайт', 'website')}
+          
+          <div className="mb-4">
+            <label className="block text-xs text-gray-500 mb-1">График работы</label>
+            {isEdit && data.schedule !== oldData.schedule ? (
+              <div className="space-y-1">
+                <div className="text-sm text-red-500 line-through bg-red-50 p-2 rounded-lg border border-red-100">{oldData.schedule ? formatSchedule(oldData.schedule) : '—'}</div>
+                <div className="text-sm text-green-600 font-medium bg-green-50 p-2 rounded-lg border border-green-200">{data.schedule ? formatSchedule(data.schedule) : '—'}</div>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-900 bg-gray-50 p-2 rounded-lg border border-gray-100">{data.schedule ? formatSchedule(data.schedule) : '—'}</div>
+            )}
+          </div>
+
+          <h3 className="font-bold text-gray-900 mt-6 mb-4 border-b pb-2">Медиафайлы</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+            <div className="border border-gray-200 rounded-lg p-3 flex flex-col items-center justify-center text-center">
+              <div className="w-12 h-12 bg-[#E8EDF2] rounded-lg flex items-center justify-center mb-2">
+                <FileText className="w-6 h-6 text-gray-500" />
+              </div>
+              <span className="text-xs text-gray-700 font-medium">Документы юр. лица</span>
+              <button className="text-blue-500 text-xs mt-1 hover:underline">Просмотреть</button>
+            </div>
+            
+            {(selectedRequest.profile === 'leader' || selectedRequest.profile === 'pro' || selectedRequest.profile === 'Лидер' || selectedRequest.profile === 'Профи') && (
+              <div className="border border-gray-200 rounded-lg p-3 flex flex-col items-center justify-center text-center">
+                <div className="w-12 h-12 bg-[#E8EDF2] rounded-lg flex items-center justify-center mb-2">
+                  <ImageIcon className="w-6 h-6 text-gray-500" />
+                </div>
+                <span className="text-xs text-gray-700 font-medium">Логотип</span>
+                <button className="text-blue-500 text-xs mt-1 hover:underline">Просмотреть</button>
+              </div>
+            )}
+
+            <div className="border border-gray-200 rounded-lg p-3 flex flex-col items-center justify-center text-center">
+              <div className="w-12 h-12 bg-[#E8EDF2] rounded-lg flex items-center justify-center mb-2">
+                <ImageIcon className="w-6 h-6 text-gray-500" />
+              </div>
+              <span className="text-xs text-gray-700 font-medium">Фото работ (5)</span>
+              <button className="text-blue-500 text-xs mt-1 hover:underline">Просмотреть</button>
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <button onClick={() => handleAction(selectedRequest.id, 'reject')} className="flex-1 bg-red-100 text-red-600 text-sm font-bold py-3 rounded-xl hover:bg-red-200 transition-colors">
+              Отклонить
+            </button>
+            <button onClick={() => handleAction(selectedRequest.id, 'approve')} className="flex-[2] bg-green-500 text-white text-sm font-bold py-3 rounded-xl hover:bg-green-600 transition-colors shadow-md">
+              Одобрить заявку
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (moderation.length === 0 || moderation.every(m => m.status !== 'new')) {
+    return (
+      <div className="text-center py-10 text-gray-500">
+        <ShieldCheck className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+        <p>Нет новых заявок на модерацию</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {moderation.filter(m => m.status === 'new').map(m => (
+        <div key={m.id} className="bg-white p-4 rounded-xl shadow-md border border-gray-200 hover:border-blue-300 transition-colors">
+          <div className="flex justify-between items-start mb-2">
+            <span className={`text-xs font-bold px-2 py-1 rounded ${m.type === 'edit' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+              {m.type === 'edit' ? 'Редактирование' : 'Новая заявка'}
+            </span>
+            <span className="text-xs text-gray-500">{m.date}</span>
+          </div>
+          <h3 className="font-bold text-gray-900 mb-1">{m.name}</h3>
+          <p className="text-sm text-gray-600 mb-4">Профиль: {m.profile}</p>
+          
+          <div className="flex gap-2">
+            <button onClick={() => handleAction(m.id, 'approve')} className="flex-1 bg-green-500 text-white text-sm font-bold py-2 rounded-lg hover:bg-green-600 transition-colors">Одобрить</button>
+            <button onClick={() => handleAction(m.id, 'reject')} className="flex-1 bg-red-100 text-red-600 text-sm font-bold py-2 rounded-lg hover:bg-red-200 transition-colors">Отклонить</button>
+          </div>
+          <button 
+            onClick={() => setSelectedRequest(m)}
+            className="w-full mt-2 bg-[#E8EDF2] text-[#0F2846] text-sm font-bold py-2 rounded-lg hover:bg-[#D8DFE8] transition-colors"
+          >
+            Смотреть анкету
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SupportView({ support, setSupport }: { support: any[], setSupport: any }) {
+  const [activeChatId, setActiveChatId] = useState<number | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const handleResolve = (id: number) => {
+    setSupport(support.map(s => s.id === id ? { ...s, status: 'resolved', updatedAt: Date.now() } : s));
+    setActiveChatId(null);
+  };
+
+  const handleReply = (id: number) => {
+    if (!replyText.trim()) return;
+    setSupport(support.map(s => {
+      if (s.id === id) {
+        return {
+          ...s,
+          replies: [...(s.replies || []), { text: replyText, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), admin: true }],
+          updatedAt: Date.now()
+        };
+      }
+      return s;
+    }));
+    setReplyText('');
+  };
+
+  useEffect(() => {
+    if (activeChatId) {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [activeChatId, support]);
+
+  const sortedSupport = [...support].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+  if (activeChatId) {
+    const chat = support.find(s => s.id === activeChatId);
+    if (!chat) return null;
+
+    return (
+      <div className="flex flex-col h-[calc(100vh-140px)] -m-4 bg-gray-50">
+        <div className="bg-white p-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setActiveChatId(null)}
+              className="p-2 -ml-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-full transition-colors"
+            >
+              <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
+            </button>
+            <div>
+              <h1 className="text-lg font-bold text-gray-900">{chat.user}</h1>
+              <p className="text-xs text-green-500 font-medium">{chat.status === 'in_progress' ? 'В работе' : 'Решено'}</p>
+            </div>
+          </div>
+          {chat.status === 'in_progress' && (
+            <button 
+              onClick={() => handleResolve(chat.id)}
+              className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
+            >
+              <CheckCircle className="w-4 h-4" />
+              Решено
+            </button>
+          )}
+        </div>
+
+        <div className="flex-1 p-4 overflow-y-auto space-y-4">
+          <div className="text-center text-xs text-gray-400 my-4">Начало чата</div>
+          
+          {chat.text && (
+            <div className="flex justify-start">
+              <div className="bg-white text-gray-800 p-3 rounded-2xl rounded-tl-sm max-w-[80%] shadow-sm border border-gray-100">
+                <p className="text-sm">{chat.text}</p>
+                <p className="text-[10px] text-gray-400 text-right mt-1">{chat.time}</p>
+              </div>
+            </div>
+          )}
+
+          {chat.replies?.map((reply: any, idx: number) => (
+            <div key={idx} className={`flex ${reply.admin ? 'justify-end' : 'justify-start'}`}>
+              <div className={`p-3 rounded-2xl max-w-[80%] shadow-sm ${
+                reply.admin 
+                  ? 'bg-blue-500 text-white rounded-tr-sm' 
+                  : 'bg-white text-gray-800 rounded-tl-sm border border-gray-100'
+              }`}>
+                <p className="text-sm">{reply.text}</p>
+                <p className={`text-[10px] text-right mt-1 ${reply.admin ? 'text-blue-100' : 'text-gray-400'}`}>
+                  {reply.time}
+                </p>
+              </div>
+            </div>
+          ))}
+          <div ref={chatEndRef} />
+        </div>
+
+        {chat.status === 'in_progress' && (
+          <div className="p-4 bg-white border-t border-gray-100">
+            <div className="flex items-center gap-2">
+              <input 
+                type="text" 
+                value={replyText}
+                onChange={e => setReplyText(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleReply(chat.id)}
+                placeholder="Введите ответ..."
+                className="flex-1 bg-gray-100 border-transparent focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-xl px-4 py-3 text-sm transition-all outline-none"
+              />
+              <button 
+                onClick={() => handleReply(chat.id)}
+                disabled={!replyText.trim()}
+                className={`p-3 rounded-xl flex items-center justify-center transition-colors ${
+                  replyText.trim() ? 'bg-blue-500 text-white shadow-md' : 'bg-gray-200 text-gray-400'
+                }`}
+              >
+                <Send className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {sortedSupport.map(s => (
+        <div 
+          key={s.id} 
+          onClick={() => setActiveChatId(s.id)}
+          className="bg-white p-4 rounded-xl shadow-md border border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex justify-between items-start mb-2">
+            <span className={`text-xs font-bold px-2 py-1 rounded ${s.status === 'in_progress' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+              {s.status === 'in_progress' ? 'В работе' : 'Решено'}
+            </span>
+            <span className="text-xs text-gray-500">
+              {s.replies && s.replies.length > 0 ? s.replies[s.replies.length - 1].time : s.time}
+            </span>
+          </div>
+          <h3 className="font-bold text-gray-900 mb-1">{s.user}</h3>
+          <p className="text-sm text-gray-600 line-clamp-2">
+            {s.replies && s.replies.length > 0 
+              ? (s.replies[s.replies.length - 1].admin ? 'Вы: ' : '') + s.replies[s.replies.length - 1].text 
+              : s.text}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CarsView({ carModels, setCarModels }: { carModels: Record<string, string[]>, setCarModels: React.Dispatch<React.SetStateAction<Record<string, string[]>>> }) {
+  const [localCarModels, setLocalCarModels] = useState<Record<string, string[]>>(carModels);
+  const [newMake, setNewMake] = useState('');
+  const [selectedMake, setSelectedMake] = useState<string | null>(null);
+  const [newModel, setNewModel] = useState('');
+  
+  const [editingMake, setEditingMake] = useState<{old: string, new: string} | null>(null);
+  const [editingModel, setEditingModel] = useState<{old: string, new: string} | null>(null);
+
+  const handleAddMake = () => {
+    if (newMake.trim() && !localCarModels[newMake.trim()]) {
+      setLocalCarModels({ ...localCarModels, [newMake.trim()]: [] });
+      setNewMake('');
+    }
+  };
+
+  const handleDeleteMake = (make: string) => {
+    const newModels = { ...localCarModels };
+    delete newModels[make];
+    setLocalCarModels(newModels);
+    if (selectedMake === make) setSelectedMake(null);
+  };
+
+  const handleEditMake = () => {
+    if (editingMake && editingMake.new.trim() && editingMake.new.trim() !== editingMake.old) {
+      const newMakeName = editingMake.new.trim();
+      const newModels = { ...localCarModels };
+      newModels[newMakeName] = newModels[editingMake.old];
+      delete newModels[editingMake.old];
+      setLocalCarModels(newModels);
+      if (selectedMake === editingMake.old) setSelectedMake(newMakeName);
+    }
+    setEditingMake(null);
+  };
+
+  const handleAddModel = () => {
+    if (selectedMake && newModel.trim() && !localCarModels[selectedMake].includes(newModel.trim())) {
+      setLocalCarModels({
+        ...localCarModels,
+        [selectedMake]: [...localCarModels[selectedMake], newModel.trim()]
+      });
+      setNewModel('');
+    }
+  };
+
+  const handleDeleteModel = (make: string, model: string) => {
+    setLocalCarModels({
+      ...localCarModels,
+      [make]: localCarModels[make].filter(m => m !== model)
+    });
+  };
+
+  const handleEditModel = () => {
+    if (selectedMake && editingModel && editingModel.new.trim() && editingModel.new.trim() !== editingModel.old) {
+      const newModelName = editingModel.new.trim();
+      setLocalCarModels({
+        ...localCarModels,
+        [selectedMake]: localCarModels[selectedMake].map(m => m === editingModel.old ? newModelName : m)
+      });
+    }
+    setEditingModel(null);
+  };
+
+  const handleSave = () => {
+    setCarModels(localCarModels);
+    alert('Изменения сохранены');
+  };
+
+  const hasChanges = JSON.stringify(localCarModels) !== JSON.stringify(carModels);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <button 
+          onClick={handleSave}
+          disabled={!hasChanges}
+          className={`px-6 py-2 rounded-xl font-bold transition-colors shadow-sm ${hasChanges ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+        >
+          Сохранить изменения
+        </button>
+      </div>
+      <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
+        <h3 className="font-bold text-gray-900 mb-3">Марки автомобилей</h3>
+        <div className="flex gap-2 mb-4">
+          <input 
+            type="text" 
+            placeholder="Новая марка..." 
+            className="flex-1 border border-gray-300 rounded-lg p-2 text-sm"
+            value={newMake}
+            onChange={e => setNewMake(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAddMake()}
+          />
+          <button onClick={handleAddMake} className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-bold">Добавить</button>
+        </div>
+        
+        <div className="flex flex-wrap gap-2">
+          {Object.keys(localCarModels).map(make => (
+            <div 
+              key={make} 
+              onClick={() => setSelectedMake(make)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors ${selectedMake === make ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-[#E8EDF2] text-[#0F2846] hover:bg-[#D8DFE8]'}`}
+            >
+              {editingMake?.old === make ? (
+                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                  <input 
+                    type="text" 
+                    value={editingMake.new} 
+                    onChange={e => setEditingMake({...editingMake, new: e.target.value})}
+                    onKeyDown={e => e.key === 'Enter' && handleEditMake()}
+                    autoFocus
+                    className="border border-blue-300 rounded px-1 py-0.5 text-sm w-24 outline-none"
+                  />
+                  <button onClick={handleEditMake} className="text-green-600 hover:text-green-700"><CheckCircle className="w-4 h-4" /></button>
+                  <button onClick={() => setEditingMake(null)} className="text-red-500 hover:text-red-600"><XCircle className="w-4 h-4" /></button>
+                </div>
+              ) : (
+                <>
+                  <span className="font-medium" onDoubleClick={(e) => { e.stopPropagation(); setEditingMake({old: make, new: make}); }}>{make}</span>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); handleDeleteMake(make); }}
+                    className="text-gray-400 hover:text-red-500 ml-1"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-gray-500 mt-3">Двойной клик по названию для редактирования</p>
+      </div>
+
+      {selectedMake && (
+        <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
+          <h3 className="font-bold text-gray-900 mb-3">Модели: {selectedMake}</h3>
+          <div className="flex gap-2 mb-4">
+            <input 
+              type="text" 
+              placeholder="Новая модель..." 
+              className="flex-1 border border-gray-300 rounded-lg p-2 text-sm"
+              value={newModel}
+              onChange={e => setNewModel(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddModel()}
+            />
+            <button onClick={handleAddModel} className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-bold">Добавить</button>
+          </div>
+          
+          <div className="flex flex-wrap gap-2">
+            {localCarModels[selectedMake].map(model => (
+              <div key={model} className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+                {editingModel?.old === model ? (
+                  <div className="flex items-center gap-1">
+                    <input 
+                      type="text" 
+                      value={editingModel.new} 
+                      onChange={e => setEditingModel({...editingModel, new: e.target.value})}
+                      onKeyDown={e => e.key === 'Enter' && handleEditModel()}
+                      autoFocus
+                      className="border border-gray-300 rounded px-1 py-0.5 text-sm w-24 outline-none"
+                    />
+                    <button onClick={handleEditModel} className="text-green-600 hover:text-green-700"><CheckCircle className="w-4 h-4" /></button>
+                    <button onClick={() => setEditingModel(null)} className="text-red-500 hover:text-red-600"><XCircle className="w-4 h-4" /></button>
+                  </div>
+                ) : (
+                  <>
+                    <span className="text-gray-700" onDoubleClick={() => setEditingModel({old: model, new: model})}>{model}</span>
+                    <button 
+                      onClick={() => handleDeleteModel(selectedMake, model)}
+                      className="text-gray-400 hover:text-red-500 ml-1"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
+              </div>
+            ))}
+            {localCarModels[selectedMake].length === 0 && (
+              <p className="text-sm text-gray-500 w-full text-center py-2">Нет добавленных моделей</p>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mt-3">Двойной клик по названию для редактирования</p>
+        </div>
+      )}
+    </div>
+  );
+}
+function ContentView({ content, setContent }: { content: any, setContent: any }) {
+  const [editingSection, setEditingSection] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  
+  // For FAQ
+  const [editingFaqId, setEditingFaqId] = useState<string | null>(null);
+  const [faqQuestion, setFaqQuestion] = useState('');
+  const [faqAnswer, setFaqAnswer] = useState('');
+
+  const sections = [
+    { id: 'faq', title: 'FAQ (Вопросы и ответы)' },
+    { id: 'rules', title: 'Правила сервиса' },
+    { id: 'privacy', title: 'Политика конфиденциальности' },
+    { id: 'templates', title: 'Шаблоны уведомлений (Telegram)' },
+  ];
+
+  const startEdit = (id: string) => {
+    setEditingSection(id);
+    if (id !== 'faq') {
+      setEditText(content[id]);
+    }
+  };
+
+  const saveEdit = () => {
+    if (editingSection && editingSection !== 'faq') {
+      setContent({ ...content, [editingSection]: editText });
+      setEditingSection(null);
+    }
+  };
+
+  const handleAddFaq = () => {
+    const newId = Date.now().toString();
+    setContent({
+      ...content,
+      faq: [...content.faq, { id: newId, question: 'Новый вопрос', answer: 'Ответ на вопрос' }]
+    });
+    startEditFaq(newId, 'Новый вопрос', 'Ответ на вопрос');
+  };
+
+  const startEditFaq = (id: string, question: string, answer: string) => {
+    setEditingFaqId(id);
+    setFaqQuestion(question);
+    setFaqAnswer(answer);
+  };
+
+  const saveFaqEdit = () => {
+    if (editingFaqId) {
+      setContent({
+        ...content,
+        faq: content.faq.map((item: any) => 
+          item.id === editingFaqId ? { ...item, question: faqQuestion, answer: faqAnswer } : item
+        )
+      });
+      setEditingFaqId(null);
+    }
+  };
+
+  const deleteFaq = (id: string) => {
+    setContent({
+      ...content,
+      faq: content.faq.filter((item: any) => item.id !== id)
+    });
+  };
+
+  const moveFaqUp = (index: number) => {
+    if (index === 0) return;
+    const newFaq = [...content.faq];
+    const temp = newFaq[index];
+    newFaq[index] = newFaq[index - 1];
+    newFaq[index - 1] = temp;
+    setContent({ ...content, faq: newFaq });
+  };
+
+  const moveFaqDown = (index: number) => {
+    if (index === content.faq.length - 1) return;
+    const newFaq = [...content.faq];
+    const temp = newFaq[index];
+    newFaq[index] = newFaq[index + 1];
+    newFaq[index + 1] = temp;
+    setContent({ ...content, faq: newFaq });
+  };
+
+  if (editingSection === 'faq') {
+    const sectionTitle = sections.find(s => s.id === editingSection)?.title;
+    return (
+      <div className="space-y-4">
+        <button onClick={() => setEditingSection(null)} className="text-sm text-blue-600 font-medium flex items-center">
+          <ChevronLeft className="w-4 h-4 mr-1" /> Назад
+        </button>
+        <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-bold">Редактирование: {sectionTitle}</h2>
+            <button onClick={handleAddFaq} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold">
+              + Добавить вопрос
+            </button>
+          </div>
+          
+          <div className="space-y-3">
+            {content.faq.map((item: any, index: number) => (
+              <div key={item.id} className="border border-gray-200 rounded-lg p-3">
+                {editingFaqId === item.id ? (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Вопрос</label>
+                      <input 
+                        type="text" 
+                        value={faqQuestion}
+                        onChange={e => setFaqQuestion(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg p-2 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Ответ (поддерживается Markdown: **жирный**)</label>
+                      <textarea 
+                        value={faqAnswer}
+                        onChange={e => setFaqAnswer(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg p-2 text-sm min-h-[100px]"
+                      ></textarea>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={saveFaqEdit} className="bg-green-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold">Сохранить</button>
+                      <button onClick={() => setEditingFaqId(null)} className="bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold">Отмена</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 pr-4">
+                      <h3 className="font-bold text-gray-900 text-sm">{item.question}</h3>
+                      <p className="text-xs text-gray-500 mt-1 line-clamp-2">{item.answer}</p>
+                    </div>
+                    <div className="flex flex-col gap-1 ml-2 items-end">
+                      <div className="flex gap-1 mb-1">
+                        <button 
+                          onClick={() => moveFaqUp(index)} 
+                          disabled={index === 0}
+                          className={`p-1 rounded ${index === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}
+                          title="Поднять выше"
+                        >
+                          <ArrowUp className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => moveFaqDown(index)} 
+                          disabled={index === content.faq.length - 1}
+                          className={`p-1 rounded ${index === content.faq.length - 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}
+                          title="Опустить ниже"
+                        >
+                          <ArrowDown className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="flex gap-1">
+                        <button onClick={() => startEditFaq(item.id, item.question, item.answer)} className="text-blue-600 hover:text-blue-800 text-xs font-medium px-2 py-1">Изменить</button>
+                        <button onClick={() => deleteFaq(item.id)} className="text-red-500 hover:text-red-700 text-xs font-medium px-2 py-1">Удалить</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            {content.faq.length === 0 && (
+              <p className="text-sm text-gray-500 text-center py-4">Нет добавленных вопросов</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (editingSection) {
+    const sectionTitle = sections.find(s => s.id === editingSection)?.title;
+    return (
+      <div className="space-y-4">
+        <button onClick={() => setEditingSection(null)} className="text-sm text-blue-600 font-medium flex items-center">
+          <ChevronLeft className="w-4 h-4 mr-1" /> Назад
+        </button>
+        <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
+          <h2 className="text-lg font-bold mb-4">Редактирование: {sectionTitle}</h2>
+          <textarea 
+            className="w-full border border-gray-300 rounded-lg p-3 text-sm min-h-[300px] mb-4"
+            value={editText}
+            onChange={e => setEditText(e.target.value)}
+            placeholder="Поддерживается Markdown: **жирный текст**"
+          ></textarea>
+          <button onClick={saveEdit} className="w-full bg-green-500 text-white font-bold py-3 rounded-xl">
+            Сохранить изменения
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {sections.map(section => (
+        <button 
+          key={section.id}
+          onClick={() => startEdit(section.id)}
+          className="w-full bg-white p-4 rounded-xl shadow-md border border-gray-100 text-left font-bold text-gray-900 flex justify-between items-center hover:bg-gray-50 transition-colors"
+        >
+          {section.title} <ChevronLeft className="w-5 h-5 rotate-180 text-gray-400" />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ServicesView({ 
+  serviceCategories, setServiceCategories,
+  contractors, setContractors,
+  orders, setOrders
+}: { 
+  serviceCategories: any[], setServiceCategories: any,
+  contractors: any[], setContractors: any,
+  orders: any[], setOrders: any
+}) {
+  const [localCategories, setLocalCategories] = useState(serviceCategories);
+  const [localContractors, setLocalContractors] = useState(contractors);
+  const [localOrders, setLocalOrders] = useState(orders);
+
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [newCategory, setNewCategory] = useState('');
+  const [newService, setNewService] = useState('');
+  const [editingCategory, setEditingCategory] = useState<{id: string, name: string} | null>(null);
+  const [editingService, setEditingService] = useState<{old: string, new: string} | null>(null);
+
+  const handleAddCategory = () => {
+    if (newCategory.trim() && !localCategories.find((c: any) => c.name === newCategory.trim())) {
+      setLocalCategories([
+        ...localCategories,
+        { id: String(Date.now()), name: newCategory.trim(), services: [] }
+      ]);
+      setNewCategory('');
+    }
+  };
+
+  const handleDeleteCategory = (id: string) => {
+    const categoryToDelete = localCategories.find((c: any) => c.id === id);
+    if (categoryToDelete) {
+      // Remove services from contractors and orders
+      const servicesToDelete = categoryToDelete.services;
+      
+      setLocalContractors(localContractors.map((c: any) => ({
+        ...c,
+        services: c.services.filter((s: string) => !servicesToDelete.includes(s))
+      })));
+
+      setLocalOrders(localOrders.map((o: any) => ({
+        ...o,
+        serviceType: servicesToDelete.includes(o.serviceType) ? '' : o.serviceType
+      })));
+    }
+
+    setLocalCategories(localCategories.filter((c: any) => c.id !== id));
+    if (selectedCategory === id) setSelectedCategory(null);
+  };
+
+  const handleEditCategory = () => {
+    if (editingCategory && editingCategory.name.trim()) {
+      setLocalCategories(localCategories.map((c: any) => 
+        c.id === editingCategory.id ? { ...c, name: editingCategory.name.trim() } : c
+      ));
+    }
+    setEditingCategory(null);
+  };
+
+  const handleAddService = () => {
+    if (selectedCategory && newService.trim()) {
+      setLocalCategories(localCategories.map((c: any) => {
+        if (c.id === selectedCategory && !c.services.includes(newService.trim())) {
+          return { ...c, services: [...c.services, newService.trim()] };
+        }
+        return c;
+      }));
+      setNewService('');
+    }
+  };
+
+  const handleDeleteService = (categoryId: string, service: string) => {
+    // Remove service from contractors and orders
+    setLocalContractors(localContractors.map((c: any) => ({
+      ...c,
+      services: c.services.filter((s: string) => s !== service)
+    })));
+
+    setLocalOrders(localOrders.map((o: any) => ({
+      ...o,
+      serviceType: o.serviceType === service ? '' : o.serviceType
+    })));
+
+    setLocalCategories(localCategories.map((c: any) => {
+      if (c.id === categoryId) {
+        return { ...c, services: c.services.filter((s: string) => s !== service) };
+      }
+      return c;
+    }));
+  };
+
+  const handleEditService = () => {
+    if (selectedCategory && editingService && editingService.new.trim() && editingService.new.trim() !== editingService.old) {
+      const newServiceName = editingService.new.trim();
+      
+      // Update service name in contractors and orders
+      setLocalContractors(localContractors.map((c: any) => ({
+        ...c,
+        services: c.services.map((s: string) => s === editingService.old ? newServiceName : s)
+      })));
+
+      setLocalOrders(localOrders.map((o: any) => ({
+        ...o,
+        serviceType: o.serviceType === editingService.old ? newServiceName : o.serviceType
+      })));
+
+      setLocalCategories(localCategories.map((c: any) => {
+        if (c.id === selectedCategory) {
+          return {
+            ...c,
+            services: c.services.map((s: string) => s === editingService.old ? newServiceName : s)
+          };
+        }
+        return c;
+      }));
+    }
+    setEditingService(null);
+  };
+
+  const handleSave = () => {
+    setServiceCategories(localCategories);
+    setContractors(localContractors);
+    setOrders(localOrders);
+    alert('Изменения сохранены');
+  };
+
+  const hasChanges = JSON.stringify(localCategories) !== JSON.stringify(serviceCategories);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-end">
+        <button 
+          onClick={handleSave}
+          disabled={!hasChanges}
+          className={`px-6 py-2 rounded-xl font-bold transition-colors shadow-sm ${hasChanges ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+        >
+          Сохранить изменения
+        </button>
+      </div>
+      <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-200">
+        <h2 className="font-bold text-gray-900 mb-4">Категории услуг</h2>
+        
+        <div className="flex gap-2 mb-4">
+          <input 
+            type="text" 
+            value={newCategory}
+            onChange={e => setNewCategory(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
+            placeholder="Новая категория..."
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          />
+          <button 
+            onClick={handleAddCategory}
+            className="bg-slate-900 text-white px-4 py-2 rounded-lg font-bold text-sm"
+          >
+            Добавить
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {localCategories.map((cat: any) => (
+            <div 
+              key={cat.id} 
+              onClick={() => setSelectedCategory(cat.id)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors ${selectedCategory === cat.id ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-[#E8EDF2] text-[#0F2846] hover:bg-[#D8DFE8]'}`}
+            >
+              {editingCategory?.id === cat.id ? (
+                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                  <input 
+                    type="text" 
+                    value={editingCategory.name}
+                    onChange={e => setEditingCategory({...editingCategory, name: e.target.value})}
+                    onKeyDown={e => e.key === 'Enter' && handleEditCategory()}
+                    className="border border-blue-300 rounded px-1 py-0.5 text-sm w-24 outline-none"
+                    autoFocus
+                  />
+                  <button onClick={handleEditCategory} className="text-green-600 hover:text-green-700"><CheckCircle className="w-4 h-4" /></button>
+                  <button onClick={() => setEditingCategory(null)} className="text-red-500 hover:text-red-600"><XCircle className="w-4 h-4" /></button>
+                </div>
+              ) : (
+                <>
+                  <span className="font-medium" onDoubleClick={(e) => { e.stopPropagation(); setEditingCategory({id: cat.id, name: cat.name}); }}>{cat.name}</span>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id); }}
+                    className="text-gray-400 hover:text-red-500 ml-1"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-gray-500 mt-3">Двойной клик по названию для редактирования</p>
+      </div>
+
+      {selectedCategory && (
+        <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-200">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="font-bold text-gray-900">
+              Услуги: {localCategories.find((c: any) => c.id === selectedCategory)?.name}
+            </h2>
+          </div>
+          
+          <div className="flex gap-2 mb-4">
+            <input 
+              type="text" 
+              value={newService}
+              onChange={e => setNewService(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddService()}
+              placeholder="Новая услуга..."
+              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            />
+            <button 
+              onClick={handleAddService}
+              className="bg-slate-900 text-white px-4 py-2 rounded-lg font-bold text-sm"
+            >
+              Добавить
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {localCategories.find((c: any) => c.id === selectedCategory)?.services.map((service: string) => (
+              <div key={service} className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+                {editingService?.old === service ? (
+                  <div className="flex items-center gap-1">
+                    <input 
+                      type="text" 
+                      value={editingService.new}
+                      onChange={e => setEditingService({...editingService, new: e.target.value})}
+                      onKeyDown={e => e.key === 'Enter' && handleEditService()}
+                      className="border border-gray-300 rounded px-1 py-0.5 text-sm w-24 outline-none"
+                      autoFocus
+                    />
+                    <button onClick={handleEditService} className="text-green-600 hover:text-green-700"><CheckCircle className="w-4 h-4" /></button>
+                    <button onClick={() => setEditingService(null)} className="text-red-500 hover:text-red-600"><XCircle className="w-4 h-4" /></button>
+                  </div>
+                ) : (
+                  <>
+                    <span className="text-gray-700" onDoubleClick={() => setEditingService({old: service, new: service})}>{service}</span>
+                    <button 
+                      onClick={() => handleDeleteService(selectedCategory, service)}
+                      className="text-gray-400 hover:text-red-500 ml-1"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
+              </div>
+            ))}
+            {localCategories.find((c: any) => c.id === selectedCategory)?.services.length === 0 && (
+              <p className="text-sm text-gray-500 w-full text-center py-2">Нет добавленных услуг</p>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mt-3">Двойной клик по названию для редактирования</p>
+        </div>
+      )}
+    </div>
+  );
+}
