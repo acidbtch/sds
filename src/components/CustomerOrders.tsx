@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ViewState, Order, Contractor } from '../types';
-import { ChevronLeft, ChevronRight, Star, AlertCircle, CheckCircle, XCircle, ChevronDown, X, Clock, MapPin, Award, Briefcase, Globe, Instagram, Video, CreditCard } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star, AlertCircle, CheckCircle, XCircle, ChevronDown, X, Clock, MapPin, Award, Briefcase, Globe, Instagram, Video, CreditCard, Loader2 } from 'lucide-react';
 import { useData } from '../context/DataContext';
+import { customerApi } from '../lib/api';
 
 const REVIEW_CRITERIA = [
   'Быстрый отклик',
@@ -35,6 +36,46 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedContractor, setSelectedContractor] = useState<Contractor | null>(null);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      setIsLoading(true);
+      try {
+        const fetchedOrders = await customerApi.getOrders();
+        if (fetchedOrders) {
+          // Map API orders to our Order interface
+          const mappedOrders = fetchedOrders.map((o: any) => ({
+            id: o.id,
+            serviceType: o.service_id || 'Услуга', // Ideally we'd map ID to name
+            carMake: o.car_brand_id || '',
+            carModel: o.car_model_id || '',
+            year: o.year?.toString() || '',
+            region: o.region_id || '',
+            customerName: o.owner_name || '',
+            date: new Date(o.created_at).toLocaleDateString('ru-RU'),
+            deadline: o.deadline ? new Date(o.deadline).toLocaleDateString('ru-RU') : '',
+            status: (o.status === 'new' ? 'pending' : o.status === 'in_progress' ? 'active' : o.status === 'completed' ? 'completed' : 'cancelled') as 'pending' | 'active' | 'completed' | 'cancelled',
+            description: o.description || '',
+            responses: [], // We'd need to fetch responses separately or if they are included
+            engine: o.engine_type,
+            gearbox: o.gearbox_type,
+            drive: o.drive_type,
+            body: o.body_type,
+            phone: o.owner_phone,
+            media: o.attachments || []
+          }));
+          setOrders(mappedOrders);
+        }
+      } catch (error) {
+        console.error('Failed to fetch orders:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, [setOrders]);
 
   const activeBanners = banners.filter(b => b.status === 'active');
 
@@ -65,46 +106,64 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
     }, 1500);
   };
 
-  const handleAcceptResponse = (orderId: string, contractorId: string) => {
-    setOrders(orders.map(o => {
-      if (o.id === orderId) {
-        return {
-          ...o,
-          status: 'active',
-          acceptedContractorId: contractorId
-        };
-      }
-      return o;
-    }));
-  };
-
-  const handleRejectResponse = (orderId: string, contractorId: string) => {
-    setOrders(orders.map(o => {
-      if (o.id === orderId) {
-        if (o.status === 'active' && o.acceptedContractorId === contractorId) {
+  const handleAcceptResponse = async (orderId: string, contractorId: string) => {
+    try {
+      await customerApi.acceptResponse(orderId, contractorId);
+      setOrders(orders.map(o => {
+        if (o.id === orderId) {
           return {
             ...o,
-            status: 'pending',
-            acceptedContractorId: undefined,
+            status: 'active',
+            acceptedContractorId: contractorId
+          };
+        }
+        return o;
+      }));
+    } catch (error) {
+      console.error('Failed to accept response:', error);
+      alert('Ошибка при принятии отклика');
+    }
+  };
+
+  const handleRejectResponse = async (orderId: string, contractorId: string) => {
+    try {
+      await customerApi.rejectResponse(orderId, contractorId);
+      setOrders(orders.map(o => {
+        if (o.id === orderId) {
+          if (o.status === 'active' && o.acceptedContractorId === contractorId) {
+            return {
+              ...o,
+              status: 'pending',
+              acceptedContractorId: undefined,
+              responses: (o.responses || []).filter(r => r.contractorId !== contractorId)
+            };
+          }
+          return {
+            ...o,
             responses: (o.responses || []).filter(r => r.contractorId !== contractorId)
           };
         }
-        return {
-          ...o,
-          responses: (o.responses || []).filter(r => r.contractorId !== contractorId)
-        };
-      }
-      return o;
-    }));
+        return o;
+      }));
+    } catch (error) {
+      console.error('Failed to reject response:', error);
+      alert('Ошибка при отклонении отклика');
+    }
   };
 
-  const handleCancelOrder = (orderId: string) => {
-    setOrders(orders.map(o => {
-      if (o.id === orderId) {
-        return { ...o, status: 'cancelled' };
-      }
-      return o;
-    }));
+  const handleCancelOrder = async (orderId: string) => {
+    try {
+      await customerApi.cancelOrder(orderId);
+      setOrders(orders.map(o => {
+        if (o.id === orderId) {
+          return { ...o, status: 'cancelled' };
+        }
+        return o;
+      }));
+    } catch (error) {
+      console.error('Failed to cancel order:', error);
+      alert('Ошибка при отмене заказа');
+    }
   };
 
   const getProfileBadge = (type: string) => {
@@ -147,10 +206,38 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
     }));
   };
 
-  const toggleOrder = (id: string) => {
+  const toggleOrder = async (id: string) => {
+    const isExpanding = !expandedOrders.includes(id);
     setExpandedOrders(prev => 
-      prev.includes(id) ? prev.filter(orderId => orderId !== id) : [...prev, id]
+      isExpanding ? [...prev, id] : prev.filter(orderId => orderId !== id)
     );
+
+    if (isExpanding) {
+      const order = orders.find(o => o.id === id);
+      if (order && (order.status === 'pending' || order.status === 'active')) {
+        try {
+          const responses = await customerApi.getOrderResponses(id);
+          if (responses) {
+            const mappedResponses = responses.map((r: any) => ({
+              id: r.id,
+              contractorId: r.executor_id,
+              contractorName: r.executor_name || 'Исполнитель',
+              profileType: r.executor_type || 'partner',
+              rating: r.executor_rating || 5.0,
+              reviewsCount: r.executor_reviews || 0,
+              workingHours: r.executor_working_hours || '',
+              message: r.comment || '',
+              price: r.price_estimate || ''
+            }));
+            setOrders(prevOrders => prevOrders.map(o => 
+              o.id === id ? { ...o, responses: mappedResponses } : o
+            ));
+          }
+        } catch (error) {
+          console.error('Failed to fetch responses:', error);
+        }
+      }
+    }
   };
 
   const activeOrders = orders.filter(o => o.status === 'pending' || o.status === 'active');
@@ -266,17 +353,26 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
                         <div className="pt-2 border-t border-gray-200">
                           <span className="text-xs text-gray-500 block mb-2">Прикрепленные медиафайлы:</span>
                           <div className="flex gap-2 overflow-x-auto pb-1">
-                            {order.media.map((file, idx) => (
-                              <img 
-                                key={idx} 
-                                src={file} 
-                                alt={`Фото ${idx + 1}`} 
-                                className="w-16 h-16 object-cover rounded-lg flex-shrink-0 cursor-pointer border border-gray-200 hover:opacity-80 transition-opacity"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedImage(file);
-                                }}
-                              />
+                            {order.media.map((file: any, idx) => (
+                              <div key={idx} className="relative w-16 h-16 flex-shrink-0">
+                                {file.type === 'video' ? (
+                                  <video 
+                                    src={file.url} 
+                                    className="w-full h-full object-cover rounded-lg border border-gray-200"
+                                    controls
+                                  />
+                                ) : (
+                                  <img 
+                                    src={file.url || file} 
+                                    alt={`Фото ${idx + 1}`} 
+                                    className="w-full h-full object-cover rounded-lg cursor-pointer border border-gray-200 hover:opacity-80 transition-opacity"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedImage(file.url || file);
+                                    }}
+                                  />
+                                )}
+                              </div>
                             ))}
                           </div>
                         </div>
@@ -345,8 +441,15 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
                       className="w-full border-gray-300 rounded-lg p-3 bg-white focus:ring-orange-500 focus:border-orange-500 outline-none mb-3 text-sm"
                     ></textarea>
                     <button 
-                      onClick={() => {
-                        setExpandedOrders(prev => prev.filter(id => id !== order.id));
+                      onClick={async () => {
+                        try {
+                          await customerApi.submitReview(order.id, reviews[order.id]);
+                          setExpandedOrders(prev => prev.filter(id => id !== order.id));
+                          alert('Отзыв успешно отправлен!');
+                        } catch (error) {
+                          console.error('Failed to submit review:', error);
+                          alert('Ошибка при отправке отзыва');
+                        }
                       }}
                       disabled={!reviews[order.id]?.rating}
                       className="w-full bg-orange-500 text-white text-sm font-bold py-3 rounded-xl active:scale-[0.98] transition-transform disabled:opacity-50 disabled:active:scale-100"

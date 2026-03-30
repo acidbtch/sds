@@ -19,6 +19,7 @@ import Support from './components/Support';
 import AdminPanel from './components/AdminPanel';
 
 import { DataProvider } from './context/DataContext';
+import { AuthProvider } from './context/AuthContext';
 
 const INITIAL_CAR_MODELS: Record<string, string[]> = {
   "Audi": ["A3", "A4", "A6", "Q3", "Q5", "Q7"],
@@ -89,23 +90,25 @@ export default function App() {
   };
 
   return (
-    <DataProvider>
-      <div className="min-h-screen bg-gray-100 text-black font-sans flex justify-center">
-        <div className="w-full max-w-md bg-white min-h-screen relative shadow-2xl overflow-hidden">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentView}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
-              className="w-full min-h-screen bg-white relative"
-            >
-              {renderView()}
-            </motion.div>
-          </AnimatePresence>
+    <AuthProvider>
+      <DataProvider>
+        <div className="min-h-screen bg-gray-100 text-black font-sans flex justify-center">
+          <div className="w-full max-w-md bg-white min-h-screen relative shadow-2xl overflow-hidden">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentView}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+                className="w-full min-h-screen bg-white relative"
+              >
+                {renderView()}
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
-      </div>
-    </DataProvider>
+      </DataProvider>
+    </AuthProvider>
   );
 }

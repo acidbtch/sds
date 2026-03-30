@@ -36,7 +36,8 @@ export default function ContractorCabinet({ onNavigate }: Props) {
     rating: 4.8,
     reviewsCount: 124,
     regDate: '10.05.2026',
-    orders: 15
+    orders: 15,
+    workingHours: undefined
   };
 
   const incomingOrders = orders.filter(o => 

@@ -21,7 +21,7 @@ export interface Contractor {
   rating: number;
   reviewsCount: number;
   completedOrders: number;
-  profileType: 'partner' | 'pro' | 'leader';
+  profileType: 'partner' | 'pro' | 'leader' | 'Партнёр' | 'Профи' | 'Лидер';
   registrationDate: string;
   phone: string;
   address?: string;
@@ -70,7 +70,7 @@ export interface ContractorResponse {
   contractorName: string;
   rating: number;
   reviewsCount: number;
-  profileType: 'partner' | 'pro' | 'leader';
+  profileType: 'partner' | 'pro' | 'leader' | 'Партнёр' | 'Профи' | 'Лидер';
   message?: string;
   workingHours?: string;
 }

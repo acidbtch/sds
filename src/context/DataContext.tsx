@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Contractor, Order, ViewState } from '../types';
 import { mockContractors } from '../data/mockContractors';
 import { ServiceCategory, initialServiceCategories } from '../data/services';
+import { dictsApi, miscApi } from '../lib/api';
 
 // Define the types for our context state
 interface Customer {
@@ -94,6 +95,7 @@ interface DataContextType {
   setContent: React.Dispatch<React.SetStateAction<ContentState>>;
   serviceCategories: ServiceCategory[];
   setServiceCategories: React.Dispatch<React.SetStateAction<ServiceCategory[]>>;
+  regionsData: Record<string, string[]>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -184,17 +186,58 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   ]);
 
   const [content, setContent] = useState<ContentState>({
-    faq: [
-      {
-        id: 'how',
-        question: 'Как это работает?',
-        answer: '**Для заказчиков**\n1. Выберите услугу и заполните форму заказа.\n2. Ваш заказ отправляется всем подходящим СТО.\n3. Получайте отклики с предложениями и ценами.\n4. Выберите лучшее предложение и свяжитесь с исполнителем.\n\n**Для исполнителей**\n1. Зарегистрируйте свой профиль (Партнер, Профи или Лидер).\n2. Получайте уведомления о новых заказах в вашем регионе.\n3. Отправляйте отклики клиентам.\n4. Выполняйте работу и получайте отзывы.'
-      }
-    ],
-    rules: 'Здесь будут описаны подробные правила работы приложения, права и обязанности сторон, а также условия использования сервиса.',
-    privacy: 'Здесь будет описана политика конфиденциальности, информация о том, как мы собираем, используем и защищаем ваши персональные данные.',
-    templates: 'Шаблон 1: Ваш заказ принят!\nШаблон 2: Исполнитель найден.'
+    faq: [],
+    rules: '',
+    privacy: '',
+    templates: ''
   });
+  const [regionsData, setRegionsData] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const [faqData, bannersData, regionsApiData] = await Promise.all([
+          miscApi.getFaq().catch(() => []),
+          miscApi.getBanners().catch(() => []),
+          dictsApi.getRegions().catch(() => [])
+        ]);
+
+        if (faqData && faqData.length > 0) {
+          setContent(prev => ({ ...prev, faq: faqData }));
+        }
+        
+        if (bannersData && bannersData.length > 0) {
+          // Map API banners to our Banner interface
+          const mappedBanners = bannersData.map((b: any) => ({
+            id: b.id,
+            contractor: b.title,
+            description: b.description,
+            status: 'active' as const,
+            logo: b.image_url
+          }));
+          setBanners(mappedBanners);
+        }
+
+        if (regionsApiData && regionsApiData.length > 0) {
+          const newRegionsData: Record<string, string[]> = {};
+          const parentRegions = regionsApiData.filter((r: any) => !r.parent_id);
+          
+          parentRegions.forEach((parent: any) => {
+            newRegionsData[parent.name] = regionsApiData
+              .filter((r: any) => r.parent_id === parent.id)
+              .map((r: any) => r.name);
+          });
+          newRegionsData['Вся Беларусь'] = [];
+          setRegionsData(newRegionsData);
+        }
+
+      } catch (error) {
+        console.error('Failed to fetch initial data:', error);
+      }
+    };
+
+    fetchInitialData();
+  }, []);
 
   return (
     <DataContext.Provider value={{
@@ -206,7 +249,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       moderation, setModeration,
       support, setSupport,
       content, setContent,
-      serviceCategories, setServiceCategories
+      serviceCategories, setServiceCategories,
+      regionsData // We need to add this to the context interface
     }}>
       {children}
     </DataContext.Provider>

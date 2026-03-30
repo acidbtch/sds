@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ViewState } from '../types';
-import { ChevronLeft, Camera, Video, CheckCircle, Info } from 'lucide-react';
+import { ChevronLeft, Camera, Video, CheckCircle, Info, Loader2, X } from 'lucide-react';
 import RegionSelector from './RegionSelector';
 import { CustomSelect } from './CustomSelect';
 import { MultiSelect } from './MultiSelect';
 import { useData } from '../context/DataContext';
+import { dictsApi, customerApi, mediaApi } from '../lib/api';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -23,6 +24,8 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
   const [selectedGearbox, setSelectedGearbox] = useState('');
   const [selectedBody, setSelectedBody] = useState('');
   const [selectedEngine, setSelectedEngine] = useState('');
+  const [engineVolume, setEngineVolume] = useState('');
+  const [vin, setVin] = useState('');
   const [selectedDrive, setSelectedDrive] = useState('');
   const [phone, setPhone] = useState('+375 ');
   const [name, setName] = useState('');
@@ -32,6 +35,83 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
   const [isRegionModalOpen, setIsRegionModalOpen] = useState(false);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [showErrors, setShowErrors] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Media states
+  const [attachments, setAttachments] = useState<{ url: string; type: 'image' | 'video' }[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  
+  // API Data States
+  const [apiCategories, setApiCategories] = useState<any[]>([]);
+  const [apiServices, setApiServices] = useState<any[]>([]);
+  const [apiBrands, setApiBrands] = useState<any[]>([]);
+  const [apiModels, setApiModels] = useState<any[]>([]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      const newAttachments = [...attachments];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        const { upload_url, file_key } = await mediaApi.getPresignedUrl(file.name, file.type);
+        await mediaApi.uploadToS3(upload_url, file);
+        newAttachments.push({ url: file_key, type });
+      }
+      setAttachments(newAttachments);
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Ошибка при загрузке файла');
+    } finally {
+      setIsUploading(false);
+      // Reset input
+      e.target.value = '';
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  useEffect(() => {
+    // Fetch initial dictionaries
+    const fetchDicts = async () => {
+      try {
+        const [categories, brands] = await Promise.all([
+          dictsApi.getServiceCategories(),
+          dictsApi.getCarBrands()
+        ]);
+        setApiCategories(categories || []);
+        setApiBrands(brands || []);
+      } catch (error) {
+        console.error('Failed to fetch dictionaries:', error);
+      }
+    };
+    fetchDicts();
+  }, []);
+
+  useEffect(() => {
+    if (selectedCategory) {
+      dictsApi.getServices(selectedCategory)
+        .then(services => setApiServices(services || []))
+        .catch(console.error);
+    } else {
+      setApiServices([]);
+    }
+  }, [selectedCategory]);
+
+  useEffect(() => {
+    if (selectedMake) {
+      dictsApi.getCarModels(selectedMake)
+        .then(models => setApiModels(models || []))
+        .catch(console.error);
+    } else {
+      setApiModels([]);
+    }
+  }, [selectedMake]);
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: currentYear - 1966 + 1 }, (_, i) => currentYear - i);
@@ -83,45 +163,55 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid) {
       setShowErrors(true);
       return;
     }
     setShowErrors(false);
+    setIsLoading(true);
     
-    // Add new order to context
-    const newOrder = {
-      id: Math.random().toString(36).substr(2, 9),
-      serviceType: selectedServices.join(', '),
-      carMake: selectedMake,
-      carModel: selectedModel,
-      year: selectedYear,
-      gearbox: selectedGearbox,
-      body: selectedBody,
-      engine: selectedEngine,
-      drive: selectedDrive,
-      region: selectedRegions.join(', '),
-      phone: phone,
-      customerName: name,
-      deadline: deadline,
-      status: 'pending' as const,
-      date: new Date().toLocaleDateString('ru-RU'),
-      description: description,
-      responses: []
-    };
-    
-    setOrders(prev => [newOrder, ...prev]);
-    
-    setSubmitted(true);
-    setTimeout(() => {
-      if (previousView === 'contractors_catalog') {
-        onNavigate('contractors_catalog');
-      } else {
-        onNavigate('customer_orders');
-      }
-    }, 5000);
+    try {
+      // Create new order via API
+      // Note: We need to pass the first selected service ID for now, 
+      // or adjust the API to accept multiple services if needed.
+      // The API spec says `service_id` (string). We'll use the first one.
+      const orderData = {
+        service_id: selectedServices[0], // Assuming selectedServices contains IDs
+        region_id: selectedRegions[0],   // Assuming selectedRegions contains IDs
+        car_brand_id: selectedMake,
+        car_model_id: selectedModel,
+        engine_type: selectedEngine,
+        gearbox_type: selectedGearbox,
+        drive_type: selectedDrive,
+        body_type: selectedBody,
+        engine_volume: engineVolume ? parseFloat(engineVolume.replace(',', '.')) : undefined,
+        vin: vin || undefined,
+        year: parseInt(selectedYear, 10),
+        owner_name: name,
+        owner_phone: phone,
+        description: description,
+        deadline: deadline ? new Date(deadline).toISOString() : undefined,
+        attachments: attachments.map(a => a.url) // Add attachments
+      };
+      
+      await customerApi.createOrder(orderData);
+      
+      setSubmitted(true);
+      setTimeout(() => {
+        if (previousView === 'contractors_catalog') {
+          onNavigate('contractors_catalog');
+        } else {
+          onNavigate('customer_orders');
+        }
+      }, 5000);
+    } catch (error) {
+      console.error('Failed to create order:', error);
+      alert('Ошибка при создании заказа. Пожалуйста, попробуйте еще раз.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (submitted) {
@@ -160,7 +250,7 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
             <CustomSelect
               value={selectedCategory}
               onChange={handleCategoryChange}
-              options={serviceCategories.map(cat => ({ value: cat.id, label: cat.name }))}
+              options={apiCategories.map(cat => ({ value: cat.id, label: cat.name }))}
               placeholder="Выберите категорию"
               error={showErrors && !selectedCategory}
             />
@@ -171,7 +261,7 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
               values={selectedServices}
               onChange={setSelectedServices}
               disabled={!selectedCategory}
-              options={selectedCategory ? (serviceCategories.find(c => c.id === selectedCategory)?.services || []).map((type: string) => ({ value: type, label: type })) : []}
+              options={apiServices.map(srv => ({ value: srv.id, label: srv.name }))}
               placeholder={selectedCategory ? "Выберите услуги" : "Сначала выберите категорию"}
               error={showErrors && selectedServices.length === 0}
             />
@@ -195,7 +285,7 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
             <CustomSelect
               value={selectedMake}
               onChange={handleMakeChange}
-              options={Object.keys(carModels).map(make => ({ value: make, label: make }))}
+              options={apiBrands.map(brand => ({ value: brand.id, label: brand.name }))}
               placeholder="Выберите марку"
               error={showErrors && !selectedMake}
             />
@@ -206,7 +296,7 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
               value={selectedModel}
               onChange={setSelectedModel}
               disabled={!selectedMake}
-              options={selectedMake && carModels[selectedMake] ? carModels[selectedMake].map(model => ({ value: model, label: model })) : []}
+              options={apiModels.map(model => ({ value: model.id, label: model.name }))}
               placeholder="Выберите модель"
               error={showErrors && !selectedModel}
             />
@@ -223,7 +313,13 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Объем двигателя</label>
-            <input type="text" placeholder="1.0 – 9.0 л" className="w-full border border-gray-300 rounded-lg p-3 bg-gray-50 focus:ring-orange-500 focus:border-orange-500 outline-none" />
+            <input 
+              type="text" 
+              value={engineVolume}
+              onChange={(e) => setEngineVolume(e.target.value)}
+              placeholder="1.0 – 9.0 л" 
+              className="w-full border border-gray-300 rounded-lg p-3 bg-gray-50 focus:ring-orange-500 focus:border-orange-500 outline-none" 
+            />
           </div>
           <div className="col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Тип двигателя <span className="text-red-500">*</span></label>
@@ -293,7 +389,13 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
           </div>
           <div className="col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">VIN-номер (№ кузова из техпаспорта)</label>
-            <input type="text" placeholder="ДЛЯ ЗАКАЗА ЗАПЧАСТЕЙ СТО" className="w-full border border-gray-300 rounded-lg p-3 bg-gray-50 focus:ring-orange-500 focus:border-orange-500 outline-none uppercase" />
+            <input 
+              type="text" 
+              value={vin}
+              onChange={(e) => setVin(e.target.value)}
+              placeholder="ДЛЯ ЗАКАЗА ЗАПЧАСТЕЙ СТО" 
+              className="w-full border border-gray-300 rounded-lg p-3 bg-gray-50 focus:ring-orange-500 focus:border-orange-500 outline-none uppercase" 
+            />
           </div>
         </div>
 
@@ -339,15 +441,54 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
         <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-100">
           <label className="block text-sm font-medium text-gray-700 mb-1">Медиафайлы</label>
           <p className="text-xs text-gray-500 mb-3">Они помогут лучше оценить ваш заказ</p>
+          
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {attachments.map((file, idx) => (
+                <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
+                  {file.type === 'image' ? (
+                    <img src={file.url} alt="attachment" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                      <Video className="w-6 h-6 text-gray-400" />
+                    </div>
+                  )}
+                  <button 
+                    type="button" 
+                    onClick={() => removeAttachment(idx)}
+                    className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full p-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          
           <div className="flex gap-3">
-            <button type="button" className="flex-1 border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-orange-500 hover:text-orange-500 transition-colors">
-              <Camera className="w-6 h-6 mb-1" />
+            <label className="flex-1 border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-orange-500 hover:text-orange-500 transition-colors cursor-pointer">
+              <input 
+                type="file" 
+                accept="image/*" 
+                multiple 
+                className="hidden" 
+                onChange={(e) => handleFileUpload(e, 'image')}
+                disabled={isUploading || attachments.filter(a => a.type === 'image').length >= 10}
+              />
+              {isUploading ? <Loader2 className="w-6 h-6 mb-1 animate-spin text-orange-500" /> : <Camera className="w-6 h-6 mb-1" />}
               <span className="text-xs">Фото (до 10)</span>
-            </button>
-            <button type="button" className="flex-1 border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-orange-500 hover:text-orange-500 transition-colors">
-              <Video className="w-6 h-6 mb-1" />
+            </label>
+            <label className="flex-1 border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-orange-500 hover:text-orange-500 transition-colors cursor-pointer">
+              <input 
+                type="file" 
+                accept="video/*" 
+                className="hidden" 
+                onChange={(e) => handleFileUpload(e, 'video')}
+                disabled={isUploading || attachments.filter(a => a.type === 'video').length >= 1}
+              />
+              {isUploading ? <Loader2 className="w-6 h-6 mb-1 animate-spin text-orange-500" /> : <Video className="w-6 h-6 mb-1" />}
               <span className="text-xs">Видео (1)</span>
-            </button>
+            </label>
           </div>
         </div>
 

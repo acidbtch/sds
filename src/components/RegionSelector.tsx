@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, X, HelpCircle, ChevronLeft } from 'lucide-react';
-import { REGIONS_DATA } from '../data/regions';
+import { useData } from '../context/DataContext';
+import { REGIONS_DATA as FALLBACK_REGIONS } from '../data/regions';
 
 interface Props {
   isOpen: boolean;
@@ -12,6 +13,9 @@ interface Props {
 }
 
 export default function RegionSelector({ isOpen, onClose, selectedRegions, onSelect, multiSelect = false, isCustomer = false }: Props) {
+  const { regionsData } = useData();
+  const activeRegionsData = Object.keys(regionsData).length > 0 ? regionsData : FALLBACK_REGIONS;
+  
   const [activeTab, setActiveTab] = useState<string>('Брестская область');
   const [searchQuery, setSearchQuery] = useState('');
   const [localSelected, setLocalSelected] = useState<string[]>([]);
@@ -28,7 +32,7 @@ export default function RegionSelector({ isOpen, onClose, selectedRegions, onSel
         } else {
           // Find which region the first selected city belongs to, or default to Brest
           let foundRegion = 'Брестская область';
-          for (const [region, cities] of Object.entries(REGIONS_DATA)) {
+          for (const [region, cities] of Object.entries(activeRegionsData)) {
             if (cities.includes(selectedRegions[0]) || region === selectedRegions[0]) {
               foundRegion = region;
               break;
@@ -39,7 +43,7 @@ export default function RegionSelector({ isOpen, onClose, selectedRegions, onSel
       }
       setSearchQuery('');
     }
-  }, [isOpen, selectedRegions, multiSelect]);
+  }, [isOpen, selectedRegions, multiSelect, activeRegionsData]);
 
   const handleTabClick = (region: string) => {
     if (activeTab === region) return;
@@ -72,7 +76,7 @@ export default function RegionSelector({ isOpen, onClose, selectedRegions, onSel
     
     if (newSelected.includes(activeTab)) {
       newSelected = newSelected.filter(c => c !== activeTab);
-      const citiesInRegion = REGIONS_DATA[activeTab] || [];
+      const citiesInRegion = activeRegionsData[activeTab] || [];
       citiesInRegion.forEach(c => {
         if (c !== city && !newSelected.includes(c)) {
           newSelected.push(c);
@@ -104,7 +108,7 @@ export default function RegionSelector({ isOpen, onClose, selectedRegions, onSel
     } else {
       newSelected.push(region);
       // Optionally remove individual cities from this region if the whole region is selected
-      const citiesInRegion = REGIONS_DATA[region] || [];
+      const citiesInRegion = activeRegionsData[region] || [];
       newSelected = newSelected.filter(c => !citiesInRegion.includes(c));
     }
     setLocalSelected(newSelected);
@@ -114,7 +118,7 @@ export default function RegionSelector({ isOpen, onClose, selectedRegions, onSel
     let finalSelected = [...localSelected];
     
     if (multiSelect && finalSelected.length > 0 && !finalSelected.includes('Вся Беларусь')) {
-      Object.entries(REGIONS_DATA).forEach(([region, cities]) => {
+      Object.entries(activeRegionsData).forEach(([region, cities]) => {
         if (cities.length > 0 && cities.every(city => finalSelected.includes(city))) {
           finalSelected = finalSelected.filter(city => !cities.includes(city));
           if (!finalSelected.includes(region)) {
@@ -123,7 +127,7 @@ export default function RegionSelector({ isOpen, onClose, selectedRegions, onSel
         }
       });
 
-      const allRegions = Object.keys(REGIONS_DATA).filter(r => r !== 'Вся Беларусь');
+      const allRegions = Object.keys(activeRegionsData).filter(r => r !== 'Вся Беларусь');
       if (allRegions.every(r => finalSelected.includes(r))) {
         finalSelected = ['Вся Беларусь'];
       }
@@ -138,17 +142,17 @@ export default function RegionSelector({ isOpen, onClose, selectedRegions, onSel
   };
 
   const filteredCities = useMemo(() => {
-    if (!searchQuery) return REGIONS_DATA[activeTab] || [];
-    return (REGIONS_DATA[activeTab] || []).filter(city => 
+    if (!searchQuery) return activeRegionsData[activeTab] || [];
+    return (activeRegionsData[activeTab] || []).filter(city => 
       city.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [activeTab, searchQuery]);
+  }, [activeTab, searchQuery, activeRegionsData]);
 
   if (!isOpen) return null;
 
   const availableRegions = isCustomer 
-    ? Object.keys(REGIONS_DATA).filter(r => r !== 'Вся Беларусь')
-    : Object.keys(REGIONS_DATA);
+    ? Object.keys(activeRegionsData).filter(r => r !== 'Вся Беларусь')
+    : Object.keys(activeRegionsData);
 
   return (
     <div className="fixed inset-0 bg-white z-50 flex flex-col w-full max-w-md mx-auto shadow-2xl">

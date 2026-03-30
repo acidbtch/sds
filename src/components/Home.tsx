@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ViewState } from '../types';
 import { ChevronRight, Wrench, User, HelpCircle, MessageCircle, Star, Settings, ChevronDown, X } from 'lucide-react';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -9,8 +10,16 @@ interface Props {
 
 export default function Home({ onNavigate }: Props) {
   const { content, banners } = useData();
+  const { login } = useAuth();
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [legalModal, setLegalModal] = useState<'rules' | 'privacy' | null>(null);
+
+  useEffect(() => {
+    const initData = (window as any).Telegram?.WebApp?.initData;
+    if (initData) {
+      login(initData).catch(console.error);
+    }
+  }, [login]);
 
   const activeBanners = banners.filter(b => b.status === 'active');
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);

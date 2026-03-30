@@ -3,6 +3,7 @@ import { ViewState, Contractor } from '../types';
 import { ChevronLeft, Search, Filter, Star, MapPin, CheckCircle, Award, Briefcase, X, Clock, Globe, Instagram, Video, ArrowUpDown, Phone, Image as ImageIcon } from 'lucide-react';
 import RegionSelector from './RegionSelector';
 import { useData } from '../context/DataContext';
+import { customerApi } from '../lib/api';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -20,7 +21,7 @@ interface FilterState {
 }
 
 export default function ContractorsCatalog({ onNavigate, isCustomer = false, previousView }: Props) {
-  const { contractors, serviceCategories } = useData();
+  const { contractors, setContractors, serviceCategories } = useData();
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -38,6 +39,47 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
   });
 
   const [tempFilters, setTempFilters] = useState<FilterState>(filters);
+  const [isLoading, setIsLoading] = useState(false);
+
+  React.useEffect(() => {
+    const fetchExecutors = async () => {
+      setIsLoading(true);
+      try {
+        const data = await customerApi.getExecutors();
+        if (data) {
+          const mappedData = data.map((c: any) => ({
+            id: c.id,
+            name: c.name || '',
+            shortName: c.short_name || '',
+            profileType: c.profile_type || 'partner',
+            rating: c.rating || 5.0,
+            reviewsCount: c.reviews_count || 0,
+            completedOrders: c.completed_orders || 0,
+            registrationDate: c.created_at || new Date().toISOString(),
+            description: c.description || '',
+            services: c.services || [],
+            regions: c.regions || [],
+            address: c.address || '',
+            workingHours: c.working_hours || '',
+            phone: c.phone || '',
+            instagram: c.instagram || '',
+            website: c.website || '',
+            avatar: c.avatar_url || '',
+            photos: c.photos || [],
+            video: c.video_url || '',
+            unp: c.unp || '',
+            legalStatus: c.legal_status || ''
+          }));
+          setContractors(mappedData);
+        }
+      } catch (error) {
+        console.error('Failed to fetch executors:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchExecutors();
+  }, [setContractors]);
 
   const handleOpenFilters = () => {
     setTempFilters(filters);
@@ -240,7 +282,11 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
 
       {/* Contractors List */}
       <div className="p-4 space-y-4">
-        {filteredContractors.length > 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center items-center py-10">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        ) : filteredContractors.length > 0 ? (
           filteredContractors.map(contractor => (
             <div 
               key={contractor.id} 

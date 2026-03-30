@@ -10,6 +10,7 @@ import RegionSelector from './RegionSelector';
 import { CustomSelect } from './CustomSelect';
 import { useData } from '../context/DataContext';
 import { ScheduleSelector, formatSchedule, defaultSchedule } from './ScheduleSelector';
+import { adminApi } from '../lib/api';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -35,15 +36,18 @@ export default function AdminPanel({ onNavigate, carModels, setCarModels }: Prop
     serviceCategories, setServiceCategories
   } = useData();
 
-  const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
+  const newModeration = moderation.filter(m => m.status === 'new').length;
+  const newSupport = support.filter(s => s.status === 'in_progress').length;
+
+  const tabs: { id: AdminTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'dashboard', label: 'Общая панель', icon: <Settings className="w-5 h-5" /> },
     { id: 'customers', label: 'Заказчики', icon: <Users className="w-5 h-5" /> },
     { id: 'contractors', label: 'Исполнители', icon: <Briefcase className="w-5 h-5" /> },
     { id: 'orders', label: 'Заказы', icon: <FileText className="w-5 h-5" /> },
     { id: 'payments', label: 'Платежи', icon: <CreditCard className="w-5 h-5" /> },
     { id: 'banners', label: 'Баннеры', icon: <ImageIcon className="w-5 h-5" /> },
-    { id: 'moderation', label: 'Модерация', icon: <ShieldCheck className="w-5 h-5" /> },
-    { id: 'support', label: 'Поддержка', icon: <MessageSquare className="w-5 h-5" /> },
+    { id: 'moderation', label: 'Модерация', icon: <ShieldCheck className="w-5 h-5" />, badge: newModeration },
+    { id: 'support', label: 'Поддержка', icon: <MessageSquare className="w-5 h-5" />, badge: newSupport },
     { id: 'content', label: 'Контент', icon: <FileText className="w-5 h-5" /> },
     { id: 'cars', label: 'Авто', icon: <Car className="w-5 h-5" /> },
     { id: 'services', label: 'Услуги', icon: <Settings className="w-5 h-5" /> },
@@ -86,7 +90,14 @@ export default function AdminPanel({ onNavigate, carModels, setCarModels }: Prop
                   : 'text-gray-600 hover:bg-[#E8EDF2]'
               }`}
             >
-              <div className="mb-1">{tab.icon}</div>
+              <div className="mb-1 relative">
+                {tab.icon}
+                {tab.badge !== undefined && tab.badge > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                    {tab.badge}
+                  </span>
+                )}
+              </div>
               <span className="text-[10px] font-bold text-center leading-tight">{tab.label}</span>
             </button>
           ))}
@@ -215,13 +226,20 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
 
   const filtered = customers.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search));
 
-  const toggleStatus = () => {
-    setCustomers(customers.map(c => 
-      c.id === selectedCustomer.id 
-        ? { ...c, status: c.status === 'active' ? 'blocked' : 'active' } 
-        : c
-    ));
-    setSelectedCustomer({ ...selectedCustomer, status: selectedCustomer.status === 'active' ? 'blocked' : 'active' });
+  const toggleStatus = async () => {
+    try {
+      await adminApi.toggleUserBlock(selectedCustomer.id);
+      
+      setCustomers(customers.map(c => 
+        c.id === selectedCustomer.id 
+          ? { ...c, status: c.status === 'active' ? 'blocked' : 'active' } 
+          : c
+      ));
+      setSelectedCustomer({ ...selectedCustomer, status: selectedCustomer.status === 'active' ? 'blocked' : 'active' });
+    } catch (error) {
+      console.error('Failed to toggle user status:', error);
+      alert('Ошибка при изменении статуса пользователя');
+    }
   };
 
   const getStatusLabel = (status: string) => {
@@ -341,10 +359,16 @@ function ContractorsView({ contractors, setContractors, orders }: { contractors:
 
   const filtered = contractors.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
 
-  const handleSave = () => {
-    setContractors(contractors.map(c => c.id === editForm.id ? editForm : c));
-    setSelected(editForm);
-    setIsEditing(false);
+  const handleSave = async () => {
+    try {
+      await adminApi.updateContractor(editForm.id, editForm);
+      setContractors(contractors.map(c => c.id === editForm.id ? editForm : c));
+      setSelected(editForm);
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to update contractor:', error);
+      alert('Ошибка при сохранении');
+    }
   };
 
   if (selected) {
@@ -755,11 +779,17 @@ function ContractorsView({ contractors, setContractors, orders }: { contractors:
 
           <div className="flex gap-2">
             <button 
-              onClick={() => {
-                const newStatus = selected.status === 'blocked' ? 'active' : 'blocked';
-                const updated = { ...selected, status: newStatus };
-                setContractors(contractors.map(c => c.id === selected.id ? updated : c));
-                setSelected(updated);
+              onClick={async () => {
+                try {
+                  await adminApi.toggleUserBlock(selected.id);
+                  const newStatus = selected.status === 'blocked' ? 'active' : 'blocked';
+                  const updated = { ...selected, status: newStatus };
+                  setContractors(contractors.map(c => c.id === selected.id ? updated : c));
+                  setSelected(updated);
+                } catch (error) {
+                  console.error('Failed to toggle status:', error);
+                  alert('Ошибка при изменении статуса');
+                }
               }}
               className={`flex-1 py-3 rounded-xl font-bold text-white text-sm ${selected.status === 'blocked' ? 'bg-green-500' : 'bg-red-500'}`}
             >
@@ -925,8 +955,17 @@ function BannersView({ banners, setBanners, contractors, setContractors }: { ban
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<any>(null);
 
-  const toggleBanner = (id: number) => {
-    setBanners(banners.map((b: any) => b.id === id ? { ...b, status: b.status === 'active' ? 'inactive' : 'active' } : b));
+  const toggleBanner = async (id: number) => {
+    const banner = banners.find(b => b.id === id);
+    if (!banner) return;
+    try {
+      const newStatus = banner.status === 'active' ? 'inactive' : 'active';
+      await adminApi.updateBanner(id, { ...banner, status: newStatus });
+      setBanners(banners.map((b: any) => b.id === id ? { ...b, status: newStatus } : b));
+    } catch (error) {
+      console.error('Failed to toggle banner:', error);
+      alert('Ошибка при изменении статуса баннера');
+    }
   };
 
   const startEdit = (banner: any) => {
@@ -945,27 +984,40 @@ function BannersView({ banners, setBanners, contractors, setContractors }: { ban
     }
   };
 
-  const saveEdit = () => {
-    if (editingId === -1) {
-      setBanners([{ ...editForm, id: Date.now() }, ...banners]);
-    } else {
-      setBanners(banners.map((b: any) => b.id === editingId ? editForm : b));
+  const saveEdit = async () => {
+    try {
+      if (editingId === -1) {
+        const newBanner = await adminApi.createBanner(editForm);
+        setBanners([newBanner, ...banners]);
+      } else {
+        await adminApi.updateBanner(editingId!, editForm);
+        setBanners(banners.map((b: any) => b.id === editingId ? editForm : b));
+      }
+      
+      // Update contractor profile if linked
+      if (editForm.contractorId) {
+        setContractors(contractors.map((c: any) => 
+          c.id === editForm.contractorId 
+            ? { ...c, logo: editForm.logo, bannerText: editForm.description } 
+            : c
+        ));
+      }
+      
+      setEditingId(null);
+    } catch (error) {
+      console.error('Failed to save banner:', error);
+      alert('Ошибка при сохранении баннера');
     }
-    
-    // Update contractor profile if linked
-    if (editForm.contractorId) {
-      setContractors(contractors.map((c: any) => 
-        c.id === editForm.contractorId 
-          ? { ...c, logo: editForm.logo, bannerText: editForm.description } 
-          : c
-      ));
-    }
-    
-    setEditingId(null);
   };
 
-  const deleteBanner = (id: number) => {
-    setBanners(banners.filter((b: any) => b.id !== id));
+  const deleteBanner = async (id: number) => {
+    try {
+      await adminApi.deleteBanner(id);
+      setBanners(banners.filter((b: any) => b.id !== id));
+    } catch (error) {
+      console.error('Failed to delete banner:', error);
+      alert('Ошибка при удалении баннера');
+    }
   };
 
   const addBanner = () => {
@@ -1110,66 +1162,75 @@ function BannersView({ banners, setBanners, contractors, setContractors }: { ban
 function ModerationView({ moderation, setModeration, contractors, setContractors, banners, setBanners }: { moderation: any[], setModeration: any, contractors: any[], setContractors: any, banners: any[], setBanners: any }) {
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
 
-  const handleAction = (id: number, action: 'approve' | 'reject') => {
+  const handleAction = async (id: number, action: 'approve' | 'reject') => {
     const request = moderation.find(m => m.id === id);
-    if (action === 'approve' && request) {
-      let contractorId = '';
-      let contractorName = '';
-      let contractorLogo = '';
+    if (!request) return;
 
-      if (request.type === 'new') {
-        contractorId = String(Date.now());
-        contractorName = request.data.shortName || request.data.name || request.data.companyName;
-        contractorLogo = request.data.logo;
-        const newContractor = {
-          id: contractorId,
-          ...request.data,
-          rating: 0,
-          reviewsCount: 0,
-          profileType: request.profile,
-          regDate: new Date().toLocaleDateString('ru-RU'),
-          orders: 0,
-          status: 'active'
-        };
-        setContractors([...contractors, newContractor]);
-      } else if (request.type === 'edit') {
-        contractorId = request.data.id;
-        contractorName = request.data.shortName || request.data.name || request.data.companyName;
-        contractorLogo = request.data.logo;
-        setContractors(contractors.map(c => c.id === request.data.id ? { ...c, ...request.data } : c));
-      }
+    try {
+      await adminApi.moderateExecutor(request.data.id || String(id), action === 'approve' ? 'APPROVED' : 'REJECTED');
 
-      // Handle banner for Leader profile
-      if (request.profile === 'leader' || request.profile === 'Лидер') {
-        const existingBannerIndex = banners.findIndex(b => b.contractorId === contractorId || b.contractor === contractorName);
-        if (existingBannerIndex !== -1) {
-          // Update existing banner
-          const updatedBanners = [...banners];
-          updatedBanners[existingBannerIndex] = {
-            ...updatedBanners[existingBannerIndex],
-            logo: contractorLogo || updatedBanners[existingBannerIndex].logo,
-            contractor: contractorName,
-            description: request.data.bannerText || updatedBanners[existingBannerIndex].description
+      if (action === 'approve') {
+        let contractorId = '';
+        let contractorName = '';
+        let contractorLogo = '';
+
+        if (request.type === 'new') {
+          contractorId = String(Date.now());
+          contractorName = request.data.shortName || request.data.name || request.data.companyName;
+          contractorLogo = request.data.logo;
+          const newContractor = {
+            id: contractorId,
+            ...request.data,
+            rating: 0,
+            reviewsCount: 0,
+            profileType: request.profile,
+            regDate: new Date().toLocaleDateString('ru-RU'),
+            orders: 0,
+            status: 'active'
           };
-          setBanners(updatedBanners);
-        } else {
-          // Create new banner
-          const newBanner = {
-            id: Date.now(),
-            contractorId: contractorId,
-            contractor: contractorName,
-            description: request.data.bannerText || '',
-            status: 'active',
-            views: 0,
-            clicks: 0,
-            logo: contractorLogo
-          };
-          setBanners([...banners, newBanner]);
+          setContractors([...contractors, newContractor]);
+        } else if (request.type === 'edit') {
+          contractorId = request.data.id;
+          contractorName = request.data.shortName || request.data.name || request.data.companyName;
+          contractorLogo = request.data.logo;
+          setContractors(contractors.map((c: any) => c.id === request.data.id ? { ...c, ...request.data } : c));
+        }
+
+        // Handle banner for Leader profile
+        if (request.profile === 'leader' || request.profile === 'Лидер') {
+          const existingBannerIndex = banners.findIndex((b: any) => b.contractorId === contractorId || b.contractor === contractorName);
+          if (existingBannerIndex !== -1) {
+            // Update existing banner
+            const updatedBanners = [...banners];
+            updatedBanners[existingBannerIndex] = {
+              ...updatedBanners[existingBannerIndex],
+              logo: contractorLogo || updatedBanners[existingBannerIndex].logo,
+              contractor: contractorName,
+              description: request.data.bannerText || updatedBanners[existingBannerIndex].description
+            };
+            setBanners(updatedBanners);
+          } else {
+            // Create new banner
+            const newBanner = {
+              id: Date.now(),
+              contractorId: contractorId,
+              contractor: contractorName,
+              description: request.data.bannerText || '',
+              status: 'active',
+              views: 0,
+              clicks: 0,
+              logo: contractorLogo
+            };
+            setBanners([...banners, newBanner]);
+          }
         }
       }
+      setModeration(moderation.map((m: any) => m.id === id ? { ...m, status: action === 'approve' ? 'approved' : 'rejected' } : m));
+      setSelectedRequest(null);
+    } catch (error) {
+      console.error('Failed to moderate executor:', error);
+      alert('Ошибка при модерации');
     }
-    setModeration(moderation.map(m => m.id === id ? { ...m, status: action === 'approve' ? 'approved' : 'rejected' } : m));
-    setSelectedRequest(null);
   };
 
   if (selectedRequest) {
@@ -1325,24 +1386,36 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
   const [replyText, setReplyText] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const handleResolve = (id: number) => {
-    setSupport(support.map(s => s.id === id ? { ...s, status: 'resolved', updatedAt: Date.now() } : s));
-    setActiveChatId(null);
+  const handleResolve = async (id: number) => {
+    try {
+      await adminApi.resolveSupportTicket(id);
+    } catch (error) {
+      console.error('Failed to resolve support ticket:', error);
+    } finally {
+      setSupport(support.map(s => s.id === id ? { ...s, status: 'resolved', updatedAt: Date.now() } : s));
+      setActiveChatId(null);
+    }
   };
 
-  const handleReply = (id: number) => {
+  const handleReply = async (id: number) => {
     if (!replyText.trim()) return;
-    setSupport(support.map(s => {
-      if (s.id === id) {
-        return {
-          ...s,
-          replies: [...(s.replies || []), { text: replyText, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), admin: true }],
-          updatedAt: Date.now()
-        };
-      }
-      return s;
-    }));
-    setReplyText('');
+    try {
+      await adminApi.replySupportTicket(id, replyText);
+    } catch (error) {
+      console.error('Failed to reply to support ticket:', error);
+    } finally {
+      setSupport(support.map(s => {
+        if (s.id === id) {
+          return {
+            ...s,
+            replies: [...(s.replies || []), { text: replyText, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), admin: true }],
+            updatedAt: Date.now()
+          };
+        }
+        return s;
+      }));
+      setReplyText('');
+    }
   };
 
   useEffect(() => {
@@ -1476,56 +1549,92 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
   const [editingMake, setEditingMake] = useState<{old: string, new: string} | null>(null);
   const [editingModel, setEditingModel] = useState<{old: string, new: string} | null>(null);
 
-  const handleAddMake = () => {
+  const handleAddMake = async () => {
     if (newMake.trim() && !localCarModels[newMake.trim()]) {
-      setLocalCarModels({ ...localCarModels, [newMake.trim()]: [] });
-      setNewMake('');
+      try {
+        await adminApi.createCarMake(newMake.trim());
+        setLocalCarModels({ ...localCarModels, [newMake.trim()]: [] });
+        setNewMake('');
+      } catch (error) {
+        console.error('Failed to add car make:', error);
+        alert('Ошибка при добавлении марки');
+      }
     }
   };
 
-  const handleDeleteMake = (make: string) => {
-    const newModels = { ...localCarModels };
-    delete newModels[make];
-    setLocalCarModels(newModels);
-    if (selectedMake === make) setSelectedMake(null);
+  const handleDeleteMake = async (make: string) => {
+    try {
+      await adminApi.deleteCarMake(make);
+      const newModels = { ...localCarModels };
+      delete newModels[make];
+      setLocalCarModels(newModels);
+      if (selectedMake === make) setSelectedMake(null);
+    } catch (error) {
+      console.error('Failed to delete car make:', error);
+      alert('Ошибка при удалении марки');
+    }
   };
 
-  const handleEditMake = () => {
+  const handleEditMake = async () => {
     if (editingMake && editingMake.new.trim() && editingMake.new.trim() !== editingMake.old) {
       const newMakeName = editingMake.new.trim();
-      const newModels = { ...localCarModels };
-      newModels[newMakeName] = newModels[editingMake.old];
-      delete newModels[editingMake.old];
-      setLocalCarModels(newModels);
-      if (selectedMake === editingMake.old) setSelectedMake(newMakeName);
+      try {
+        await adminApi.updateCarMake(editingMake.old, newMakeName);
+        const newModels = { ...localCarModels };
+        newModels[newMakeName] = newModels[editingMake.old];
+        delete newModels[editingMake.old];
+        setLocalCarModels(newModels);
+        if (selectedMake === editingMake.old) setSelectedMake(newMakeName);
+      } catch (error) {
+        console.error('Failed to update car make:', error);
+        alert('Ошибка при обновлении марки');
+      }
     }
     setEditingMake(null);
   };
 
-  const handleAddModel = () => {
+  const handleAddModel = async () => {
     if (selectedMake && newModel.trim() && !localCarModels[selectedMake].includes(newModel.trim())) {
-      setLocalCarModels({
-        ...localCarModels,
-        [selectedMake]: [...localCarModels[selectedMake], newModel.trim()]
-      });
-      setNewModel('');
+      try {
+        await adminApi.createCarModel(selectedMake, newModel.trim());
+        setLocalCarModels({
+          ...localCarModels,
+          [selectedMake]: [...localCarModels[selectedMake], newModel.trim()]
+        });
+        setNewModel('');
+      } catch (error) {
+        console.error('Failed to add car model:', error);
+        alert('Ошибка при добавлении модели');
+      }
     }
   };
 
-  const handleDeleteModel = (make: string, model: string) => {
-    setLocalCarModels({
-      ...localCarModels,
-      [make]: localCarModels[make].filter(m => m !== model)
-    });
-  };
-
-  const handleEditModel = () => {
-    if (selectedMake && editingModel && editingModel.new.trim() && editingModel.new.trim() !== editingModel.old) {
-      const newModelName = editingModel.new.trim();
+  const handleDeleteModel = async (make: string, model: string) => {
+    try {
+      await adminApi.deleteCarModel(make, model);
       setLocalCarModels({
         ...localCarModels,
-        [selectedMake]: localCarModels[selectedMake].map(m => m === editingModel.old ? newModelName : m)
+        [make]: localCarModels[make].filter(m => m !== model)
       });
+    } catch (error) {
+      console.error('Failed to delete car model:', error);
+      alert('Ошибка при удалении модели');
+    }
+  };
+
+  const handleEditModel = async () => {
+    if (selectedMake && editingModel && editingModel.new.trim() && editingModel.new.trim() !== editingModel.old) {
+      const newModelName = editingModel.new.trim();
+      try {
+        await adminApi.updateCarModel(selectedMake, editingModel.old, newModelName);
+        setLocalCarModels({
+          ...localCarModels,
+          [selectedMake]: localCarModels[selectedMake].map(m => m === editingModel.old ? newModelName : m)
+        });
+      } catch (error) {
+        console.error('Failed to update car model:', error);
+        alert('Ошибка при обновлении модели');
+      }
     }
     setEditingModel(null);
   };
@@ -1676,18 +1785,25 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
     }
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (editingSection && editingSection !== 'faq') {
-      setContent({ ...content, [editingSection]: editText });
-      setEditingSection(null);
+      try {
+        await adminApi.updateContent(editingSection as 'rules' | 'privacy' | 'templates', editText);
+        setContent({ ...content, [editingSection]: editText });
+        setEditingSection(null);
+      } catch (error) {
+        console.error('Failed to update content:', error);
+        alert('Ошибка при сохранении контента');
+      }
     }
   };
 
   const handleAddFaq = () => {
     const newId = Date.now().toString();
+    const newFaq = [...content.faq, { id: newId, question: 'Новый вопрос', answer: 'Ответ на вопрос' }];
     setContent({
       ...content,
-      faq: [...content.faq, { id: newId, question: 'Новый вопрос', answer: 'Ответ на вопрос' }]
+      faq: newFaq
     });
     startEditFaq(newId, 'Новый вопрос', 'Ответ на вопрос');
   };
@@ -1698,41 +1814,67 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
     setFaqAnswer(answer);
   };
 
-  const saveFaqEdit = () => {
+  const saveFaqEdit = async () => {
     if (editingFaqId) {
-      setContent({
-        ...content,
-        faq: content.faq.map((item: any) => 
+      try {
+        const newFaq = content.faq.map((item: any) => 
           item.id === editingFaqId ? { ...item, question: faqQuestion, answer: faqAnswer } : item
-        )
-      });
-      setEditingFaqId(null);
+        );
+        await adminApi.updateFaq(newFaq);
+        setContent({
+          ...content,
+          faq: newFaq
+        });
+        setEditingFaqId(null);
+      } catch (error) {
+        console.error('Failed to update FAQ:', error);
+        alert('Ошибка при сохранении FAQ');
+      }
     }
   };
 
-  const deleteFaq = (id: string) => {
-    setContent({
-      ...content,
-      faq: content.faq.filter((item: any) => item.id !== id)
-    });
+  const deleteFaq = async (id: string) => {
+    try {
+      const newFaq = content.faq.filter((item: any) => item.id !== id);
+      await adminApi.updateFaq(newFaq);
+      setContent({
+        ...content,
+        faq: newFaq
+      });
+    } catch (error) {
+      console.error('Failed to delete FAQ:', error);
+      alert('Ошибка при удалении FAQ');
+    }
   };
 
-  const moveFaqUp = (index: number) => {
+  const moveFaqUp = async (index: number) => {
     if (index === 0) return;
     const newFaq = [...content.faq];
     const temp = newFaq[index];
     newFaq[index] = newFaq[index - 1];
     newFaq[index - 1] = temp;
-    setContent({ ...content, faq: newFaq });
+    try {
+      await adminApi.updateFaq(newFaq);
+      setContent({ ...content, faq: newFaq });
+    } catch (error) {
+      console.error('Failed to move FAQ:', error);
+      alert('Ошибка при перемещении FAQ');
+    }
   };
 
-  const moveFaqDown = (index: number) => {
+  const moveFaqDown = async (index: number) => {
     if (index === content.faq.length - 1) return;
     const newFaq = [...content.faq];
     const temp = newFaq[index];
     newFaq[index] = newFaq[index + 1];
     newFaq[index + 1] = temp;
-    setContent({ ...content, faq: newFaq });
+    try {
+      await adminApi.updateFaq(newFaq);
+      setContent({ ...content, faq: newFaq });
+    } catch (error) {
+      console.error('Failed to move FAQ:', error);
+      alert('Ошибка при перемещении FAQ');
+    }
   };
 
   if (editingSection === 'faq') {
@@ -1977,11 +2119,17 @@ function ServicesView({
     setEditingService(null);
   };
 
-  const handleSave = () => {
-    setServiceCategories(localCategories);
-    setContractors(localContractors);
-    setOrders(localOrders);
-    alert('Изменения сохранены');
+  const handleSave = async () => {
+    try {
+      await adminApi.updateServiceCategories(localCategories);
+      setServiceCategories(localCategories);
+      setContractors(localContractors);
+      setOrders(localOrders);
+      alert('Изменения сохранены');
+    } catch (error) {
+      console.error('Failed to save categories:', error);
+      alert('Ошибка при сохранении');
+    }
   };
 
   const hasChanges = JSON.stringify(localCategories) !== JSON.stringify(serviceCategories);
