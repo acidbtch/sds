@@ -17,7 +17,10 @@ export default function Home({ onNavigate }: Props) {
   useEffect(() => {
     const initData = (window as any).Telegram?.WebApp?.initData;
     if (initData) {
+      console.log('Found Telegram initData, attempting login...');
       login(initData).catch(console.error);
+    } else {
+      console.log('No Telegram initData found. Login request skipped. (Are you opening this outside of Telegram?)');
     }
   }, [login]);
 
