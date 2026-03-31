@@ -206,9 +206,9 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
           onNavigate('customer_orders');
         }
       }, 5000);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create order:', error);
-      alert('Ошибка при создании заказа. Пожалуйста, попробуйте еще раз.');
+      alert(`Ошибка при создании заказа: ${error.message || 'Пожалуйста, попробуйте еще раз.'}`);
     } finally {
       setIsLoading(false);
     }

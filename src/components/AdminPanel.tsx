@@ -1227,9 +1227,9 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
       }
       setModeration(moderation.map((m: any) => m.id === id ? { ...m, status: action === 'approve' ? 'approved' : 'rejected' } : m));
       setSelectedRequest(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to moderate executor:', error);
-      alert('Ошибка при модерации');
+      alert(`Ошибка при модерации: ${error.message || 'Пожалуйста, попробуйте еще раз.'}`);
     }
   };
 
