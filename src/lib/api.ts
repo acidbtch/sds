@@ -1,4 +1,5 @@
-export const API_URL = (import.meta as any).env.VITE_API_URL || 'https://api.example.com/api/v1'; // Замените на реальный URL
+// @ts-ignore
+export const API_URL = import.meta.env.VITE_API_URL || 'https://api.example.com/api/v1'; // Замените на реальный URL
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -40,19 +41,13 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     const text = await response.text();
     return text ? JSON.parse(text) : null;
   } catch (error) {
-    console.warn(`[API Mock] Network error or API unavailable for ${endpoint}. Returning mock success for prototype.`);
-    
-    // Smart mock for prototype
-    if (options.method === 'POST' && options.body) {
-      try {
-        const bodyObj = JSON.parse(options.body as string);
-        return { id: Date.now(), ...bodyObj } as T;
-      } catch (e) {
-        return { id: Date.now() } as T;
-      }
+    // If it's already an ApiError, rethrow it so the caller can handle it
+    if (error instanceof ApiError) {
+      throw error;
     }
-    
-    return {} as T;
+    // Otherwise, it's a network error (e.g., CORS, backend down)
+    console.error(`[API Error] Network error or API unavailable for ${endpoint}:`, error);
+    throw error;
   }
 }
 
