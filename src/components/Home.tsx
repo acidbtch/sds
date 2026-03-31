@@ -18,19 +18,24 @@ export default function Home({ onNavigate }: Props) {
 
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
+    const loc = window.location.href;
+    
     if (!tg) {
-      setDebugInfo('Telegram WebApp script not loaded or not available.');
+      setDebugInfo(`No TG WebApp. URL: ${loc}`);
       return;
     }
     
+    tg.ready();
     const initData = tg.initData;
+    const initDataUnsafe = tg.initDataUnsafe;
+    
     if (initData) {
-      setDebugInfo('initData found. Attempting login...');
+      setDebugInfo(`initData found. Attempting login...`);
       login(initData)
         .then(() => setDebugInfo('Login successful!'))
         .catch(err => setDebugInfo(`Login failed: ${err.message}`));
     } else {
-      setDebugInfo('Telegram WebApp is available, but initData is empty. Are you opening this via an inline URL button instead of a Web App button?');
+      setDebugInfo(`TG WebApp available, but initData is empty. URL: ${loc} | Unsafe: ${JSON.stringify(initDataUnsafe || {})}`);
     }
   }, [login]);
 
