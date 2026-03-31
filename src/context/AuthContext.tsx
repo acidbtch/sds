@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { authApi } from '../lib/api';
 
 interface UserProfile {
@@ -31,7 +31,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     try {
       const userData = await authApi.getMe();
       setUser(userData);
@@ -39,9 +39,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error('Failed to fetch user profile:', error);
       setUser(null);
     }
-  };
+  }, []);
 
-  const login = async (initData: string) => {
+  const login = useCallback(async (initData: string) => {
     setIsLoading(true);
     try {
       const { access_token } = await authApi.telegramLogin(initData);
@@ -53,12 +53,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [refreshUser]);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('access_token');
     setUser(null);
-  };
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');

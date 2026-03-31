@@ -14,13 +14,23 @@ export default function Home({ onNavigate }: Props) {
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [legalModal, setLegalModal] = useState<'rules' | 'privacy' | null>(null);
 
+  const [debugInfo, setDebugInfo] = useState<string>('Initializing...');
+
   useEffect(() => {
-    const initData = (window as any).Telegram?.WebApp?.initData;
+    const tg = (window as any).Telegram?.WebApp;
+    if (!tg) {
+      setDebugInfo('Telegram WebApp script not loaded or not available.');
+      return;
+    }
+    
+    const initData = tg.initData;
     if (initData) {
-      console.log('Found Telegram initData, attempting login...');
-      login(initData).catch(console.error);
+      setDebugInfo('initData found. Attempting login...');
+      login(initData)
+        .then(() => setDebugInfo('Login successful!'))
+        .catch(err => setDebugInfo(`Login failed: ${err.message}`));
     } else {
-      console.log('No Telegram initData found. Login request skipped. (Are you opening this outside of Telegram?)');
+      setDebugInfo('Telegram WebApp is available, but initData is empty. Are you opening this via an inline URL button instead of a Web App button?');
     }
   }, [login]);
 
@@ -40,6 +50,11 @@ export default function Home({ onNavigate }: Props) {
 
   return (
     <div className="flex flex-col min-h-screen bg-white pb-10">
+      {/* Debug Banner - Remove in production */}
+      <div className="bg-yellow-100 border-b border-yellow-200 p-2 text-xs text-yellow-800 break-words">
+        Debug: {debugInfo}
+      </div>
+
       {/* Header Banner */}
       <div className="bg-orange-500 text-white p-6 rounded-b-3xl shadow-lg w-full">
         <h1 className="text-2xl font-bold mb-2">SDS | Simple Drive Solution</h1>
