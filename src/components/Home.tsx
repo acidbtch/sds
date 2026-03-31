@@ -27,15 +27,14 @@ export default function Home({ onNavigate }: Props) {
     
     tg.ready();
     const initData = tg.initData;
-    const initDataUnsafe = tg.initDataUnsafe;
     
     if (initData) {
       setDebugInfo(`initData found. Attempting login...`);
       login(initData)
-        .then(() => setDebugInfo('Login successful!'))
-        .catch(err => setDebugInfo(`Login failed: ${err.message}`));
+        .then(() => setDebugInfo(prev => `${prev} -> Login successful!`))
+        .catch(err => setDebugInfo(prev => `${prev} -> Login failed: ${err.message}`));
     } else {
-      setDebugInfo(`TG WebApp available, but initData is empty. URL: ${loc} | Unsafe: ${JSON.stringify(initDataUnsafe || {})}`);
+      setDebugInfo(`TG WebApp available, but initData is empty. URL: ${loc}`);
     }
   }, [login]);
 
