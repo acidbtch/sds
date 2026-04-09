@@ -111,15 +111,30 @@ export const customerApi = {
 // --- Executor ---
 export const executorApi = {
   createProfile: (data: any) => fetchApi<any>('/executor/profile', { method: 'POST', body: JSON.stringify(data) }),
+  getProfile: () => fetchApi<any>('/executor/profile'),
+  updateProfile: (data: any) => fetchApi<any>('/executor/profile', { method: 'PUT', body: JSON.stringify(data) }),
   getFeed: () => fetchApi<any[]>('/executor/feed'),
-  respondToOrder: (orderId: string, data: { price_estimate?: string; comment?: string }) =>
+  getActiveOrders: () => fetchApi<any[]>('/executor/orders/active'),
+  respondToOrder: (orderId: string, data: { price?: number; comment?: string; estimated_duration?: string }) =>
     fetchApi<any>(`/executor/orders/${orderId}/respond`, { method: 'POST', body: JSON.stringify(data) }),
+  rejectOrder: (orderId: string) => fetchApi<any>(`/executor/orders/${orderId}/reject`, { method: 'POST' }),
   completeOrder: (orderId: string) => fetchApi<any>(`/executor/orders/${orderId}/complete`, { method: 'POST' }),
 };
 
 // --- Admin ---
 export const adminApi = {
   getDashboard: () => fetchApi<any>('/admin/dashboard'),
+  getUsers: () => fetchApi<any[]>('/admin/users'),
+  getExecutors: () => fetchApi<any[]>('/admin/executors'),
+  getOrders: () => fetchApi<any[]>('/admin/orders'),
+  getPayments: () => fetchApi<any[]>('/admin/payments'),
+  getBanners: () => fetchApi<any[]>('/admin/banners'),
+  getFaq: () => fetchApi<any[]>('/admin/faq'),
+  getContent: () => fetchApi<any[]>('/admin/content'),
+  getCarBrands: () => fetchApi<any[]>('/admin/cars/brands'),
+  getCarModels: (brandId: string) => fetchApi<any[]>(`/admin/cars/brands/${brandId}/models`),
+  getServiceCategories: () => fetchApi<any[]>('/admin/services/categories'),
+  getSupportTickets: () => fetchApi<any[]>('/support/admin/tickets'),
   moderateExecutor: (profileId: string, status: 'APPROVED' | 'REJECTED', comment?: string) =>
     fetchApi<any>(`/admin/executors/moderation/${profileId}`, {
       method: 'POST',
@@ -140,8 +155,8 @@ export const adminApi = {
   deleteCarModel: (brandId: string, id: string) => fetchApi<any>(`/admin/cars/brands/${brandId}/models/${id}`, { method: 'DELETE' }),
   updateContractor: (id: string, data: any) => fetchApi<any>(`/admin/executors/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   updateServiceCategories: (categories: any[]) => fetchApi<any>('/admin/services/categories', { method: 'PUT', body: JSON.stringify(categories) }),
-  resolveSupportTicket: (id: number) => fetchApi<any>(`/admin/support/${id}/resolve`, { method: 'POST' }),
-  replySupportTicket: (id: number, text: string) => fetchApi<any>(`/admin/support/${id}/reply`, { method: 'POST', body: JSON.stringify({ text }) }),
+  resolveSupportTicket: (id: string | number) => fetchApi<any>(`/support/admin/tickets/${id}/close`, { method: 'POST' }),
+  replySupportTicket: (id: string | number, text: string) => fetchApi<any>(`/support/admin/tickets/${id}/messages`, { method: 'POST', body: JSON.stringify({ content: text }) }),
 };
 
 // --- Payments ---
@@ -158,4 +173,20 @@ export const miscApi = {
   getFaq: () => fetchApi<any[]>('/faq'),
   getSupport: () => fetchApi<any>('/support'),
   getBanners: (position?: string) => fetchApi<any[]>(`/banners${position ? `?position=${position}` : ''}`),
+  getContent: (key: 'rules' | 'privacy' | 'templates') => fetchApi<{ key: string; value: string }>(`/content/${key}`),
+};
+
+// --- Support ---
+export const supportApi = {
+  createTicket: (data: { subject: string; message: string; attachments?: string[] }) =>
+    fetchApi<any>('/support/tickets', { method: 'POST', body: JSON.stringify(data) }),
+  getTickets: (page: number = 1, perPage: number = 20) =>
+    fetchApi<any>(`/support/tickets?page=${page}&per_page=${perPage}`),
+  getTicket: (ticketId: string) => fetchApi<any>(`/support/tickets/${ticketId}`),
+  sendMessage: (ticketId: string, content: string, attachments?: string[]) =>
+    fetchApi<any>(`/support/tickets/${ticketId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content, attachments }),
+    }),
+  closeTicket: (ticketId: string) => fetchApi<any>(`/support/tickets/${ticketId}/close`, { method: 'POST' }),
 };

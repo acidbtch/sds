@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { ViewState } from '../types';
-import { ChevronLeft, CheckCircle, Upload, Info, X, ChevronDown } from 'lucide-react';
+import { ChevronLeft, CheckCircle, Upload, Info, X, ChevronDown, Loader2 } from 'lucide-react';
 import RegionSelector from './RegionSelector';
 import { CustomSelect } from './CustomSelect';
 import { ScheduleSelector, defaultSchedule, WeeklySchedule } from './ScheduleSelector';
 import { useData } from '../context/DataContext';
+import { executorApi, dictsApi } from '../lib/api';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -14,9 +15,11 @@ interface Props {
 type ProfileType = 'leader' | 'pro' | 'partner' | null;
 
 export default function ContractorRegister({ onNavigate, previousView }: Props) {
-  const { serviceCategories, setModeration } = useData();
+  const { serviceCategories } = useData();
   const [selectedProfile, setSelectedProfile] = useState<ProfileType>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Form state
   const [phone, setPhone] = useState('+375 ');
@@ -99,37 +102,53 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError(null);
     
-    const newModerationItem = {
-      id: Date.now(),
-      type: 'new' as const,
-      name: legalName || shortName,
-      profile: selectedProfile || 'partner',
-      date: new Date().toLocaleDateString('ru-RU'),
-      status: 'new' as const,
-      data: {
-        legalStatus,
-        name: legalName,
-        unp,
-        shortName,
-        description,
-        bannerText,
-        services: selectedServices,
-        regions: selectedRegions,
-        phone,
-        address,
-        instagram,
-        tiktok,
-        website,
-        schedule,
-        logo
-      }
-    };
-    
-    setModeration(prev => [newModerationItem, ...prev]);
-    setSubmitted(true);
+    try {
+      const [allServices, allRegions] = await Promise.all([
+        dictsApi.getServices(),
+        dictsApi.getRegions()
+      ]);
+      
+      const serviceIds = allServices
+        .filter((s: any) => selectedServices.includes(s.name))
+        .map((s: any) => s.id);
+      
+      const regionIds = allRegions
+        .filter((r: any) => selectedRegions.includes(r.name))
+        .map((r: any) => r.id);
+      
+      const tierMap: Record<string, string> = {
+        'partner': 'PARTNER',
+        'pro': 'PROFI',
+        'leader': 'LEADER'
+      };
+      
+      const profileData = {
+        tier: tierMap[selectedProfile || 'partner'],
+        legal_status: legalStatus,
+        legal_name: legalName,
+        unp: unp,
+        short_name: shortName,
+        description: description,
+        service_ids: serviceIds,
+        region_ids: regionIds,
+        phone: phone.replace(/\s/g, ''),
+        instagram_url: instagram || null,
+        website_url: website || null,
+      };
+      
+      await executorApi.createProfile(profileData);
+      setSubmitted(true);
+    } catch (err: any) {
+      console.error('Failed to register:', err);
+      setError(err.message || 'Произошла ошибка при регистрации. Попробуйте позже.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (submitted) {

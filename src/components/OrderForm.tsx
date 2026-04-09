@@ -174,11 +174,9 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
     
     try {
       // Create new order via API
-      // Note: We need to pass the first selected service ID for now, 
-      // or adjust the API to accept multiple services if needed.
-      // The API spec says `service_id` (string). We'll use the first one.
       const orderData = {
-        service_id: selectedServices[0], // Assuming selectedServices contains IDs
+        service_id: selectedServices[0],
+        service_ids: selectedServices,
         region_id: selectedRegions[0],   // Assuming selectedRegions contains IDs
         car_brand_id: selectedMake,
         car_model_id: selectedModel,

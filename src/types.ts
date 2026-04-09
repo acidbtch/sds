@@ -73,6 +73,7 @@ export interface ContractorResponse {
   profileType: 'partner' | 'pro' | 'leader' | 'Партнёр' | 'Профи' | 'Лидер';
   message?: string;
   workingHours?: string;
+  price?: string;
 }
 
 export interface SupportMessage {

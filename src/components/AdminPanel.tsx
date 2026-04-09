@@ -125,6 +125,20 @@ export default function AdminPanel({ onNavigate, carModels, setCarModels }: Prop
 
 function DashboardView({ onNavigateTab, onNavigate }: { onNavigateTab: (tab: AdminTab) => void, onNavigate: (view: ViewState) => void }) {
   const { customers, orders, payments, contractors, moderation, support } = useData();
+  const [dashboard, setDashboard] = useState<any | null>(null);
+
+  useEffect(() => {
+    const loadDashboard = async () => {
+      try {
+        const data = await adminApi.getDashboard();
+        setDashboard(data);
+      } catch (error) {
+        console.error('Failed to load dashboard stats:', error);
+      }
+    };
+
+    loadDashboard();
+  }, []);
 
   const parseDate = (dateStr: string) => {
     if (!dateStr) return new Date(0);
@@ -143,24 +157,24 @@ function DashboardView({ onNavigateTab, onNavigate }: { onNavigateTab: (tab: Adm
   
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-  const ordersToday = orders.filter(o => parseDate(o.date) >= today).length;
-  const ordersWeek = orders.filter(o => parseDate(o.date) >= startOfWeek).length;
-  const ordersMonth = orders.filter(o => parseDate(o.date) >= startOfMonth).length;
+  const ordersToday = dashboard?.orders_today ?? orders.filter(o => parseDate(o.date) >= today).length;
+  const ordersWeek = dashboard?.orders_week ?? orders.filter(o => parseDate(o.date) >= startOfWeek).length;
+  const ordersMonth = dashboard?.orders_month ?? orders.filter(o => parseDate(o.date) >= startOfMonth).length;
 
   const completedOrders = orders.filter(o => o.status === 'completed').length;
-  const successfulPayments = payments.filter(p => p.status === 'Успешно').length;
+  const successfulPayments = dashboard?.successful_transactions ?? payments.filter(p => p.status === 'Успешно').length;
   
   const newModeration = moderation.filter(m => m.status === 'new').length;
   const newSupport = support.filter(s => s.status === 'in_progress').length;
 
-  const partnerCount = contractors.filter(c => c.profileType === 'partner' || c.profileType === 'Партнёр').length;
-  const proCount = contractors.filter(c => c.profileType === 'pro' || c.profileType === 'Профи').length;
-  const leaderCount = contractors.filter(c => c.profileType === 'leader' || c.profileType === 'Лидер').length;
+  const partnerCount = dashboard?.executors_by_tier?.PARTNER ?? contractors.filter(c => c.profileType === 'partner' || c.profileType === 'Партнёр').length;
+  const proCount = dashboard?.executors_by_tier?.PROFI ?? contractors.filter(c => c.profileType === 'pro' || c.profileType === 'Профи').length;
+  const leaderCount = dashboard?.executors_by_tier?.LEADER ?? contractors.filter(c => c.profileType === 'leader' || c.profileType === 'Лидер').length;
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4">
-        <StatCard title="Гости" value={customers.length.toString()} subtitle="открыли приложение" color="bg-blue-50 text-blue-600" />
+        <StatCard title="Гости" value={(dashboard?.users_count ?? customers.length).toString()} subtitle="открыли приложение" color="bg-blue-50 text-blue-600" />
         <StatCard title="Выполнено" value={completedOrders.toString()} subtitle="заказов всего" color="bg-green-50 text-green-600" />
         <StatCard title="Успешных оплат" value={successfulPayments.toString()} subtitle="всего транзакций" color="bg-purple-50 text-purple-600" />
         <StatCard title="Исполнителей" value={contractors.length.toString()} subtitle="всего в базе" color="bg-orange-50 text-orange-600" />
@@ -221,6 +235,7 @@ function StatCard({ title, value, subtitle, color, onClick }: { title: string, v
 }
 
 function CustomersView({ customers, setCustomers, orders }: { customers: any[], setCustomers: any, orders: any[] }) {
+  const { refreshAdminData } = useData();
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [search, setSearch] = useState('');
 
@@ -236,6 +251,7 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
           : c
       ));
       setSelectedCustomer({ ...selectedCustomer, status: selectedCustomer.status === 'active' ? 'blocked' : 'active' });
+      await refreshAdminData();
     } catch (error) {
       console.error('Failed to toggle user status:', error);
       alert('Ошибка при изменении статуса пользователя');
@@ -952,6 +968,7 @@ function PaymentsView({ payments }: { payments: any[] }) {
 }
 
 function BannersView({ banners, setBanners, contractors, setContractors }: { banners: any[], setBanners: any, contractors: any[], setContractors: any }) {
+  const { refreshAdminData } = useData();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<any>(null);
 
@@ -962,6 +979,7 @@ function BannersView({ banners, setBanners, contractors, setContractors }: { ban
       const newStatus = banner.status === 'active' ? 'inactive' : 'active';
       await adminApi.updateBanner(id, { ...banner, status: newStatus });
       setBanners(banners.map((b: any) => b.id === id ? { ...b, status: newStatus } : b));
+      await refreshAdminData();
     } catch (error) {
       console.error('Failed to toggle banner:', error);
       alert('Ошибка при изменении статуса баннера');
@@ -1004,6 +1022,7 @@ function BannersView({ banners, setBanners, contractors, setContractors }: { ban
       }
       
       setEditingId(null);
+      await refreshAdminData();
     } catch (error) {
       console.error('Failed to save banner:', error);
       alert('Ошибка при сохранении баннера');
@@ -1014,6 +1033,7 @@ function BannersView({ banners, setBanners, contractors, setContractors }: { ban
     try {
       await adminApi.deleteBanner(id);
       setBanners(banners.filter((b: any) => b.id !== id));
+      await refreshAdminData();
     } catch (error) {
       console.error('Failed to delete banner:', error);
       alert('Ошибка при удалении баннера');
@@ -1160,6 +1180,7 @@ function BannersView({ banners, setBanners, contractors, setContractors }: { ban
 }
 
 function ModerationView({ moderation, setModeration, contractors, setContractors, banners, setBanners }: { moderation: any[], setModeration: any, contractors: any[], setContractors: any, banners: any[], setBanners: any }) {
+  const { refreshAdminData } = useData();
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
 
   const handleAction = async (id: number, action: 'approve' | 'reject') => {
@@ -1227,6 +1248,7 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
       }
       setModeration(moderation.map((m: any) => m.id === id ? { ...m, status: action === 'approve' ? 'approved' : 'rejected' } : m));
       setSelectedRequest(null);
+      await refreshAdminData();
     } catch (error: any) {
       console.error('Failed to moderate executor:', error);
       alert(`Ошибка при модерации: ${error.message || 'Пожалуйста, попробуйте еще раз.'}`);
@@ -1382,11 +1404,12 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
 }
 
 function SupportView({ support, setSupport }: { support: any[], setSupport: any }) {
-  const [activeChatId, setActiveChatId] = useState<number | null>(null);
+  const { refreshAdminData } = useData();
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const handleResolve = async (id: number) => {
+  const handleResolve = async (id: string) => {
     try {
       await adminApi.resolveSupportTicket(id);
     } catch (error) {
@@ -1394,10 +1417,11 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
     } finally {
       setSupport(support.map(s => s.id === id ? { ...s, status: 'resolved', updatedAt: Date.now() } : s));
       setActiveChatId(null);
+      await refreshAdminData();
     }
   };
 
-  const handleReply = async (id: number) => {
+  const handleReply = async (id: string) => {
     if (!replyText.trim()) return;
     try {
       await adminApi.replySupportTicket(id, replyText);
@@ -1415,6 +1439,7 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
         return s;
       }));
       setReplyText('');
+      await refreshAdminData();
     }
   };
 
@@ -1541,6 +1566,7 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
 }
 
 function CarsView({ carModels, setCarModels }: { carModels: Record<string, string[]>, setCarModels: React.Dispatch<React.SetStateAction<Record<string, string[]>>> }) {
+  const { refreshAdminData } = useData();
   const [localCarModels, setLocalCarModels] = useState<Record<string, string[]>>(carModels);
   const [newMake, setNewMake] = useState('');
   const [selectedMake, setSelectedMake] = useState<string | null>(null);
@@ -1549,12 +1575,17 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
   const [editingMake, setEditingMake] = useState<{old: string, new: string} | null>(null);
   const [editingModel, setEditingModel] = useState<{old: string, new: string} | null>(null);
 
+  useEffect(() => {
+    setLocalCarModels(carModels);
+  }, [carModels]);
+
   const handleAddMake = async () => {
     if (newMake.trim() && !localCarModels[newMake.trim()]) {
       try {
         await adminApi.createCarMake(newMake.trim());
         setLocalCarModels({ ...localCarModels, [newMake.trim()]: [] });
         setNewMake('');
+        await refreshAdminData();
       } catch (error) {
         console.error('Failed to add car make:', error);
         alert('Ошибка при добавлении марки');
@@ -1569,6 +1600,7 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
       delete newModels[make];
       setLocalCarModels(newModels);
       if (selectedMake === make) setSelectedMake(null);
+      await refreshAdminData();
     } catch (error) {
       console.error('Failed to delete car make:', error);
       alert('Ошибка при удалении марки');
@@ -1585,6 +1617,7 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
         delete newModels[editingMake.old];
         setLocalCarModels(newModels);
         if (selectedMake === editingMake.old) setSelectedMake(newMakeName);
+        await refreshAdminData();
       } catch (error) {
         console.error('Failed to update car make:', error);
         alert('Ошибка при обновлении марки');
@@ -1602,6 +1635,7 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
           [selectedMake]: [...localCarModels[selectedMake], newModel.trim()]
         });
         setNewModel('');
+        await refreshAdminData();
       } catch (error) {
         console.error('Failed to add car model:', error);
         alert('Ошибка при добавлении модели');
@@ -1616,6 +1650,7 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
         ...localCarModels,
         [make]: localCarModels[make].filter(m => m !== model)
       });
+      await refreshAdminData();
     } catch (error) {
       console.error('Failed to delete car model:', error);
       alert('Ошибка при удалении модели');
@@ -1631,6 +1666,7 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
           ...localCarModels,
           [selectedMake]: localCarModels[selectedMake].map(m => m === editingModel.old ? newModelName : m)
         });
+        await refreshAdminData();
       } catch (error) {
         console.error('Failed to update car model:', error);
         alert('Ошибка при обновлении модели');
@@ -1763,6 +1799,7 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
   );
 }
 function ContentView({ content, setContent }: { content: any, setContent: any }) {
+  const { refreshAdminData } = useData();
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   
@@ -1791,6 +1828,7 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
         await adminApi.updateContent(editingSection as 'rules' | 'privacy' | 'templates', editText);
         setContent({ ...content, [editingSection]: editText });
         setEditingSection(null);
+        await refreshAdminData();
       } catch (error) {
         console.error('Failed to update content:', error);
         alert('Ошибка при сохранении контента');
@@ -1806,6 +1844,7 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
       faq: newFaq
     });
     startEditFaq(newId, 'Новый вопрос', 'Ответ на вопрос');
+    refreshAdminData();
   };
 
   const startEditFaq = (id: string, question: string, answer: string) => {
@@ -1826,6 +1865,7 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
           faq: newFaq
         });
         setEditingFaqId(null);
+        await refreshAdminData();
       } catch (error) {
         console.error('Failed to update FAQ:', error);
         alert('Ошибка при сохранении FAQ');
@@ -1841,6 +1881,7 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
         ...content,
         faq: newFaq
       });
+      await refreshAdminData();
     } catch (error) {
       console.error('Failed to delete FAQ:', error);
       alert('Ошибка при удалении FAQ');
@@ -1856,6 +1897,7 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
     try {
       await adminApi.updateFaq(newFaq);
       setContent({ ...content, faq: newFaq });
+      await refreshAdminData();
     } catch (error) {
       console.error('Failed to move FAQ:', error);
       alert('Ошибка при перемещении FAQ');
@@ -1871,6 +1913,7 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
     try {
       await adminApi.updateFaq(newFaq);
       setContent({ ...content, faq: newFaq });
+      await refreshAdminData();
     } catch (error) {
       console.error('Failed to move FAQ:', error);
       alert('Ошибка при перемещении FAQ');
@@ -2009,6 +2052,7 @@ function ServicesView({
   contractors: any[], setContractors: any,
   orders: any[], setOrders: any
 }) {
+  const { refreshAdminData } = useData();
   const [localCategories, setLocalCategories] = useState(serviceCategories);
   const [localContractors, setLocalContractors] = useState(contractors);
   const [localOrders, setLocalOrders] = useState(orders);
@@ -2018,6 +2062,12 @@ function ServicesView({
   const [newService, setNewService] = useState('');
   const [editingCategory, setEditingCategory] = useState<{id: string, name: string} | null>(null);
   const [editingService, setEditingService] = useState<{old: string, new: string} | null>(null);
+
+  useEffect(() => {
+    setLocalCategories(serviceCategories);
+    setLocalContractors(contractors);
+    setLocalOrders(orders);
+  }, [serviceCategories, contractors, orders]);
 
   const handleAddCategory = () => {
     if (newCategory.trim() && !localCategories.find((c: any) => c.name === newCategory.trim())) {
@@ -2126,6 +2176,7 @@ function ServicesView({
       setContractors(localContractors);
       setOrders(localOrders);
       alert('Изменения сохранены');
+      await refreshAdminData();
     } catch (error) {
       console.error('Failed to save categories:', error);
       alert('Ошибка при сохранении');

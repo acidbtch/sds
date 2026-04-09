@@ -1,8 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Contractor, Order, ViewState } from '../types';
-import { mockContractors } from '../data/mockContractors';
-import { ServiceCategory, initialServiceCategories } from '../data/services';
-import { dictsApi, miscApi } from '../lib/api';
+import { dictsApi, miscApi, adminApi } from '../lib/api';
+import { useAuth } from './AuthContext';
 
 // Define the types for our context state
 interface Customer {
@@ -54,7 +53,7 @@ export interface SupportReply {
 }
 
 export interface SupportTicket {
-  id: number;
+  id: string;
   user: string;
   text: string;
   status: 'in_progress' | 'resolved';
@@ -67,6 +66,12 @@ export interface FAQItem {
   id: string;
   question: string;
   answer: string;
+}
+
+export interface ServiceCategory {
+  id: string;
+  name: string;
+  services: string[];
 }
 
 interface ContentState {
@@ -96,6 +101,12 @@ interface DataContextType {
   serviceCategories: ServiceCategory[];
   setServiceCategories: React.Dispatch<React.SetStateAction<ServiceCategory[]>>;
   regionsData: Record<string, string[]>;
+  carBrands: any[];
+  setCarBrands: React.Dispatch<React.SetStateAction<any[]>>;
+  carModels: Record<string, any[]>;
+  setCarModels: React.Dispatch<React.SetStateAction<Record<string, any[]>>>;
+  isLoading: boolean;
+  refreshAdminData: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -109,82 +120,15 @@ export const useData = () => {
 };
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [contractors, setContractors] = useState<Contractor[]>(mockContractors);
-  const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>(initialServiceCategories);
-  
-    const [orders, setOrders] = useState<Order[]>([
-      {
-        id: '101',
-        serviceType: 'Ремонт двигателя',
-        carMake: 'BMW',
-        carModel: 'X5',
-        year: '2018',
-        region: 'Минск',
-        customerName: 'Иван Иванов',
-        date: '15.05.2026',
-        deadline: '20.05.2026',
-        status: 'active',
-        description: 'Троит двигатель, горит чек',
-        responses: []
-      },
-      {
-        id: '102',
-        serviceType: 'Шиномонтаж',
-        carMake: 'Audi',
-        carModel: 'A6',
-        year: '2020',
-        region: 'Брест',
-        customerName: 'Петр Петров',
-        date: '16.05.2026',
-        deadline: '17.05.2026',
-        status: 'pending',
-        description: 'Переобуть на лето',
-        responses: []
-      }
-    ]);
-
-  const [customers, setCustomers] = useState<Customer[]>([
-    { id: '1', name: 'Иван Иванов', phone: '+375291112233', tgId: '@ivan_iv', regDate: '10.05.2026', orders: 5, status: 'active' },
-    { id: '2', name: 'Петр Петров', phone: '+375294445566', tgId: '@petr_p', regDate: '12.05.2026', orders: 2, status: 'blocked' },
-  ]);
-
-  const [payments, setPayments] = useState<Payment[]>([
-    { id: 'TX-9921', user: 'СТО "Лидер-Авто"', purpose: 'Подписка Лидер', amount: '50.00 BYN', status: 'Успешно', date: '15.05.2026 14:30' },
-    { id: 'TX-9922', user: 'Иван Иванов', purpose: 'Доступ к каталогу', amount: '5.00 BYN', status: 'Успешно', date: '16.05.2026 09:15' },
-    { id: 'TX-9923', user: 'СТО "АвтоМир"', purpose: 'Подписка Профи', amount: '30.00 BYN', status: 'Ошибка', date: '16.05.2026 11:20', error: 'Недостаточно средств' },
-  ]);
-
-  const [banners, setBanners] = useState<Banner[]>([
-    { id: 1, contractorId: '1', contractor: 'СТО "Лидер-Авто"', description: 'Лучшее СТО в городе!', status: 'active', views: 1250, clicks: 45 }
-  ]);
-
-  const [moderation, setModeration] = useState<ModerationItem[]>([
-    { 
-      id: 1, 
-      type: 'new',
-      name: 'ИП Сидоров В.А.', 
-      profile: 'pro', 
-      date: '16.05.2026', 
-      status: 'new',
-      data: {
-        legalStatus: 'ИП',
-        name: 'ИП Сидоров В.А.',
-        unp: '123456789',
-        shortName: 'Автомастер Сидоров',
-        description: 'Качественный ремонт автомобилей всех марок. Опыт работы более 10 лет.',
-        services: ['Диагностика двигателя', 'Ремонт двигателя', 'Замена моторного масла и масляного фильтра'],
-        regions: ['Минск', 'Минская область'],
-        phone: '+375 (29) 111-22-33',
-        instagram: 'https://instagram.com/auto_sidorov',
-        website: 'https://autosidorov.by'
-      }
-    }
-  ]);
-
-  const [support, setSupport] = useState<SupportTicket[]>([
-    { id: 1, user: 'Иван Иванов (Заказчик)', text: 'Здравствуйте, я случайно отменил заказ, как его восстановить?', status: 'in_progress', time: '10 мин назад', replies: [] }
-  ]);
-
+  const { user } = useAuth();
+  const [contractors, setContractors] = useState<Contractor[]>([]);
+  const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [banners, setBanners] = useState<Banner[]>([]);
+  const [moderation, setModeration] = useState<ModerationItem[]>([]);
+  const [support, setSupport] = useState<SupportTicket[]>([]);
   const [content, setContent] = useState<ContentState>({
     faq: [],
     rules: '',
@@ -192,14 +136,165 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     templates: ''
   });
   const [regionsData, setRegionsData] = useState<Record<string, string[]>>({});
+  const [carBrands, setCarBrands] = useState<any[]>([]);
+  const [carModels, setCarModels] = useState<Record<string, any[]>>({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  const refreshAdminData = useCallback(async () => {
+    if (user?.role !== 'ADMIN') return;
+
+    try {
+      const [usersData, executorsData, ordersData, paymentsData, bannersData, faqData, contentData, brandsData, categoriesData, supportData] = await Promise.all([
+        adminApi.getUsers().catch(() => []),
+        adminApi.getExecutors().catch(() => []),
+        adminApi.getOrders().catch(() => []),
+        adminApi.getPayments().catch(() => []),
+        adminApi.getBanners().catch(() => []),
+        adminApi.getFaq().catch(() => []),
+        adminApi.getContent().catch(() => []),
+        adminApi.getCarBrands().catch(() => []),
+        adminApi.getServiceCategories().catch(() => []),
+        adminApi.getSupportTickets().catch(() => []),
+      ]);
+
+      setCustomers((usersData || [])
+        .filter((u: any) => u.role === 'CUSTOMER')
+        .map((u: any) => ({
+          id: u.id,
+          name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username,
+          phone: u.profile?.phone || '',
+          tgId: u.username,
+          regDate: u.created_at ? new Date(u.created_at).toLocaleDateString('ru-RU') : '',
+          orders: 0,
+          status: u.is_blocked ? 'blocked' : 'active',
+        })));
+
+      setContractors((executorsData || []).map((c: any) => ({
+        id: c.id,
+        name: c.legal_name || c.short_name || '',
+        shortName: c.short_name || '',
+        profileType: c.tier === 'LEADER' ? 'leader' : c.tier === 'PROFI' ? 'pro' : 'partner',
+        rating: c.rating || 5,
+        reviewsCount: c.reviews_count || 0,
+        completedOrders: c.completed_orders_count || 0,
+        registrationDate: c.created_at ? new Date(c.created_at).toLocaleDateString('ru-RU') : '',
+        description: c.description || '',
+        services: (c.services || []).map((s: any) => s.name),
+        regions: (c.regions || []).map((r: any) => r.name),
+        address: c.address || '',
+        workingHours: c.working_hours || '',
+        phone: c.phone || '',
+        instagram: c.instagram_url || '',
+        website: c.website_url || '',
+        avatar: c.logo_url || '',
+        photos: c.portfolio_photos || [],
+        video: '',
+        unp: c.unp || '',
+        legalStatus: c.legal_status || '',
+      })));
+
+      setOrders((ordersData || []).map((o: any) => ({
+        id: o.id,
+        serviceType: o.service_name || o.service_id || '',
+        carMake: o.car_brand_name || o.car_brand_id || '',
+        carModel: o.car_model_name || o.car_model_id || '',
+        year: o.year?.toString() || '',
+        region: o.region_name || o.region_id || '',
+        customerName: o.owner_name || '',
+        date: o.created_at ? new Date(o.created_at).toLocaleDateString('ru-RU') : '',
+        deadline: o.deadline ? new Date(o.deadline).toLocaleDateString('ru-RU') : '',
+        status: o.status === 'SEARCHING' ? 'pending' : o.status === 'MATCHED' ? 'active' : o.status === 'COMPLETED' ? 'completed' : 'cancelled',
+        description: o.description || '',
+        responses: [],
+        engine: o.engine_type,
+        gearbox: o.gearbox_type,
+        drive: o.drive_type,
+        body: o.body_type,
+        phone: o.owner_phone,
+        media: o.photos || [],
+      })));
+
+      setPayments((paymentsData || []).map((p: any) => ({
+        id: p.id,
+        user: p.user_name || p.user_id || '',
+        purpose: p.purpose || '',
+        amount: `${p.amount || 0} BYN`,
+        status: p.status === 'SUCCESS' ? 'Успешно' : 'Ошибка',
+        date: p.created_at ? new Date(p.created_at).toLocaleString('ru-RU') : '',
+        error: p.error || undefined,
+      })));
+
+      setBanners((bannersData || []).map((b: any) => ({
+        id: b.id,
+        contractorId: b.executor_id,
+        contractor: b.title || '',
+        description: b.description || '',
+        status: b.is_active ? 'active' : 'inactive',
+        views: b.views || 0,
+        clicks: b.clicks || 0,
+        logo: b.image_url || '',
+      })));
+
+      setContent({
+        faq: (faqData || []).map((f: any) => ({ id: f.id, question: f.question, answer: f.answer })),
+        rules: (contentData || []).find((c: any) => c.key === 'rules')?.value || '',
+        privacy: (contentData || []).find((c: any) => c.key === 'privacy')?.value || '',
+        templates: (contentData || []).find((c: any) => c.key === 'templates')?.value || '',
+      });
+
+      setModeration((executorsData || [])
+        .filter((c: any) => c.moderation_status === 'PENDING')
+        .map((c: any, index: number) => ({
+          id: index + 1,
+          type: 'new' as const,
+          name: c.short_name || c.legal_name || '',
+          profile: c.tier === 'LEADER' ? 'leader' : c.tier === 'PROFI' ? 'pro' : 'partner',
+          date: c.created_at ? new Date(c.created_at).toLocaleDateString('ru-RU') : '',
+          status: 'new' as const,
+          data: {
+            id: c.id,
+            legalStatus: c.legal_status,
+            name: c.legal_name,
+            unp: c.unp,
+            shortName: c.short_name,
+            description: c.description,
+            services: (c.services || []).map((s: any) => s.name),
+            regions: (c.regions || []).map((r: any) => r.name),
+            phone: c.phone,
+            instagram: c.instagram_url,
+            website: c.website_url,
+            logo: c.logo_url,
+          },
+          oldData: undefined,
+        })));
+
+      setSupport((supportData || []).map((t: any) => ({
+        id: String(t.id),
+        user: `Пользователь ${t.user_id}`,
+        text: t.last_message || '',
+        status: t.status === 'CLOSED' || t.status === 'RESOLVED' ? 'resolved' : 'in_progress',
+        time: t.created_at ? new Date(t.created_at).toLocaleString('ru-RU') : '',
+        replies: [],
+        updatedAt: t.last_message_at ? new Date(t.last_message_at).getTime() : Date.now(),
+      })));
+
+      setCarBrands(brandsData || []);
+      setServiceCategories((categoriesData || []).map((cat: any) => ({ id: cat.id, name: cat.name, services: [] })));
+    } catch (error) {
+      console.error('Failed to fetch admin data:', error);
+    }
+  }, [user?.role]);
 
   useEffect(() => {
     const fetchInitialData = async () => {
+      setIsLoading(true);
       try {
-        const [faqData, bannersData, regionsApiData] = await Promise.all([
+        const [faqData, bannersData, regionsApiData, categoriesData, brandsData] = await Promise.all([
           miscApi.getFaq().catch(() => []),
           miscApi.getBanners().catch(() => []),
-          dictsApi.getRegions().catch(() => [])
+          dictsApi.getRegions().catch(() => []),
+          dictsApi.getServiceCategories().catch(() => []),
+          dictsApi.getCarBrands().catch(() => []),
         ]);
 
         if (faqData && faqData.length > 0) {
@@ -207,7 +302,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
         
         if (bannersData && bannersData.length > 0) {
-          // Map API banners to our Banner interface
           const mappedBanners = bannersData.map((b: any) => ({
             id: b.id,
             contractor: b.title,
@@ -231,13 +325,37 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setRegionsData(newRegionsData);
         }
 
+        if (categoriesData && categoriesData.length > 0) {
+          const mappedCategories = await Promise.all(
+            categoriesData.map(async (cat: any) => {
+              const services = await dictsApi.getServices(cat.id).catch(() => []);
+              return {
+                id: cat.id,
+                name: cat.name,
+                services: services.map((s: any) => s.name)
+              };
+            })
+          );
+          setServiceCategories(mappedCategories);
+        }
+
+        if (brandsData && brandsData.length > 0) {
+          setCarBrands(brandsData);
+        }
+
       } catch (error) {
         console.error('Failed to fetch initial data:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchInitialData();
   }, []);
+
+  useEffect(() => {
+    refreshAdminData();
+  }, [refreshAdminData]);
 
   return (
     <DataContext.Provider value={{
@@ -250,7 +368,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       support, setSupport,
       content, setContent,
       serviceCategories, setServiceCategories,
-      regionsData // We need to add this to the context interface
+      regionsData,
+      carBrands, setCarBrands,
+      carModels, setCarModels,
+      isLoading,
+      refreshAdminData
     }}>
       {children}
     </DataContext.Provider>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ViewState, Order, Contractor } from '../types';
 import { ChevronLeft, ChevronRight, Star, AlertCircle, CheckCircle, XCircle, ChevronDown, X, Clock, MapPin, Award, Briefcase, Globe, Instagram, Video, CreditCard, Loader2 } from 'lucide-react';
 import { useData } from '../context/DataContext';
-import { customerApi } from '../lib/api';
+import { customerApi, paymentsApi } from '../lib/api';
 
 const REVIEW_CRITERIA = [
   'Быстрый отклик',
@@ -19,6 +19,14 @@ const REVIEW_CRITERIA = [
   'Полное оформление документов до/после оказания услуги',
   'Дают гарантию на выполненные работы'
 ];
+
+const normalizeTier = (tier: string | null | undefined): 'partner' | 'pro' | 'leader' => {
+  if (!tier) return 'partner';
+  const t = tier.toUpperCase();
+  if (t === 'LEADER') return 'leader';
+  if (t === 'PROFI' || t === 'PRO') return 'pro';
+  return 'partner';
+};
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -47,23 +55,23 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
           // Map API orders to our Order interface
           const mappedOrders = fetchedOrders.map((o: any) => ({
             id: o.id,
-            serviceType: o.service_id || 'Услуга', // Ideally we'd map ID to name
-            carMake: o.car_brand_id || '',
-            carModel: o.car_model_id || '',
+            serviceType: o.service_name || o.service_id || 'Услуга',
+            carMake: o.car_brand_name || o.car_brand_id || '',
+            carModel: o.car_model_name || o.car_model_id || '',
             year: o.year?.toString() || '',
-            region: o.region_id || '',
+            region: o.region_name || o.region_id || '',
             customerName: o.owner_name || '',
             date: new Date(o.created_at).toLocaleDateString('ru-RU'),
             deadline: o.deadline ? new Date(o.deadline).toLocaleDateString('ru-RU') : '',
-            status: (o.status === 'new' ? 'pending' : o.status === 'in_progress' ? 'active' : o.status === 'completed' ? 'completed' : 'cancelled') as 'pending' | 'active' | 'completed' | 'cancelled',
+            status: (o.status === 'SEARCHING' ? 'pending' : o.status === 'MATCHED' ? 'active' : o.status === 'COMPLETED' ? 'completed' : 'cancelled') as 'pending' | 'active' | 'completed' | 'cancelled',
             description: o.description || '',
-            responses: [], // We'd need to fetch responses separately or if they are included
+            responses: [],
             engine: o.engine_type,
             gearbox: o.gearbox_type,
             drive: o.drive_type,
             body: o.body_type,
             phone: o.owner_phone,
-            media: o.attachments || []
+            media: o.photos || []
           }));
           setOrders(mappedOrders);
         }
@@ -97,24 +105,26 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
     }
   };
 
-  const handlePayment = () => {
-    // Simulate payment process
-    setTimeout(() => {
-      setHasCatalogAccess(true);
-      setShowCatalogPayment(false);
-      onNavigate('contractors_catalog');
-    }, 1500);
+  const handlePayment = async () => {
+    try {
+      const { payment_url } = await paymentsApi.checkout(5, 'CUSTOMER_ACCESS');
+      window.open(payment_url, '_blank');
+    } catch (error) {
+      console.error('Payment failed:', error);
+      alert('Ошибка при оплате');
+    }
   };
 
-  const handleAcceptResponse = async (orderId: string, contractorId: string) => {
+  const handleAcceptResponse = async (orderId: string, responseId: string) => {
     try {
-      await customerApi.acceptResponse(orderId, contractorId);
+      await customerApi.acceptResponse(orderId, responseId);
       setOrders(orders.map(o => {
         if (o.id === orderId) {
+          const acceptedResponse = (o.responses || []).find(r => r.id === responseId);
           return {
             ...o,
             status: 'active',
-            acceptedContractorId: contractorId
+            acceptedContractorId: acceptedResponse?.contractorId
           };
         }
         return o;
@@ -125,22 +135,24 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
     }
   };
 
-  const handleRejectResponse = async (orderId: string, contractorId: string) => {
+  const handleRejectResponse = async (orderId: string, responseId: string) => {
     try {
-      await customerApi.rejectResponse(orderId, contractorId);
+      await customerApi.rejectResponse(orderId, responseId);
       setOrders(orders.map(o => {
         if (o.id === orderId) {
-          if (o.status === 'active' && o.acceptedContractorId === contractorId) {
+          const rejectedResponse = (o.responses || []).find(r => r.id === responseId);
+          const rejectedContractorId = rejectedResponse?.contractorId;
+          if (o.status === 'active' && o.acceptedContractorId === rejectedContractorId) {
             return {
               ...o,
               status: 'pending',
               acceptedContractorId: undefined,
-              responses: (o.responses || []).filter(r => r.contractorId !== contractorId)
+              responses: (o.responses || []).filter(r => r.id !== responseId)
             };
           }
           return {
             ...o,
-            responses: (o.responses || []).filter(r => r.contractorId !== contractorId)
+            responses: (o.responses || []).filter(r => r.id !== responseId)
           };
         }
         return o;
@@ -222,12 +234,12 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
               id: r.id,
               contractorId: r.executor_id,
               contractorName: r.executor_name || 'Исполнитель',
-              profileType: r.executor_type || 'partner',
+              profileType: normalizeTier(r.executor_tier),
               rating: r.executor_rating || 5.0,
-              reviewsCount: r.executor_reviews || 0,
-              workingHours: r.executor_working_hours || '',
+              reviewsCount: r.completed_orders_count || 0,
+              workingHours: r.estimated_duration || '',
               message: r.comment || '',
-              price: r.price_estimate || ''
+              price: r.price ? `${r.price} BYN` : ''
             }));
             setOrders(prevOrders => prevOrders.map(o => 
               o.id === id ? { ...o, responses: mappedResponses } : o
@@ -484,10 +496,46 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
                               </div>
                             </div>
                             <button 
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.stopPropagation();
                                 const contractor = contractors.find(c => c.id === resp.contractorId);
-                                if (contractor) setSelectedContractor(contractor);
+                                if (contractor) {
+                                  setSelectedContractor(contractor);
+                                  return;
+                                }
+
+                                try {
+                                  const data = await customerApi.getExecutors();
+                                  const found = (data || []).find((c: any) => c.id === resp.contractorId);
+                                  if (found) {
+                                    setSelectedContractor({
+                                      id: found.id,
+                                      name: found.name || '',
+                                      shortName: found.short_name || '',
+                                      profileType: found.profile_type || 'partner',
+                                      rating: found.rating || 5.0,
+                                      reviewsCount: found.reviews_count || 0,
+                                      completedOrders: found.completed_orders || 0,
+                                      registrationDate: found.created_at || new Date().toISOString(),
+                                      description: found.description || '',
+                                      services: found.services || [],
+                                      regions: found.regions || [],
+                                      address: found.address || '',
+                                      workingHours: found.working_hours || '',
+                                      phone: found.phone || '',
+                                      instagram: found.instagram || '',
+                                      tiktok: found.tiktok || '',
+                                      website: found.website || '',
+                                      avatar: found.avatar_url || '',
+                                      photos: found.photos || [],
+                                      video: found.video_url || '',
+                                      unp: found.unp || '',
+                                      legalStatus: found.legal_status || ''
+                                    } as Contractor);
+                                  }
+                                } catch (error) {
+                                  console.error('Failed to load executor details:', error);
+                                }
                               }}
                               className="text-xs text-blue-500 font-medium underline"
                             >
@@ -508,14 +556,14 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
                           <div className="flex gap-2">
                             {order.status === 'pending' && (
                               <button 
-                                onClick={(e) => { e.stopPropagation(); handleAcceptResponse(order.id, resp.contractorId!); }}
+                                onClick={(e) => { e.stopPropagation(); handleAcceptResponse(order.id, resp.id); }}
                                 className="flex-1 bg-orange-500 text-white text-sm font-bold py-2 rounded-lg active:scale-[0.98] transition-transform"
                               >
                                 Хочу заказать
                               </button>
                             )}
                             <button 
-                              onClick={(e) => { e.stopPropagation(); handleRejectResponse(order.id, resp.contractorId!); }}
+                              onClick={(e) => { e.stopPropagation(); handleRejectResponse(order.id, resp.id); }}
                               className="flex-1 bg-red-50 text-red-600 border border-red-200 text-sm font-bold py-2 rounded-lg active:bg-red-100 transition-colors"
                             >
                               Отказаться
