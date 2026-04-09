@@ -38,6 +38,8 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
   const [tiktok, setTiktok] = useState('');
   const [website, setWebsite] = useState('');
   const [logo, setLogo] = useState<string | null>(null);
+  const [documentFiles, setDocumentFiles] = useState<File[]>([]);
+  const [workPhotos, setWorkPhotos] = useState<File[]>([]);
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,6 +51,16 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setDocumentFiles(files);
+  };
+
+  const handleWorkPhotosUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []).slice(0, selectedProfile === 'partner' ? 3 : 10);
+    setWorkPhotos(files);
   };
 
   const toggleCategoryExpand = (categoryId: string) => {
@@ -292,10 +304,24 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
           <input required type="text" value={unp} onChange={e => setUnp(e.target.value)} placeholder="123456789" className="w-full border-gray-300 rounded-lg p-3 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none mb-4" />
 
           <label className="block text-sm font-medium text-gray-700 mb-2">Фото документов юридического лица <span className="text-red-500">*</span></label>
-          <button type="button" className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors">
+          <label className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors cursor-pointer mb-4">
             <Upload className="w-6 h-6 mb-1" />
             <span className="text-xs">Загрузить скан/фото</span>
-          </button>
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              multiple
+              onChange={handleDocumentUpload}
+              className="hidden"
+            />
+          </label>
+          {documentFiles.length > 0 && (
+            <div className="text-xs text-gray-500 mb-4 space-y-1">
+              {documentFiles.map(file => (
+                <div key={file.name}>{file.name}</div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-100">
@@ -323,10 +349,24 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
           <textarea required rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="Кратко опишите оказываемые услуги и ваши преимущества" className="w-full border-gray-300 rounded-lg p-3 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none mb-4"></textarea>
 
           <label className="block text-sm font-medium text-gray-700 mb-2">Фото работ (до {selectedProfile === 'partner' ? '3' : '10'} шт)</label>
-          <button type="button" className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors mb-4">
+          <label className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors mb-4 cursor-pointer">
             <Upload className="w-6 h-6 mb-1" />
             <span className="text-xs">Загрузить фото</span>
-          </button>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleWorkPhotosUpload}
+              className="hidden"
+            />
+          </label>
+          {workPhotos.length > 0 && (
+            <div className="text-xs text-gray-500 mb-4 space-y-1">
+              {workPhotos.map(file => (
+                <div key={file.name}>{file.name}</div>
+              ))}
+            </div>
+          )}
 
           {selectedProfile === 'leader' && (
             <>
