@@ -51,7 +51,7 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
             id: c.id,
             name: c.name || '',
             shortName: c.short_name || '',
-            profileType: c.tier === 'LEADER' ? 'leader' : c.tier === 'PROFI' ? 'pro' : 'partner',
+            profileType: (c.tier === 'LEADER' ? 'leader' : c.tier === 'PROFI' ? 'pro' : 'partner') as Contractor['profileType'],
             rating: c.rating || 5.0,
             reviewsCount: c.reviews_count || 0,
             completedOrders: c.completed_orders || 0,
@@ -646,13 +646,13 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
                   {selectedContractor.rating || '4.8'}
                 </div>
                 <div className="text-[11px] text-[#D97706]">
-                  {selectedContractor.reviews || '210'} отзывов
+                  {selectedContractor.reviewsCount || 0} отзывов
                 </div>
               </div>
               <div className="bg-[#F0FDF4] rounded-2xl p-3 flex flex-col items-center justify-center text-center">
                 <div className="flex items-center gap-1.5 text-[#16A34A] font-bold text-lg mb-0.5">
                   <CheckCircle className="w-5 h-5" />
-                  {selectedContractor.completedOrders || '890'}
+                  {selectedContractor.completedOrders || 0}
                 </div>
                 <div className="text-[11px] text-[#16A34A]">
                   выполнено заказов

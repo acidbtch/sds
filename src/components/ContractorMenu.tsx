@@ -1,12 +1,16 @@
 import React from 'react';
 import { ViewState } from '../types';
 import { ChevronLeft, Briefcase, Settings, ChevronRight } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
 }
 
 export default function ContractorMenu({ onNavigate }: Props) {
+  const { user } = useAuth();
+  const hasExecutorProfile = Boolean(user?.executor_profile);
+
   return (
     <div className="flex flex-col min-h-screen bg-white pb-20">
       <div className="bg-white p-4 flex items-center justify-center shadow-md sticky top-0 z-10 relative">
@@ -20,14 +24,16 @@ export default function ContractorMenu({ onNavigate }: Props) {
       </div>
 
       <div className="p-4 flex-1 flex flex-col gap-4 mt-4">
-        <button 
-          onClick={() => onNavigate('contractor_register')}
-          className="flex flex-col items-center justify-center bg-blue-500 text-white p-6 rounded-2xl shadow-lg active:scale-[0.98] transition-transform"
-        >
-          <Briefcase className="w-12 h-12 mb-3 opacity-90" />
-          <h2 className="text-xl font-bold">Стать исполнителем</h2>
-          <p className="text-blue-100 text-sm mt-1 text-center">Зарегистрируйте свой автосервис</p>
-        </button>
+        {!hasExecutorProfile && (
+          <button 
+            onClick={() => onNavigate('contractor_register')}
+            className="flex flex-col items-center justify-center bg-blue-500 text-white p-6 rounded-2xl shadow-lg active:scale-[0.98] transition-transform"
+          >
+            <Briefcase className="w-12 h-12 mb-3 opacity-90" />
+            <h2 className="text-xl font-bold">Стать исполнителем</h2>
+            <p className="text-blue-100 text-sm mt-1 text-center">Зарегистрируйте свой автосервис</p>
+          </button>
+        )}
 
         <button 
           onClick={() => onNavigate('contractor_cabinet')}

@@ -1025,7 +1025,9 @@ export default function ContractorCabinet({ onNavigate }: Props) {
 
             <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100">
               <h3 className="font-bold text-orange-800 mb-2">Профиль "{tierLabel(profileTier)}"</h3>
-              <p className="text-sm text-orange-700 mb-3">Оплачена до {profile.subscription_end_date || '—'}</p>
+              <p className="text-sm text-orange-700 mb-3">
+                Оплачена до {profile.subscription_until ? new Date(profile.subscription_until).toLocaleDateString('ru-RU') : '—'}
+              </p>
               <button className="w-full bg-orange-500 text-white text-sm font-bold py-2 rounded-xl active:scale-[0.98] transition-transform">
                 Продлить подписку
               </button>

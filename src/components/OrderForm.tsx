@@ -5,6 +5,7 @@ import RegionSelector from './RegionSelector';
 import { CustomSelect } from './CustomSelect';
 import { MultiSelect } from './MultiSelect';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import { dictsApi, customerApi } from '../lib/api';
 import { uploadMediaFile } from '../lib/media';
 
@@ -16,6 +17,7 @@ interface Props {
 
 export default function OrderForm({ onNavigate, carModels, previousView }: Props) {
   const { serviceCategories, setOrders } = useData();
+  const { user } = useAuth();
   const [submitted, setSubmitted] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedMake, setSelectedMake] = useState('');
@@ -112,6 +114,19 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
       setApiModels([]);
     }
   }, [selectedMake]);
+
+  useEffect(() => {
+    const customerProfile = user?.customer_profile;
+    if (!customerProfile) return;
+
+    if (!name && customerProfile.name) {
+      setName(customerProfile.name);
+    }
+
+    if ((phone === '+375 ' || !phone.trim()) && customerProfile.phone) {
+      setPhone(customerProfile.phone);
+    }
+  }, [user?.customer_profile, name, phone]);
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: currentYear - 1966 + 1 }, (_, i) => currentYear - i);

@@ -188,29 +188,34 @@ export default function Support({ onNavigate }: Props) {
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
 
+  const normalizeStatus = (status: string) => String(status || '').toUpperCase();
+
   const statusLabel = (status: string) => {
-    switch (status) {
-      case 'open': return 'Открыт';
-      case 'in_progress': return 'В работе';
-      case 'closed': return 'Закрыт';
-      case 'resolved': return 'Решён';
+    switch (normalizeStatus(status)) {
+      case 'OPEN': return 'Открыто';
+      case 'IN_PROGRESS': return 'В работе';
+      case 'WAITING_CUSTOMER': return 'Ждет ответа';
+      case 'CLOSED': return 'Закрыто';
+      case 'RESOLVED': return 'Решено';
       default: return status;
     }
   };
 
   const statusColor = (status: string) => {
-    switch (status) {
-      case 'open': return 'bg-blue-100 text-blue-700';
-      case 'in_progress': return 'bg-yellow-100 text-yellow-700';
-      case 'closed': return 'bg-gray-100 text-gray-500';
-      case 'resolved': return 'bg-green-100 text-green-700';
+    switch (normalizeStatus(status)) {
+      case 'OPEN': return 'bg-blue-100 text-blue-700';
+      case 'IN_PROGRESS': return 'bg-yellow-100 text-yellow-700';
+      case 'WAITING_CUSTOMER': return 'bg-amber-100 text-amber-700';
+      case 'CLOSED': return 'bg-gray-100 text-gray-500';
+      case 'RESOLVED': return 'bg-green-100 text-green-700';
       default: return 'bg-gray-100 text-gray-500';
     }
   };
 
   // ===================== CHAT VIEW =====================
   if (localView === 'chat' && activeTicket) {
-    const isClosed = activeTicket.status === 'closed' || activeTicket.status === 'resolved';
+    const ticketStatus = normalizeStatus(activeTicket.status);
+    const isClosed = ticketStatus === 'CLOSED' || ticketStatus === 'RESOLVED';
 
     return (
       <div className="flex flex-col min-h-screen bg-gray-50">
@@ -443,7 +448,7 @@ export default function Support({ onNavigate }: Props) {
           ) : tickets.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-6">У вас пока нет обращений</p>
           ) : (
-            <div className="space-y-2">
+            <div className="max-h-[42vh] overflow-y-auto pr-1 space-y-2">
               {tickets.map((ticket) => (
                 <button
                   key={ticket.id}

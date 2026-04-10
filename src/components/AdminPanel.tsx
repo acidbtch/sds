@@ -39,7 +39,7 @@ export default function AdminPanel({ onNavigate, carModels, setCarModels }: Prop
   } = useData();
 
   const newModeration = moderation.filter(m => m.status === 'new').length;
-  const newSupport = support.filter(s => s.status === 'in_progress').length;
+  const newSupport = support.filter(s => s.status !== 'resolved' && s.status !== 'closed').length;
 
   const tabs: { id: AdminTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'dashboard', label: 'Общая панель', icon: <Settings className="w-5 h-5" /> },
@@ -170,7 +170,7 @@ function DashboardView({ onNavigateTab, onNavigate }: { onNavigateTab: (tab: Adm
   const successfulPayments = dashboard?.successful_transactions ?? payments.filter(p => p.status === 'Успешно').length;
   
   const newModeration = moderation.filter(m => m.status === 'new').length;
-  const newSupport = support.filter(s => s.status === 'in_progress').length;
+  const newSupport = support.filter(s => s.status !== 'resolved' && s.status !== 'closed').length;
 
   const partnerCount = dashboard?.executors_by_tier?.PARTNER ?? contractors.filter(c => c.profileType === 'partner' || c.profileType === 'Партнёр').length;
   const proCount = dashboard?.executors_by_tier?.PROFI ?? contractors.filter(c => c.profileType === 'pro' || c.profileType === 'Профи').length;
@@ -1082,7 +1082,7 @@ function BannersView({ banners, setBanners, contractors, setContractors }: { ban
               <select 
                 value={editForm.contractorId} 
                 onChange={e => {
-                  const contractor = contractors.find(c => c.id === e.target.value);
+                  const contractor = contractors.find(c => c.userId === e.target.value || c.id === e.target.value);
                   setEditForm({
                     ...editForm, 
                     contractorId: e.target.value,
@@ -1093,7 +1093,7 @@ function BannersView({ banners, setBanners, contractors, setContractors }: { ban
               >
                 <option value="">Выберите исполнителя</option>
                 {contractors.map(c => (
-                  <option key={c.id} value={c.id}>{c.shortName || c.name}</option>
+                  <option key={c.userId || c.id} value={c.userId || c.id}>{c.shortName || c.name}</option>
                 ))}
               </select>
             </div>
@@ -1126,7 +1126,7 @@ function BannersView({ banners, setBanners, contractors, setContractors }: { ban
       )}
 
       {banners.map((b: any) => {
-        const contractor = contractors.find(c => c.id === b.contractorId || c.name === b.contractor || c.shortName === b.contractor);
+        const contractor = contractors.find(c => c.userId === b.contractorId || c.id === b.contractorId || c.name === b.contractor || c.shortName === b.contractor);
         const period = contractor?.subEnd ? `До ${contractor.subEnd}` : 'Неограничен';
 
         return (
@@ -1451,6 +1451,7 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
 
     const ticketStatus = String(chat.status || '').toUpperCase();
     const isClosed = ticketStatus === 'CLOSED' || ticketStatus === 'RESOLVED';
+    const isWaiting = ticketStatus === 'WAITING_CUSTOMER';
     const isInProgress = !isClosed;
     const messages = chat.messages || [];
 
@@ -1466,7 +1467,9 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
             </button>
             <div>
               <h1 className="text-lg font-bold text-gray-900">{chat.user}</h1>
-              <p className="text-xs text-green-500 font-medium">{isClosed ? 'Решено' : 'В работе'}</p>
+              <p className="text-xs text-green-500 font-medium">
+                {isClosed ? 'Решено' : isWaiting ? 'Ждет ответа' : 'В работе'}
+              </p>
             </div>
           </div>
           {isInProgress && (
@@ -1541,8 +1544,8 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
           className="bg-white p-4 rounded-xl shadow-md border border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
         >
           <div className="flex justify-between items-start mb-2">
-            <span className={`text-xs font-bold px-2 py-1 rounded ${s.status === 'in_progress' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
-              {s.status === 'in_progress' ? 'В работе' : 'Решено'}
+            <span className={`text-xs font-bold px-2 py-1 rounded ${s.status === 'open' ? 'bg-blue-100 text-blue-700' : s.status === 'waiting_customer' ? 'bg-amber-100 text-amber-700' : s.status === 'in_progress' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+              {s.status === 'open' ? 'Открыто' : s.status === 'waiting_customer' ? 'Ждет ответа' : s.status === 'in_progress' ? 'В работе' : 'Решено'}
             </span>
             <span className="text-xs text-gray-500">
               {s.replies && s.replies.length > 0 ? s.replies[s.replies.length - 1].time : s.time}

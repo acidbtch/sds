@@ -13,6 +13,7 @@ export type ViewState =
 
 export interface Contractor {
   id: string;
+  userId?: string;
   name: string;
   shortName: string;
   description: string;

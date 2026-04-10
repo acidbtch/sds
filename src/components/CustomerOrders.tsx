@@ -512,7 +512,7 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
                                       id: found.id,
                                       name: found.name || '',
                                       shortName: found.short_name || '',
-                                      profileType: found.tier === 'LEADER' ? 'leader' : found.tier === 'PROFI' ? 'pro' : 'partner',
+                                      profileType: (found.tier === 'LEADER' ? 'leader' : found.tier === 'PROFI' ? 'pro' : 'partner') as Contractor['profileType'],
                                       rating: found.rating || 5.0,
                                       reviewsCount: found.reviews_count || 0,
                                       completedOrders: found.completed_orders || 0,
@@ -689,13 +689,13 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
                   {selectedContractor.rating || '4.8'}
                 </div>
                 <div className="text-[11px] text-[#D97706]">
-                  {selectedContractor.reviews || '210'} отзывов
+                  {selectedContractor.reviewsCount || 0} отзывов
                 </div>
               </div>
               <div className="bg-[#F0FDF4] rounded-2xl p-3 flex flex-col items-center justify-center text-center">
                 <div className="flex items-center gap-1.5 text-[#16A34A] font-bold text-lg mb-0.5">
                   <CheckCircle className="w-5 h-5" />
-                  {selectedContractor.completedOrders || '890'}
+                  {selectedContractor.completedOrders || 0}
                 </div>
                 <div className="text-[11px] text-[#16A34A]">
                   выполнено заказов

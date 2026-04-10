@@ -27,6 +27,7 @@ interface Payment {
 interface Banner {
   id: number;
   contractorId?: string;
+  contractorUserId?: string;
   contractor: string;
   description?: string;
   status: 'active' | 'inactive';
@@ -58,7 +59,7 @@ export interface SupportTicket {
   user: string;
   subject: string;
   text: string;
-  status: 'in_progress' | 'resolved';
+  status: 'open' | 'in_progress' | 'waiting_customer' | 'resolved' | 'closed';
   time: string;
   replies: SupportReply[];
   updatedAt?: number;
@@ -114,6 +115,23 @@ interface DataContextType {
 function extractSupportTickets(response: any): any[] {
   if (Array.isArray(response)) return response;
   return response?.items ?? response?.tickets ?? [];
+}
+
+function normalizeSupportStatus(status: any): SupportTicket['status'] {
+  switch (String(status || '').toUpperCase()) {
+    case 'OPEN':
+      return 'open';
+    case 'IN_PROGRESS':
+      return 'in_progress';
+    case 'WAITING_CUSTOMER':
+      return 'waiting_customer';
+    case 'RESOLVED':
+      return 'resolved';
+    case 'CLOSED':
+      return 'closed';
+    default:
+      return 'open';
+  }
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -178,9 +196,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setContractors((executorsData || []).map((c: any) => ({
         id: c.id,
+        userId: c.user_id,
         name: c.legal_name || c.short_name || '',
         shortName: c.short_name || '',
-        profileType: c.tier === 'LEADER' ? 'leader' : c.tier === 'PROFI' ? 'pro' : 'partner',
+        profileType: (c.tier === 'LEADER' ? 'leader' : c.tier === 'PROFI' ? 'pro' : 'partner') as Contractor['profileType'],
         rating: c.rating || 5,
         reviewsCount: c.reviews_count || 0,
         completedOrders: c.completed_orders_count || 0,
@@ -199,6 +218,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         video: '',
         unp: c.unp || '',
         legalStatus: c.legal_status || '',
+        subEnd: c.subscription_until ? new Date(c.subscription_until).toLocaleDateString('ru-RU') : '',
       })));
 
       setOrders((ordersData || []).map((o: any) => ({
@@ -235,6 +255,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setBanners((bannersData || []).map((b: any) => ({
         id: b.id,
         contractorId: b.executor_id,
+        contractorUserId: b.executor_id,
         contractor: b.title || '',
         description: b.description || '',
         status: b.is_active ? 'active' : 'inactive',
@@ -257,7 +278,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           id: index + 1,
           type: 'new' as const,
           name: c.short_name || c.legal_name || '',
-          profile: c.tier === 'LEADER' ? 'leader' : c.tier === 'PROFI' ? 'pro' : 'partner',
+          profile: (c.tier === 'LEADER' ? 'leader' : c.tier === 'PROFI' ? 'pro' : 'partner') as 'leader' | 'pro' | 'partner',
           date: c.created_at ? new Date(c.created_at).toLocaleDateString('ru-RU') : '',
           status: 'new' as const,
           data: {
@@ -282,11 +303,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         user: `Пользователь ${t.user_id}`,
         subject: t.subject || '',
         text: t.last_message || t.subject || '',
-        status: t.status === 'CLOSED' || t.status === 'RESOLVED' ? 'resolved' : 'in_progress',
+        status: normalizeSupportStatus(t.status),
         time: t.created_at ? new Date(t.created_at).toLocaleString('ru-RU') : '',
         replies: [],
         updatedAt: t.last_message_at ? new Date(t.last_message_at).getTime() : Date.now(),
-      })));
+      }))); 
 
         setCarBrands(brandsData || []);
         setServiceCategories((categoriesData || []).map((cat: any) => ({ id: cat.id, name: cat.name, services: [] })));
