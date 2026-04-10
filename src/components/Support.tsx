@@ -76,7 +76,7 @@ export default function Support({ onNavigate }: Props) {
       setTickets(items);
     } catch (err) {
       console.error('Failed to load tickets:', err);
-      setTicketsError('Не удалось загрузить обращения');
+      setTicketsError(err instanceof Error ? err.message : 'Не удалось загрузить обращения');
     } finally {
       setTicketsLoading(false);
     }
@@ -141,7 +141,7 @@ export default function Support({ onNavigate }: Props) {
       setNewMessage('');
     } catch (err) {
       console.error('Failed to create ticket:', err);
-      setCreateError('Не удалось создать обращение');
+      setCreateError(err instanceof Error ? err.message : 'Не удалось создать обращение');
     } finally {
       setCreating(false);
     }
