@@ -39,6 +39,7 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [showErrors, setShowErrors] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [regionIdByName, setRegionIdByName] = useState<Record<string, string>>({});
   
   // Media states
   const [attachments, setAttachments] = useState<{ key: string; previewUrl: string; type: 'image' | 'video' }[]>([]);
@@ -116,6 +117,23 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
   }, [selectedMake]);
 
   useEffect(() => {
+    dictsApi.getRegions()
+      .then((regions) => {
+        const map = (regions || []).reduce((acc: Record<string, string>, region: any) => {
+          if (region?.name && region?.id) {
+            acc[region.name] = region.id;
+          }
+          return acc;
+        }, {});
+        setRegionIdByName(map);
+      })
+      .catch((error) => {
+        console.error('Failed to load regions:', error);
+        setRegionIdByName({});
+      });
+  }, []);
+
+  useEffect(() => {
     const customerProfile = user?.customer_profile;
     if (!customerProfile) return;
 
@@ -134,6 +152,7 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
   const isFormValid = 
     selectedServices.length > 0 &&
     selectedRegions.length > 0 &&
+    Object.keys(regionIdByName).length > 0 &&
     selectedMake !== '' &&
     selectedModel !== '' &&
     selectedYear !== '' &&
@@ -188,11 +207,17 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
     setIsLoading(true);
     
     try {
+      const regionName = selectedRegions[0];
+      const regionId = regionIdByName[regionName];
+      if (!regionId) {
+        throw new Error(`Не удалось определить регион "${regionName}"`);
+      }
+
       // Create new order via API
       const orderData = {
         service_id: selectedServices[0],
         service_ids: selectedServices,
-        region_id: selectedRegions[0],   // Assuming selectedRegions contains IDs
+        region_id: regionId,
         car_brand_id: selectedMake,
         car_model_id: selectedModel,
         engine_type: selectedEngine,
