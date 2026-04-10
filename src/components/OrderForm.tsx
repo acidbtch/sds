@@ -5,7 +5,8 @@ import RegionSelector from './RegionSelector';
 import { CustomSelect } from './CustomSelect';
 import { MultiSelect } from './MultiSelect';
 import { useData } from '../context/DataContext';
-import { dictsApi, customerApi, mediaApi } from '../lib/api';
+import { dictsApi, customerApi } from '../lib/api';
+import { uploadMediaFile } from '../lib/media';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -38,7 +39,7 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
   const [isLoading, setIsLoading] = useState(false);
   
   // Media states
-  const [attachments, setAttachments] = useState<{ url: string; type: 'image' | 'video' }[]>([]);
+  const [attachments, setAttachments] = useState<{ key: string; previewUrl: string; type: 'image' | 'video' }[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   
   // API Data States
@@ -56,10 +57,9 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
       const newAttachments = [...attachments];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        
-        const { upload_url, file_key } = await mediaApi.getPresignedUrl(file.name, file.type);
-        await mediaApi.uploadToS3(upload_url, file);
-        newAttachments.push({ url: file_key, type });
+
+        const uploaded = await uploadMediaFile(file);
+        newAttachments.push({ key: uploaded.key, previewUrl: uploaded.previewUrl, type });
       }
       setAttachments(newAttachments);
     } catch (error) {
@@ -191,7 +191,7 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
         owner_phone: phone,
         description: description,
         deadline: deadline ? new Date(deadline).toISOString() : undefined,
-        attachments: attachments.map(a => a.url) // Add attachments
+        attachments: attachments.map(a => a.key)
       };
       
       await customerApi.createOrder(orderData);
@@ -445,7 +445,7 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
               {attachments.map((file, idx) => (
                 <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
                   {file.type === 'image' ? (
-                    <img src={file.url} alt="attachment" className="w-full h-full object-cover" />
+                    <img src={file.previewUrl} alt="attachment" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full bg-gray-100 flex items-center justify-center">
                       <Video className="w-6 h-6 text-gray-400" />

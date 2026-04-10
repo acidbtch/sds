@@ -32,6 +32,7 @@ interface Banner {
   status: 'active' | 'inactive';
   views?: number;
   clicks?: number;
+  imageKey?: string;
   logo?: string;
 }
 
@@ -144,10 +145,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (user?.role !== 'ADMIN') return;
 
     try {
-      const [usersData, executorsData, ordersData, paymentsData, bannersData, faqData, contentData, brandsData, categoriesData, supportData] = await Promise.all([
-        adminApi.getUsers().catch(() => []),
-        adminApi.getExecutors().catch(() => []),
-        adminApi.getOrders().catch(() => []),
+        const [usersData, executorsData, ordersData, paymentsData, bannersData, faqData, contentData, brandsData, categoriesData, supportData] = await Promise.all([
+          adminApi.getUsers().catch(() => []),
+          adminApi.getExecutors().catch(() => []),
+          adminApi.getOrders().catch(() => []),
         adminApi.getPayments().catch(() => []),
         adminApi.getBanners().catch(() => []),
         adminApi.getFaq().catch(() => []),
@@ -186,8 +187,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         phone: c.phone || '',
         instagram: c.instagram_url || '',
         website: c.website_url || '',
-        avatar: c.logo_url || '',
+        logo: c.logo_url || '',
         photos: c.portfolio_photos || [],
+        legalDocs: c.legal_documents || [],
         video: '',
         unp: c.unp || '',
         legalStatus: c.legal_status || '',
@@ -232,6 +234,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         status: b.is_active ? 'active' : 'inactive',
         views: b.views || 0,
         clicks: b.clicks || 0,
+        imageKey: b.image_key || '',
         logo: b.image_url || '',
       })));
 
@@ -278,9 +281,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         updatedAt: t.last_message_at ? new Date(t.last_message_at).getTime() : Date.now(),
       })));
 
-      setCarBrands(brandsData || []);
-      setServiceCategories((categoriesData || []).map((cat: any) => ({ id: cat.id, name: cat.name, services: [] })));
-    } catch (error) {
+        setCarBrands(brandsData || []);
+        setServiceCategories((categoriesData || []).map((cat: any) => ({ id: cat.id, name: cat.name, services: [] })));
+
+        const modelsMap: Record<string, any[]> = {};
+        await Promise.all((brandsData || []).map(async (brand: any) => {
+          const models = await adminApi.getCarModels(brand.id).catch(() => []);
+          modelsMap[brand.id] = models;
+        }));
+        setCarModels(modelsMap);
+      } catch (error) {
       console.error('Failed to fetch admin data:', error);
     }
   }, [user?.role]);
@@ -307,6 +317,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             contractor: b.title,
             description: b.description,
             status: 'active' as const,
+            imageKey: b.image_key || '',
             logo: b.image_url
           }));
           setBanners(mappedBanners);
@@ -356,6 +367,36 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     refreshAdminData();
   }, [refreshAdminData]);
+
+  useEffect(() => {
+    if (user?.role !== 'ADMIN') return;
+
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const handleFocus = () => {
+      refreshAdminData();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshAdminData();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    intervalId = setInterval(() => {
+      refreshAdminData();
+    }, 20000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [user?.role, refreshAdminData]);
 
   return (
     <DataContext.Provider value={{

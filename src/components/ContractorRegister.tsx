@@ -6,6 +6,7 @@ import { CustomSelect } from './CustomSelect';
 import { ScheduleSelector, defaultSchedule, WeeklySchedule } from './ScheduleSelector';
 import { useData } from '../context/DataContext';
 import { executorApi, dictsApi } from '../lib/api';
+import { uploadMediaFile } from '../lib/media';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -37,30 +38,58 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
   const [instagram, setInstagram] = useState('');
   const [tiktok, setTiktok] = useState('');
   const [website, setWebsite] = useState('');
-  const [logo, setLogo] = useState<string | null>(null);
-  const [documentFiles, setDocumentFiles] = useState<File[]>([]);
-  const [workPhotos, setWorkPhotos] = useState<File[]>([]);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoKey, setLogoKey] = useState('');
+  const [documentFiles, setDocumentFiles] = useState<{ name: string; key: string }[]>([]);
+  const [workPhotos, setWorkPhotos] = useState<{ name: string; key: string }[]>([]);
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setLogo(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      uploadMediaFile(file)
+        .then(uploaded => {
+          setLogoPreview(uploaded.previewUrl);
+          setLogoKey(uploaded.key);
+        })
+        .catch(err => {
+          console.error('Failed to upload logo:', err);
+          setError('Не удалось загрузить логотип');
+        })
+        .finally(() => {
+          e.target.value = '';
+        });
     }
   };
 
-  const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    setDocumentFiles(files);
+    if (!files.length) return;
+
+    try {
+      const uploaded = await Promise.all(files.map(file => uploadMediaFile(file)));
+      setDocumentFiles(prev => [...prev, ...uploaded.map(file => ({ name: file.name, key: file.key }))]);
+    } catch (err) {
+      console.error('Failed to upload documents:', err);
+      setError('Не удалось загрузить документы');
+    } finally {
+      e.target.value = '';
+    }
   };
 
-  const handleWorkPhotosUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleWorkPhotosUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []).slice(0, selectedProfile === 'partner' ? 3 : 10);
-    setWorkPhotos(files);
+    if (!files.length) return;
+
+    try {
+      const uploaded = await Promise.all(files.map(file => uploadMediaFile(file)));
+      setWorkPhotos(prev => [...prev, ...uploaded.map(file => ({ name: file.name, key: file.key }))]);
+    } catch (err) {
+      console.error('Failed to upload work photos:', err);
+      setError('Не удалось загрузить фото работ');
+    } finally {
+      e.target.value = '';
+    }
   };
 
   const toggleCategoryExpand = (categoryId: string) => {
@@ -151,6 +180,9 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
         phone: phone.replace(/\s/g, ''),
         instagram_url: instagram || null,
         website_url: website || null,
+        logo_key: logoKey || null,
+        legal_document_keys: documentFiles.map(file => file.key),
+        portfolio_photo_keys: workPhotos.map(file => file.key),
       };
       
       await executorApi.createProfile(profileData);
@@ -318,7 +350,7 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
           {documentFiles.length > 0 && (
             <div className="text-xs text-gray-500 mb-4 space-y-1">
               {documentFiles.map(file => (
-                <div key={file.name}>{file.name}</div>
+                <div key={file.key}>{file.name}</div>
               ))}
             </div>
           )}
@@ -332,8 +364,8 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
             <>
               <label className="block text-sm font-medium text-gray-700 mb-2">Логотип</label>
               <label className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors mb-4 cursor-pointer relative overflow-hidden">
-                {logo ? (
-                  <img src={logo} alt="Логотип" className="absolute inset-0 w-full h-full object-contain p-2" />
+                {logoPreview ? (
+                  <img src={logoPreview} alt="Логотип" className="absolute inset-0 w-full h-full object-contain p-2" />
                 ) : (
                   <>
                     <Upload className="w-6 h-6 mb-1" />
@@ -363,7 +395,7 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
           {workPhotos.length > 0 && (
             <div className="text-xs text-gray-500 mb-4 space-y-1">
               {workPhotos.map(file => (
-                <div key={file.name}>{file.name}</div>
+                <div key={file.key}>{file.name}</div>
               ))}
             </div>
           )}

@@ -6,7 +6,8 @@ import RegionSelector from './RegionSelector';
 import { ScheduleSelector, defaultSchedule, formatSchedule } from './ScheduleSelector';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { executorApi } from '../lib/api';
+import { executorApi, dictsApi } from '../lib/api';
+import { uploadMediaFile } from '../lib/media';
 
 // --- Helpers ---
 
@@ -75,6 +76,7 @@ interface ProfileFormData {
   profileType: 'partner' | 'pro' | 'leader';
   bannerText: string;
   logo: string;
+  logoKey: string;
 }
 
 const defaultFormData: ProfileFormData = {
@@ -94,6 +96,7 @@ const defaultFormData: ProfileFormData = {
   profileType: 'partner',
   bannerText: '',
   logo: '',
+  logoKey: '',
 };
 
 const mapProfileToForm = (p: any): ProfileFormData => ({
@@ -102,8 +105,8 @@ const mapProfileToForm = (p: any): ProfileFormData => ({
   unp: p.unp || '',
   shortName: p.short_name || '',
   description: p.description || '',
-  services: Array.isArray(p.services) ? p.services : [],
-  regions: Array.isArray(p.regions) ? p.regions : [],
+  services: Array.isArray(p.services) ? p.services.map((s: any) => s.name || s) : [],
+  regions: Array.isArray(p.regions) ? p.regions.map((r: any) => r.name || r) : [],
   address: p.address || '',
   schedule: p.schedule || defaultSchedule,
   phone: p.phone || '',
@@ -112,17 +115,18 @@ const mapProfileToForm = (p: any): ProfileFormData => ({
   website: p.website || '',
   profileType: normalizeTier(p.tier),
   bannerText: p.banner_text || '',
-  logo: p.logo || '',
+  logo: p.logo_url || '',
+  logoKey: p.logo_key || '',
 });
 
-const mapFormToApi = (f: ProfileFormData) => ({
+const mapFormToApi = (f: ProfileFormData, serviceIds: string[], regionIds: string[]) => ({
   legal_status: f.legalStatus,
   name: f.name,
   unp: f.unp,
   short_name: f.shortName,
   description: f.description,
-  services: f.services,
-  regions: f.regions,
+  service_ids: serviceIds,
+  region_ids: regionIds,
   address: f.address,
   schedule: f.schedule,
   phone: f.phone,
@@ -131,7 +135,7 @@ const mapFormToApi = (f: ProfileFormData) => ({
   website: f.website,
   tier: f.profileType.toUpperCase(),
   banner_text: f.bannerText,
-  logo: f.logo,
+  logo_key: f.logoKey,
 });
 
 // --- Component ---
@@ -170,6 +174,7 @@ export default function ContractorCabinet({ onNavigate }: Props) {
   // UI
   const [isRegionModalOpen, setIsRegionModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string>('');
 
   // Derived
   const profileTier = profile ? normalizeTier(profile.tier) : 'partner';
@@ -181,6 +186,7 @@ export default function ContractorCabinet({ onNavigate }: Props) {
         const data = await executorApi.getProfile();
         setProfile(data);
         setEditForm(mapProfileToForm(data));
+        setLogoPreview(data.logo_url || '');
       } catch (error: any) {
         if (error?.status === 404) {
           onNavigate('contractor_register');
@@ -291,11 +297,17 @@ export default function ContractorCabinet({ onNavigate }: Props) {
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditForm({ ...editForm, logo: reader.result as string });
-      };
-      reader.readAsDataURL(file);
+      uploadMediaFile(file)
+        .then(uploaded => {
+          setLogoPreview(uploaded.previewUrl);
+          setEditForm({ ...editForm, logo: uploaded.previewUrl, logoKey: uploaded.key });
+        })
+        .catch(error => {
+          console.error('Failed to upload logo:', error);
+        })
+        .finally(() => {
+          e.target.value = '';
+        });
     }
   };
 
@@ -337,7 +349,18 @@ export default function ContractorCabinet({ onNavigate }: Props) {
     setShowErrors(false);
     setProfileSaving(true);
     try {
-      const apiData = mapFormToApi(editForm);
+      const [allServices, allRegions] = await Promise.all([
+        dictsApi.getServices(),
+        dictsApi.getRegions(),
+      ]);
+      const serviceIds = (allServices || [])
+        .filter((service: any) => editForm.services.includes(service.name))
+        .map((service: any) => service.id);
+      const regionIds = (allRegions || [])
+        .filter((region: any) => editForm.regions.includes(region.name))
+        .map((region: any) => region.id);
+
+      const apiData = mapFormToApi(editForm, serviceIds, regionIds);
       await executorApi.updateProfile(apiData);
       setSubmitted(true);
     } catch (error) {
@@ -877,9 +900,9 @@ export default function ContractorCabinet({ onNavigate }: Props) {
                       </button>
                       {(editForm.profileType === 'pro' || editForm.profileType === 'leader') && (
                         <label className="border border-dashed border-gray-300 rounded-lg p-3 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors cursor-pointer relative overflow-hidden">
-                          {editForm.logo ? (
-                            <img src={editForm.logo} alt="Логотип" className="absolute inset-0 w-full h-full object-contain p-1" />
-                          ) : (
+                                {(logoPreview || editForm.logo) ? (
+                                  <img src={logoPreview || editForm.logo} alt="Логотип" className="absolute inset-0 w-full h-full object-contain p-1" />
+                                ) : (
                             <>
                               <Upload className="w-5 h-5 mb-1" />
                               <span className="text-[10px] text-center">Логотип</span>

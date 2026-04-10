@@ -11,6 +11,7 @@ import { CustomSelect } from './CustomSelect';
 import { useData } from '../context/DataContext';
 import { ScheduleSelector, formatSchedule, defaultSchedule } from './ScheduleSelector';
 import { adminApi } from '../lib/api';
+import { uploadMediaFile } from '../lib/media';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -23,6 +24,7 @@ type AdminTab = 'dashboard' | 'customers' | 'contractors' | 'orders' | 'payments
 export default function AdminPanel({ onNavigate, carModels, setCarModels }: Props) {
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { refreshAdminData } = useData();
 
   const {
     customers, setCustomers,
@@ -56,6 +58,9 @@ export default function AdminPanel({ onNavigate, carModels, setCarModels }: Prop
   const handleTabChange = (tabId: AdminTab) => {
     setActiveTab(tabId);
     setIsMenuOpen(false);
+    if (tabId === 'dashboard' || tabId === 'moderation' || tabId === 'support' || tabId === 'customers' || tabId === 'contractors') {
+      refreshAdminData();
+    }
   };
 
   return (
@@ -81,7 +86,7 @@ export default function AdminPanel({ onNavigate, carModels, setCarModels }: Prop
                 if (tab.id === 'contractors') {
                   onNavigate('contractors_catalog');
                 } else {
-                  setActiveTab(tab.id);
+                  handleTabChange(tab.id);
                 }
               }}
               className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${
@@ -244,14 +249,8 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
   const toggleStatus = async () => {
     try {
       await adminApi.toggleUserBlock(selectedCustomer.id);
-      
-      setCustomers(customers.map(c => 
-        c.id === selectedCustomer.id 
-          ? { ...c, status: c.status === 'active' ? 'blocked' : 'active' } 
-          : c
-      ));
-      setSelectedCustomer({ ...selectedCustomer, status: selectedCustomer.status === 'active' ? 'blocked' : 'active' });
       await refreshAdminData();
+      setSelectedCustomer(null);
     } catch (error) {
       console.error('Failed to toggle user status:', error);
       alert('Ошибка при изменении статуса пользователя');
@@ -357,7 +356,7 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
 }
 
 function ContractorsView({ contractors, setContractors, orders }: { contractors: any[], setContractors: any, orders: any[] }) {
-  const { serviceCategories } = useData();
+  const { serviceCategories, refreshAdminData } = useData();
   const [selected, setSelected] = useState<any>(null);
   const [search, setSearch] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -378,9 +377,9 @@ function ContractorsView({ contractors, setContractors, orders }: { contractors:
   const handleSave = async () => {
     try {
       await adminApi.updateContractor(editForm.id, editForm);
-      setContractors(contractors.map(c => c.id === editForm.id ? editForm : c));
-      setSelected(editForm);
       setIsEditing(false);
+      setSelected(null);
+      await refreshAdminData();
     } catch (error) {
       console.error('Failed to update contractor:', error);
       alert('Ошибка при сохранении');
@@ -800,8 +799,8 @@ function ContractorsView({ contractors, setContractors, orders }: { contractors:
                   await adminApi.toggleUserBlock(selected.id);
                   const newStatus = selected.status === 'blocked' ? 'active' : 'blocked';
                   const updated = { ...selected, status: newStatus };
-                  setContractors(contractors.map(c => c.id === selected.id ? updated : c));
                   setSelected(updated);
+                  await refreshAdminData();
                 } catch (error) {
                   console.error('Failed to toggle status:', error);
                   alert('Ошибка при изменении статуса');
@@ -978,7 +977,6 @@ function BannersView({ banners, setBanners, contractors, setContractors }: { ban
     try {
       const newStatus = banner.status === 'active' ? 'inactive' : 'active';
       await adminApi.updateBanner(id, { ...banner, status: newStatus });
-      setBanners(banners.map((b: any) => b.id === id ? { ...b, status: newStatus } : b));
       await refreshAdminData();
     } catch (error) {
       console.error('Failed to toggle banner:', error);
@@ -988,37 +986,51 @@ function BannersView({ banners, setBanners, contractors, setContractors }: { ban
 
   const startEdit = (banner: any) => {
     setEditingId(banner.id);
-    setEditForm({ ...banner });
+    setEditForm({
+      ...banner,
+      logo: banner.image_url || banner.logo || '',
+      imageKey: banner.image_key || banner.imageKey || '',
+    });
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditForm({ ...editForm, logo: reader.result as string });
-      };
-      reader.readAsDataURL(file);
+      uploadMediaFile(file)
+        .then(uploaded => {
+          setEditForm({ ...editForm, logo: uploaded.previewUrl, imageKey: uploaded.key });
+        })
+        .catch(error => {
+          console.error('Failed to upload banner image:', error);
+          alert('Ошибка при загрузке изображения');
+        })
+        .finally(() => {
+          e.target.value = '';
+        });
     }
   };
 
   const saveEdit = async () => {
     try {
-      if (editingId === -1) {
-        const newBanner = await adminApi.createBanner(editForm);
-        setBanners([newBanner, ...banners]);
-      } else {
-        await adminApi.updateBanner(editingId!, editForm);
-        setBanners(banners.map((b: any) => b.id === editingId ? editForm : b));
+      const executorId = editForm.contractorId || editForm.executor_id;
+      if (!executorId) {
+        alert('Выберите исполнителя для баннера');
+        return;
       }
-      
-      // Update contractor profile if linked
-      if (editForm.contractorId) {
-        setContractors(contractors.map((c: any) => 
-          c.id === editForm.contractorId 
-            ? { ...c, logo: editForm.logo, bannerText: editForm.description } 
-            : c
-        ));
+
+      const payload = {
+        executor_id: executorId,
+        title: editForm.contractor || editForm.title || '',
+        description: editForm.description || '',
+        image_key: editForm.imageKey || editForm.image_key || '',
+        link_url: editForm.link_url || null,
+        position: editForm.position || 'main',
+      };
+
+      if (editingId === -1) {
+        await adminApi.createBanner(payload);
+      } else {
+        await adminApi.updateBanner(editingId!, payload);
       }
       
       setEditingId(null);
@@ -1032,7 +1044,6 @@ function BannersView({ banners, setBanners, contractors, setContractors }: { ban
   const deleteBanner = async (id: number) => {
     try {
       await adminApi.deleteBanner(id);
-      setBanners(banners.filter((b: any) => b.id !== id));
       await refreshAdminData();
     } catch (error) {
       console.error('Failed to delete banner:', error);
@@ -1049,7 +1060,9 @@ function BannersView({ banners, setBanners, contractors, setContractors }: { ban
       description: '',
       status: 'inactive',
       views: 0,
-      clicks: 0
+      clicks: 0,
+      logo: '',
+      imageKey: '',
     });
   };
 
@@ -1189,64 +1202,7 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
 
     try {
       await adminApi.moderateExecutor(request.data.id || String(id), action === 'approve' ? 'APPROVED' : 'REJECTED');
-
-      if (action === 'approve') {
-        let contractorId = '';
-        let contractorName = '';
-        let contractorLogo = '';
-
-        if (request.type === 'new') {
-          contractorId = String(Date.now());
-          contractorName = request.data.shortName || request.data.name || request.data.companyName;
-          contractorLogo = request.data.logo;
-          const newContractor = {
-            id: contractorId,
-            ...request.data,
-            rating: 0,
-            reviewsCount: 0,
-            profileType: request.profile,
-            regDate: new Date().toLocaleDateString('ru-RU'),
-            orders: 0,
-            status: 'active'
-          };
-          setContractors([...contractors, newContractor]);
-        } else if (request.type === 'edit') {
-          contractorId = request.data.id;
-          contractorName = request.data.shortName || request.data.name || request.data.companyName;
-          contractorLogo = request.data.logo;
-          setContractors(contractors.map((c: any) => c.id === request.data.id ? { ...c, ...request.data } : c));
-        }
-
-        // Handle banner for Leader profile
-        if (request.profile === 'leader' || request.profile === 'Лидер') {
-          const existingBannerIndex = banners.findIndex((b: any) => b.contractorId === contractorId || b.contractor === contractorName);
-          if (existingBannerIndex !== -1) {
-            // Update existing banner
-            const updatedBanners = [...banners];
-            updatedBanners[existingBannerIndex] = {
-              ...updatedBanners[existingBannerIndex],
-              logo: contractorLogo || updatedBanners[existingBannerIndex].logo,
-              contractor: contractorName,
-              description: request.data.bannerText || updatedBanners[existingBannerIndex].description
-            };
-            setBanners(updatedBanners);
-          } else {
-            // Create new banner
-            const newBanner = {
-              id: Date.now(),
-              contractorId: contractorId,
-              contractor: contractorName,
-              description: request.data.bannerText || '',
-              status: 'active',
-              views: 0,
-              clicks: 0,
-              logo: contractorLogo
-            };
-            setBanners([...banners, newBanner]);
-          }
-        }
-      }
-      setModeration(moderation.map((m: any) => m.id === id ? { ...m, status: action === 'approve' ? 'approved' : 'rejected' } : m));
+      
       setSelectedRequest(null);
       await refreshAdminData();
     } catch (error: any) {
@@ -1415,7 +1371,6 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
     } catch (error) {
       console.error('Failed to resolve support ticket:', error);
     } finally {
-      setSupport(support.map(s => s.id === id ? { ...s, status: 'resolved', updatedAt: Date.now() } : s));
       setActiveChatId(null);
       await refreshAdminData();
     }
@@ -1428,16 +1383,6 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
     } catch (error) {
       console.error('Failed to reply to support ticket:', error);
     } finally {
-      setSupport(support.map(s => {
-        if (s.id === id) {
-          return {
-            ...s,
-            replies: [...(s.replies || []), { text: replyText, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), admin: true }],
-            updatedAt: Date.now()
-          };
-        }
-        return s;
-      }));
       setReplyText('');
       await refreshAdminData();
     }
@@ -1676,7 +1621,7 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
   };
 
   const handleSave = () => {
-    setCarModels(localCarModels);
+    refreshAdminData();
     alert('Изменения сохранены');
   };
 
@@ -1826,7 +1771,6 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
     if (editingSection && editingSection !== 'faq') {
       try {
         await adminApi.updateContent(editingSection as 'rules' | 'privacy' | 'templates', editText);
-        setContent({ ...content, [editingSection]: editText });
         setEditingSection(null);
         await refreshAdminData();
       } catch (error) {
@@ -1839,10 +1783,6 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
   const handleAddFaq = () => {
     const newId = Date.now().toString();
     const newFaq = [...content.faq, { id: newId, question: 'Новый вопрос', answer: 'Ответ на вопрос' }];
-    setContent({
-      ...content,
-      faq: newFaq
-    });
     startEditFaq(newId, 'Новый вопрос', 'Ответ на вопрос');
     refreshAdminData();
   };
@@ -1860,10 +1800,6 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
           item.id === editingFaqId ? { ...item, question: faqQuestion, answer: faqAnswer } : item
         );
         await adminApi.updateFaq(newFaq);
-        setContent({
-          ...content,
-          faq: newFaq
-        });
         setEditingFaqId(null);
         await refreshAdminData();
       } catch (error) {
@@ -1877,10 +1813,6 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
     try {
       const newFaq = content.faq.filter((item: any) => item.id !== id);
       await adminApi.updateFaq(newFaq);
-      setContent({
-        ...content,
-        faq: newFaq
-      });
       await refreshAdminData();
     } catch (error) {
       console.error('Failed to delete FAQ:', error);
@@ -1896,7 +1828,6 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
     newFaq[index - 1] = temp;
     try {
       await adminApi.updateFaq(newFaq);
-      setContent({ ...content, faq: newFaq });
       await refreshAdminData();
     } catch (error) {
       console.error('Failed to move FAQ:', error);
@@ -1912,7 +1843,6 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
     newFaq[index + 1] = temp;
     try {
       await adminApi.updateFaq(newFaq);
-      setContent({ ...content, faq: newFaq });
       await refreshAdminData();
     } catch (error) {
       console.error('Failed to move FAQ:', error);
@@ -2172,9 +2102,6 @@ function ServicesView({
   const handleSave = async () => {
     try {
       await adminApi.updateServiceCategories(localCategories);
-      setServiceCategories(localCategories);
-      setContractors(localContractors);
-      setOrders(localOrders);
       alert('Изменения сохранены');
       await refreshAdminData();
     } catch (error) {
