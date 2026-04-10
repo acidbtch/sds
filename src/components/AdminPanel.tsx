@@ -1362,8 +1362,32 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
 function SupportView({ support, setSupport }: { support: any[], setSupport: any }) {
   const { refreshAdminData } = useData();
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [activeChat, setActiveChat] = useState<any | null>(null);
   const [replyText, setReplyText] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const loadChat = async (id: string) => {
+    setChatLoading(true);
+    setChatError(null);
+    try {
+      const data = await adminApi.getSupportTicket(id);
+      setActiveChat(data);
+    } catch (error) {
+      console.error('Failed to load support ticket:', error);
+      setChatError('Не удалось загрузить обращение');
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const openChat = async (id: string) => {
+    setActiveChatId(id);
+    setReplyText('');
+    setActiveChat(null);
+    await loadChat(id);
+  };
 
   const handleResolve = async (id: string) => {
     try {
@@ -1380,6 +1404,7 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
     if (!replyText.trim()) return;
     try {
       await adminApi.replySupportTicket(id, replyText);
+      await loadChat(id);
     } catch (error) {
       console.error('Failed to reply to support ticket:', error);
     } finally {
@@ -1397,8 +1422,37 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
   const sortedSupport = [...support].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
   if (activeChatId) {
-    const chat = support.find(s => s.id === activeChatId);
+    const chat = activeChat || support.find(s => s.id === activeChatId);
+    if (chatLoading && !chat) {
+      return (
+        <div className="flex items-center justify-center h-[calc(100vh-140px)] -m-4 bg-gray-50">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+        </div>
+      );
+    }
+
+    if (chatError && !chat) {
+      return (
+        <div className="flex items-center justify-center h-[calc(100vh-140px)] -m-4 bg-gray-50 p-4">
+          <div className="text-center">
+            <p className="text-sm text-red-500 mb-3">{chatError}</p>
+            <button
+              onClick={() => openChat(activeChatId)}
+              className="px-4 py-2 bg-blue-500 text-white rounded-xl text-sm"
+            >
+              Попробовать снова
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     if (!chat) return null;
+
+    const ticketStatus = String(chat.status || '').toUpperCase();
+    const isClosed = ticketStatus === 'CLOSED' || ticketStatus === 'RESOLVED';
+    const isInProgress = !isClosed;
+    const messages = chat.messages || [];
 
     return (
       <div className="flex flex-col h-[calc(100vh-140px)] -m-4 bg-gray-50">
@@ -1412,10 +1466,10 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
             </button>
             <div>
               <h1 className="text-lg font-bold text-gray-900">{chat.user}</h1>
-              <p className="text-xs text-green-500 font-medium">{chat.status === 'in_progress' ? 'В работе' : 'Решено'}</p>
+              <p className="text-xs text-green-500 font-medium">{isClosed ? 'Решено' : 'В работе'}</p>
             </div>
           </div>
-          {chat.status === 'in_progress' && (
+          {isInProgress && (
             <button 
               onClick={() => handleResolve(chat.id)}
               className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
@@ -1428,34 +1482,30 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
 
         <div className="flex-1 p-4 overflow-y-auto space-y-4">
           <div className="text-center text-xs text-gray-400 my-4">Начало чата</div>
-          
-          {chat.text && (
-            <div className="flex justify-start">
-              <div className="bg-white text-gray-800 p-3 rounded-2xl rounded-tl-sm max-w-[80%] shadow-sm border border-gray-100">
-                <p className="text-sm">{chat.text}</p>
-                <p className="text-[10px] text-gray-400 text-right mt-1">{chat.time}</p>
+          {chatError ? (
+            <div className="text-center text-sm text-red-500 py-6">{chatError}</div>
+          ) : messages.length > 0 ? (
+            messages.map((message: any) => (
+              <div key={message.id} className={`flex ${message.is_from_support ? 'justify-end' : 'justify-start'}`}>
+                <div className={`p-3 rounded-2xl max-w-[80%] shadow-sm ${
+                  message.is_from_support
+                    ? 'bg-blue-500 text-white rounded-tr-sm'
+                    : 'bg-white text-gray-800 rounded-tl-sm border border-gray-100'
+                }`}>
+                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  <p className={`text-[10px] text-right mt-1 ${message.is_from_support ? 'text-blue-100' : 'text-gray-400'}`}>
+                    {new Date(message.created_at).toLocaleString('ru-RU')}
+                  </p>
+                </div>
               </div>
-            </div>
+            ))
+          ) : (
+            <div className="text-center text-sm text-gray-400 py-6">Сообщений пока нет</div>
           )}
-
-          {chat.replies?.map((reply: any, idx: number) => (
-            <div key={idx} className={`flex ${reply.admin ? 'justify-end' : 'justify-start'}`}>
-              <div className={`p-3 rounded-2xl max-w-[80%] shadow-sm ${
-                reply.admin 
-                  ? 'bg-blue-500 text-white rounded-tr-sm' 
-                  : 'bg-white text-gray-800 rounded-tl-sm border border-gray-100'
-              }`}>
-                <p className="text-sm">{reply.text}</p>
-                <p className={`text-[10px] text-right mt-1 ${reply.admin ? 'text-blue-100' : 'text-gray-400'}`}>
-                  {reply.time}
-                </p>
-              </div>
-            </div>
-          ))}
           <div ref={chatEndRef} />
         </div>
 
-        {chat.status === 'in_progress' && (
+        {isInProgress && (
           <div className="p-4 bg-white border-t border-gray-100">
             <div className="flex items-center gap-2">
               <input 
@@ -1487,7 +1537,7 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
       {sortedSupport.map(s => (
         <div 
           key={s.id} 
-          onClick={() => setActiveChatId(s.id)}
+          onClick={() => openChat(s.id)}
           className="bg-white p-4 rounded-xl shadow-md border border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
         >
           <div className="flex justify-between items-start mb-2">

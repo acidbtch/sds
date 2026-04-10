@@ -135,6 +135,7 @@ export const adminApi = {
   getCarModels: (brandId: string) => fetchApi<any[]>(`/admin/cars/brands/${brandId}/models`),
   getServiceCategories: () => fetchApi<any[]>('/admin/services/categories'),
   getSupportTickets: () => fetchApi<any[]>('/support/admin/tickets'),
+  getSupportTicket: (ticketId: string) => fetchApi<any>(`/support/admin/tickets/${ticketId}`),
   moderateExecutor: (profileId: string, status: 'APPROVED' | 'REJECTED', comment?: string) =>
     fetchApi<any>(`/admin/executors/moderation/${profileId}`, {
       method: 'POST',

@@ -56,6 +56,7 @@ export interface SupportReply {
 export interface SupportTicket {
   id: string;
   user: string;
+  subject: string;
   text: string;
   status: 'in_progress' | 'resolved';
   time: string;
@@ -279,12 +280,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setSupport(extractSupportTickets(supportData).map((t: any) => ({
         id: String(t.id),
         user: `Пользователь ${t.user_id}`,
-        text: t.last_message || '',
+        subject: t.subject || '',
+        text: t.last_message || t.subject || '',
         status: t.status === 'CLOSED' || t.status === 'RESOLVED' ? 'resolved' : 'in_progress',
         time: t.created_at ? new Date(t.created_at).toLocaleString('ru-RU') : '',
         replies: [],
         updatedAt: t.last_message_at ? new Date(t.last_message_at).getTime() : Date.now(),
-      })));
+      }))); 
 
         setCarBrands(brandsData || []);
         setServiceCategories((categoriesData || []).map((cat: any) => ({ id: cat.id, name: cat.name, services: [] })));
