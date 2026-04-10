@@ -286,17 +286,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         time: t.created_at ? new Date(t.created_at).toLocaleString('ru-RU') : '',
         replies: [],
         updatedAt: t.last_message_at ? new Date(t.last_message_at).getTime() : Date.now(),
-      }))); 
+      })));
 
         setCarBrands(brandsData || []);
         setServiceCategories((categoriesData || []).map((cat: any) => ({ id: cat.id, name: cat.name, services: [] })));
-
-        const modelsMap: Record<string, any[]> = {};
-        await Promise.all((brandsData || []).map(async (brand: any) => {
-          const models = await adminApi.getCarModels(brand.id).catch(() => []);
-          modelsMap[brand.id] = models;
-        }));
-        setCarModels(modelsMap);
       } catch (error) {
       console.error('Failed to fetch admin data:', error);
     }

@@ -1561,7 +1561,7 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
 }
 
 function CarsView({ carModels, setCarModels }: { carModels: Record<string, string[]>, setCarModels: React.Dispatch<React.SetStateAction<Record<string, string[]>>> }) {
-  const { refreshAdminData } = useData();
+  const { refreshAdminData, carBrands } = useData();
   const [localCarModels, setLocalCarModels] = useState<Record<string, string[]>>(carModels);
   const [newMake, setNewMake] = useState('');
   const [selectedMake, setSelectedMake] = useState<string | null>(null);
@@ -1574,11 +1574,46 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
     setLocalCarModels(carModels);
   }, [carModels]);
 
+  useEffect(() => {
+    if (!carBrands.length) return;
+
+    const brandIds = carBrands.map((brand: any) => String(brand.id));
+    const knownBrandIds = Object.keys(carModels);
+    const needsLoad = brandIds.length > 0 && brandIds.some((id) => !knownBrandIds.includes(id));
+
+    if (!needsLoad) return;
+
+    let cancelled = false;
+
+    const loadCarModels = async () => {
+      const entries = await Promise.all(
+        carBrands.map(async (brand: any) => [String(brand.id), await adminApi.getCarModels(brand.id).catch(() => [])] as const)
+      );
+
+      if (cancelled) return;
+
+      const nextModels = Object.fromEntries(entries) as Record<string, string[]>;
+      setLocalCarModels(nextModels);
+      setCarModels(nextModels);
+    };
+
+    loadCarModels();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [carBrands, carModels, setCarModels]);
+
+  const syncCarModels = (nextModels: Record<string, string[]>) => {
+    setLocalCarModels(nextModels);
+    setCarModels(nextModels);
+  };
+
   const handleAddMake = async () => {
     if (newMake.trim() && !localCarModels[newMake.trim()]) {
       try {
         await adminApi.createCarMake(newMake.trim());
-        setLocalCarModels({ ...localCarModels, [newMake.trim()]: [] });
+        syncCarModels({ ...localCarModels, [newMake.trim()]: [] });
         setNewMake('');
         await refreshAdminData();
       } catch (error) {
@@ -1593,7 +1628,7 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
       await adminApi.deleteCarMake(make);
       const newModels = { ...localCarModels };
       delete newModels[make];
-      setLocalCarModels(newModels);
+      syncCarModels(newModels);
       if (selectedMake === make) setSelectedMake(null);
       await refreshAdminData();
     } catch (error) {
@@ -1610,7 +1645,7 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
         const newModels = { ...localCarModels };
         newModels[newMakeName] = newModels[editingMake.old];
         delete newModels[editingMake.old];
-        setLocalCarModels(newModels);
+        syncCarModels(newModels);
         if (selectedMake === editingMake.old) setSelectedMake(newMakeName);
         await refreshAdminData();
       } catch (error) {
@@ -1625,7 +1660,7 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
     if (selectedMake && newModel.trim() && !localCarModels[selectedMake].includes(newModel.trim())) {
       try {
         await adminApi.createCarModel(selectedMake, newModel.trim());
-        setLocalCarModels({
+        syncCarModels({
           ...localCarModels,
           [selectedMake]: [...localCarModels[selectedMake], newModel.trim()]
         });
@@ -1641,7 +1676,7 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
   const handleDeleteModel = async (make: string, model: string) => {
     try {
       await adminApi.deleteCarModel(make, model);
-      setLocalCarModels({
+      syncCarModels({
         ...localCarModels,
         [make]: localCarModels[make].filter(m => m !== model)
       });
@@ -1657,7 +1692,7 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
       const newModelName = editingModel.new.trim();
       try {
         await adminApi.updateCarModel(selectedMake, editingModel.old, newModelName);
-        setLocalCarModels({
+        syncCarModels({
           ...localCarModels,
           [selectedMake]: localCarModels[selectedMake].map(m => m === editingModel.old ? newModelName : m)
         });
@@ -1671,6 +1706,7 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
   };
 
   const handleSave = () => {
+    setCarModels(localCarModels);
     refreshAdminData();
     alert('Изменения сохранены');
   };
