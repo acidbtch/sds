@@ -110,6 +110,11 @@ interface DataContextType {
   refreshAdminData: () => Promise<void>;
 }
 
+function extractSupportTickets(response: any): any[] {
+  if (Array.isArray(response)) return response;
+  return response?.items ?? response?.tickets ?? [];
+}
+
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const useData = () => {
@@ -271,7 +276,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           oldData: undefined,
         })));
 
-      setSupport((supportData || []).map((t: any) => ({
+      setSupport(extractSupportTickets(supportData).map((t: any) => ({
         id: String(t.id),
         user: `Пользователь ${t.user_id}`,
         text: t.last_message || '',
