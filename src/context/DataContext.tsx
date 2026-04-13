@@ -310,7 +310,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }))); 
 
         setCarBrands(brandsData || []);
-        setServiceCategories((categoriesData || []).map((cat: any) => ({ id: cat.id, name: cat.name, services: [] })));
+        setServiceCategories((categoriesData || []).map((cat: any) => ({ 
+          id: cat.id, 
+          name: cat.name, 
+          services: (cat.services || []).map((s: any) => s.name) 
+        })));
       } catch (error) {
       console.error('Failed to fetch admin data:', error);
     }
@@ -358,16 +362,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
 
         if (categoriesData && categoriesData.length > 0) {
-          const mappedCategories = await Promise.all(
-            categoriesData.map(async (cat: any) => {
-              const services = await dictsApi.getServices(cat.id).catch(() => []);
-              return {
-                id: cat.id,
-                name: cat.name,
-                services: services.map((s: any) => s.name)
-              };
-            })
-          );
+          const mappedCategories = categoriesData.map((cat: any) => ({
+            id: cat.id,
+            name: cat.name,
+            services: (cat.services || []).map((s: any) => s.name)
+          }));
           setServiceCategories(mappedCategories);
         }
 

@@ -4,7 +4,7 @@ import { ChevronDown, Check } from 'lucide-react';
 interface MultiSelectProps {
   values: string[];
   onChange: (values: string[]) => void;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; isGroup?: boolean }[];
   placeholder?: string;
   disabled?: boolean;
   theme?: 'orange' | 'blue';
@@ -81,7 +81,14 @@ export function MultiSelect({
 
       {isOpen && !disabled && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-          {options.map((option) => {
+          {options.map((option, idx) => {
+            if (option.isGroup) {
+              return (
+                <div key={`group-${idx}`} className="px-4 py-2 text-xs font-bold text-gray-500 bg-gray-50 uppercase tracking-wider border-y border-gray-100 first:border-t-0">
+                  {option.label}
+                </div>
+              );
+            }
             const isSelected = values.includes(option.value);
             return (
               <button

@@ -19,9 +19,6 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
   const { serviceCategories, setOrders } = useData();
   const { user } = useAuth();
   const [submitted, setSubmitted] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedMake, setSelectedMake] = useState('');
-  const [selectedModel, setSelectedModel] = useState('');
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState('');
   const [selectedGearbox, setSelectedGearbox] = useState('');
@@ -47,7 +44,6 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
   
   // API Data States
   const [apiCategories, setApiCategories] = useState<any[]>([]);
-  const [apiServices, setApiServices] = useState<any[]>([]);
   const [apiBrands, setApiBrands] = useState<any[]>([]);
   const [apiModels, setApiModels] = useState<any[]>([]);
 
@@ -95,16 +91,6 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
     };
     fetchDicts();
   }, []);
-
-  useEffect(() => {
-    if (selectedCategory) {
-      dictsApi.getServices(selectedCategory)
-        .then(services => setApiServices(services || []))
-        .catch(console.error);
-    } else {
-      setApiServices([]);
-    }
-  }, [selectedCategory]);
 
   useEffect(() => {
     if (selectedMake) {
@@ -184,11 +170,6 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
     setSelectedModel(''); // Reset model when make changes
   };
 
-  const handleCategoryChange = (val: string) => {
-    setSelectedCategory(val);
-    setSelectedServices([]);
-  };
-
   const handleBack = () => {
     if (previousView === 'contractors_catalog') {
       onNavigate('contractors_catalog');
@@ -196,6 +177,11 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
       onNavigate('customer_menu');
     }
   };
+
+  const serviceOptions = apiCategories.flatMap(cat => [
+    { value: cat.id, label: cat.name, isGroup: true },
+    ...(cat.services || []).map((srv: any) => ({ value: srv.id, label: srv.name }))
+  ]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -277,33 +263,15 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="p-4 flex flex-col gap-4 pb-64">
-        <div className="bg-orange-50 p-4 rounded-xl flex items-start gap-3 border border-orange-100">
-          <Info className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-orange-800">В одном заказе доступны услуги только в рамках одной категории.</p>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-100 grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Категория услуг <span className="text-red-500">*</span></label>
-            <CustomSelect
-              value={selectedCategory}
-              onChange={handleCategoryChange}
-              options={apiCategories.map(cat => ({ value: cat.id, label: cat.name }))}
-              placeholder="Выберите категорию"
-              error={showErrors && !selectedCategory}
-            />
-          </div>
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Вид услуги <span className="text-red-500">*</span></label>
-            <MultiSelect
-              values={selectedServices}
-              onChange={setSelectedServices}
-              disabled={!selectedCategory}
-              options={apiServices.map(srv => ({ value: srv.id, label: srv.name }))}
-              placeholder={selectedCategory ? "Выберите услуги" : "Сначала выберите категорию"}
-              error={showErrors && selectedServices.length === 0}
-            />
-          </div>
+        <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-100">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Вид услуги <span className="text-red-500">*</span></label>
+          <MultiSelect
+            values={selectedServices}
+            onChange={setSelectedServices}
+            options={serviceOptions}
+            placeholder="Выберите услуги"
+            error={showErrors && selectedServices.length === 0}
+          />
         </div>
 
         <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-100">
