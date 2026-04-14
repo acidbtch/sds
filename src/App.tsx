@@ -55,12 +55,27 @@ export default function App() {
     }
 
     tg.ready();
-    tg.expand();
+    const platform = String(tg.platform || '').toLowerCase();
+    const isPhonePlatform = platform === 'ios' || platform === 'android';
 
-    if (typeof tg.requestFullscreen === 'function') {
-      tg.requestFullscreen().catch(() => {
-        // Some Telegram clients do not support strict fullscreen mode.
-      });
+    if (isPhonePlatform) {
+      tg.expand();
+
+      if (typeof tg.requestFullscreen === 'function') {
+        try {
+          const fullscreenResult = tg.requestFullscreen();
+          if (
+            fullscreenResult &&
+            typeof fullscreenResult.catch === 'function'
+          ) {
+            fullscreenResult.catch(() => {
+              // Some Telegram clients do not support strict fullscreen mode.
+            });
+          }
+        } catch {
+          // Ignore unsupported fullscreen errors.
+        }
+      }
     }
   }, []);
 
