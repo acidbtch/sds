@@ -66,6 +66,7 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
             status: (o.status === 'SEARCHING' ? 'pending' : o.status === 'MATCHED' ? 'active' : o.status === 'COMPLETED' ? 'completed' : 'cancelled') as 'pending' | 'active' | 'completed' | 'cancelled',
             description: o.description || '',
             responses: [],
+            responsesCount: typeof o.responses_count === 'number' ? o.responses_count : 0,
             engine: o.engine_type,
             gearbox: o.gearbox_type,
             drive: o.drive_type,
@@ -73,7 +74,30 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
             phone: o.owner_phone,
             media: o.photos || []
           }));
-          setOrders(mappedOrders);
+
+          const responseCounts = await Promise.all(
+            mappedOrders.map(async (order) => {
+              if (order.status !== 'pending' && order.status !== 'active') {
+                return [order.id, 0] as const;
+              }
+
+              try {
+                const responses = await customerApi.getOrderResponses(order.id);
+                return [order.id, Array.isArray(responses) ? responses.length : 0] as const;
+              } catch {
+                return [order.id, 0] as const;
+              }
+            })
+          );
+
+          const responseCountByOrderId = Object.fromEntries(responseCounts);
+          setOrders(
+            mappedOrders.map((order) => ({
+              ...order,
+              responsesCount:
+                responseCountByOrderId[order.id] ?? order.responsesCount ?? 0,
+            }))
+          );
         }
       } catch (error) {
         console.error('Failed to fetch orders:', error);
@@ -147,12 +171,14 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
               ...o,
               status: 'pending',
               acceptedContractorId: undefined,
-              responses: (o.responses || []).filter(r => r.id !== responseId)
+              responses: (o.responses || []).filter(r => r.id !== responseId),
+              responsesCount: Math.max(((o.responsesCount ?? (o.responses || []).length) - 1), 0)
             };
           }
           return {
             ...o,
-            responses: (o.responses || []).filter(r => r.id !== responseId)
+            responses: (o.responses || []).filter(r => r.id !== responseId),
+            responsesCount: Math.max(((o.responsesCount ?? (o.responses || []).length) - 1), 0)
           };
         }
         return o;
@@ -242,7 +268,7 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
               price: r.price ? `${r.price} BYN` : ''
             }));
             setOrders(prevOrders => prevOrders.map(o => 
-              o.id === id ? { ...o, responses: mappedResponses } : o
+              o.id === id ? { ...o, responses: mappedResponses, responsesCount: mappedResponses.length } : o
             ));
           }
         } catch (error) {
@@ -330,7 +356,7 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
                     {order.status === 'pending' && (
                       <span className="flex items-center text-xs font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded-md">
                         <AlertCircle className="w-3 h-3 mr-1" />
-                        {(order.responses || []).length} отклик(ов)
+                        {(order.responsesCount ?? (order.responses || []).length)} отклик(ов)
                       </span>
                     )}
                     {order.status === 'active' && (

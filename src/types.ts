@@ -61,6 +61,7 @@ export interface Order {
   date: string;
   description: string;
   responses: ContractorResponse[];
+  responsesCount?: number;
   refusedBy?: string[];
   acceptedContractorId?: string;
 }
