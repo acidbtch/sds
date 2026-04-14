@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ViewState } from './types';
 import Home from './components/Home';
@@ -47,6 +47,22 @@ export default function App() {
   const [carModels, setCarModels] = useState<Record<string, string[]>>(INITIAL_CAR_MODELS);
   const [hasCatalogAccess, setHasCatalogAccess] = useState(false);
   const [catalogSource, setCatalogSource] = useState<'customer' | 'admin'>('customer');
+
+  useEffect(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    if (!tg) {
+      return;
+    }
+
+    tg.ready();
+    tg.expand();
+
+    if (typeof tg.requestFullscreen === 'function') {
+      tg.requestFullscreen().catch(() => {
+        // Some Telegram clients do not support strict fullscreen mode.
+      });
+    }
+  }, []);
 
   const handleNavigate = (view: ViewState) => {
     if (view === 'contractors_catalog') {
@@ -92,8 +108,8 @@ export default function App() {
   return (
     <AuthProvider>
       <DataProvider>
-        <div className="min-h-screen bg-gray-100 text-black font-sans flex justify-center">
-          <div className="w-full max-w-md bg-white min-h-screen relative shadow-2xl overflow-hidden">
+        <div className="min-h-screen min-h-[100dvh] bg-gray-100 text-black font-sans flex justify-center">
+          <div className="w-full max-w-md bg-white min-h-screen min-h-[100dvh] relative shadow-2xl overflow-hidden">
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentView}
@@ -101,7 +117,7 @@ export default function App() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.2 }}
-                className="w-full min-h-screen bg-white relative"
+                className="w-full min-h-screen min-h-[100dvh] bg-white relative"
               >
                 {renderView()}
               </motion.div>
