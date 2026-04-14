@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ViewState } from '../types';
-import { ChevronLeft, Camera, Video, CheckCircle, Info, Loader2, X } from 'lucide-react';
+import { ChevronLeft, Camera, Video, CheckCircle, Loader2, X } from 'lucide-react';
 import RegionSelector from './RegionSelector';
 import { CustomSelect } from './CustomSelect';
 import { MultiSelect } from './MultiSelect';
@@ -16,9 +16,11 @@ interface Props {
 }
 
 export default function OrderForm({ onNavigate, carModels, previousView }: Props) {
-  const { serviceCategories, setOrders } = useData();
+  const { setOrders } = useData();
   const { user } = useAuth();
   const [submitted, setSubmitted] = useState(false);
+  const [selectedMake, setSelectedMake] = useState('');
+  const [selectedModel, setSelectedModel] = useState('');
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState('');
   const [selectedGearbox, setSelectedGearbox] = useState('');
