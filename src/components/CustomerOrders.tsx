@@ -35,7 +35,8 @@ interface Props {
 }
 
 export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCatalogAccess }: Props) {
-  const { orders, setOrders, contractors, banners } = useData();
+  const { contractors, banners } = useData();
+  const [orders, setOrders] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
   const [expandedOrders, setExpandedOrders] = useState<string[]>([]);
   const [showCatalogPayment, setShowCatalogPayment] = useState(false);

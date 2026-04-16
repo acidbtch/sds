@@ -16,7 +16,6 @@ interface Props {
 }
 
 export default function OrderForm({ onNavigate, carModels, previousView }: Props) {
-  const { setOrders } = useData();
   const { user } = useAuth();
   const [submitted, setSubmitted] = useState(false);
   const [selectedMake, setSelectedMake] = useState('');
