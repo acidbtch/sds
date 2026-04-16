@@ -1,10 +1,73 @@
-export const API_URL = import.meta.env.VITE_API_URL || 'https://api.example.com/api/v1'; // Замените на реальный URL
+export const API_URL = (import.meta as any).env?.VITE_API_URL || 'https://api.example.com/api/v1'; // Замените на реальный URL
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
     this.name = 'ApiError';
   }
+}
+
+function formatValidationLocation(loc: unknown) {
+  if (!Array.isArray(loc)) return '';
+
+  return loc
+    .filter((part) => part !== 'body' && part !== 'query' && part !== 'path')
+    .map(String)
+    .join('.');
+}
+
+function formatApiErrorDetail(detail: unknown): string | null {
+  if (!detail) return null;
+
+  if (typeof detail === 'string') return detail;
+
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        if (!item || typeof item !== 'object') return null;
+
+        const record = item as Record<string, unknown>;
+        const message =
+          typeof record.msg === 'string'
+            ? record.msg
+            : typeof record.message === 'string'
+              ? record.message
+              : null;
+
+        if (!message) return null;
+
+        const location = formatValidationLocation(record.loc);
+        return location ? `${location}: ${message}` : message;
+      })
+      .filter((message): message is string => Boolean(message));
+
+    return messages.length > 0 ? messages.join('; ') : null;
+  }
+
+  if (typeof detail === 'object') {
+    const record = detail as Record<string, unknown>;
+    if (typeof record.msg === 'string') return record.msg;
+    if (typeof record.message === 'string') return record.message;
+  }
+
+  return null;
+}
+
+export function formatApiErrorMessage(errorData: unknown, fallback = 'API Error') {
+  if (!errorData) return fallback;
+
+  if (typeof errorData === 'string') return errorData;
+
+  if (typeof errorData !== 'object') return String(errorData);
+
+  const record = errorData as Record<string, unknown>;
+  return (
+    formatApiErrorDetail(record.detail) ||
+    formatApiErrorDetail(record.errors) ||
+    (typeof record.message === 'string' ? record.message : null) ||
+    fallback
+  );
 }
 
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -29,7 +92,7 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
       let errorMessage = 'API Error';
       try {
         const errorData = await response.json();
-        errorMessage = errorData.detail || JSON.stringify(errorData);
+        errorMessage = formatApiErrorMessage(errorData, response.statusText || errorMessage);
       } catch (e) {
         errorMessage = response.statusText;
       }

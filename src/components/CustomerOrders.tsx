@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { ViewState, Order, Contractor } from '../types';
 import { ChevronLeft, ChevronRight, Star, AlertCircle, CheckCircle, XCircle, ChevronDown, X, Clock, MapPin, Award, Briefcase, Globe, Instagram, Video, CreditCard, Loader2 } from 'lucide-react';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import { customerApi, paymentsApi } from '../lib/api';
+import { filterCustomerOrdersForUser } from '../lib/customerOrders';
 
 const REVIEW_CRITERIA = [
   'Быстрый отклик',
@@ -36,6 +38,7 @@ interface Props {
 
 export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCatalogAccess }: Props) {
   const { contractors, banners } = useData();
+  const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
   const [expandedOrders, setExpandedOrders] = useState<string[]>([]);
@@ -54,7 +57,7 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
         const fetchedOrders = await customerApi.getOrders();
         if (fetchedOrders) {
           // Map API orders to our Order interface
-          const mappedOrders = fetchedOrders.map((o: any) => ({
+          const mappedOrders = filterCustomerOrdersForUser(fetchedOrders, user).map((o: any) => ({
             id: o.id,
             serviceType: o.service_name || o.service_id || 'Услуга',
             carMake: o.car_brand_name || o.car_brand_id || '',
@@ -108,7 +111,7 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
     };
 
     fetchOrders();
-  }, [setOrders]);
+  }, [setOrders, user]);
 
   const activeBanners = banners.filter(b => b.status === 'active');
 
