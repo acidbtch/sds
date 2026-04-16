@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ViewState } from '../types';
-import { ChevronLeft, Camera, Video, CheckCircle, Loader2, X } from 'lucide-react';
+import { ChevronLeft, Camera, Video, CheckCircle, Loader2, X, AlertCircle } from 'lucide-react';
 import RegionSelector from './RegionSelector';
 import { CustomSelect } from './CustomSelect';
 import { MultiSelect } from './MultiSelect';
@@ -8,6 +8,7 @@ import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { dictsApi, customerApi } from '../lib/api';
 import { uploadMediaFile } from '../lib/media';
+import { getServicesForCategory, resetServicesForCategoryChange } from '../lib/orderServiceSelection';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -20,6 +21,7 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
   const [submitted, setSubmitted] = useState(false);
   const [selectedMake, setSelectedMake] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
+  const [selectedServiceCategory, setSelectedServiceCategory] = useState('');
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState('');
   const [selectedGearbox, setSelectedGearbox] = useState('');
@@ -137,6 +139,7 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
   const years = Array.from({ length: currentYear - 1966 + 1 }, (_, i) => currentYear - i);
 
   const isFormValid = 
+    selectedServiceCategory !== '' &&
     selectedServices.length > 0 &&
     selectedRegions.length > 0 &&
     Object.keys(regionIdByName).length > 0 &&
@@ -170,6 +173,13 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
     setSelectedModel(''); // Reset model when make changes
   };
 
+  const handleServiceCategoryChange = (categoryId: string) => {
+    setSelectedServices(prev =>
+      resetServicesForCategoryChange(selectedServiceCategory, categoryId, prev)
+    );
+    setSelectedServiceCategory(categoryId);
+  };
+
   const handleBack = () => {
     if (previousView === 'contractors_catalog') {
       onNavigate('contractors_catalog');
@@ -178,10 +188,8 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
     }
   };
 
-  const serviceOptions = apiCategories.flatMap(cat => [
-    { value: cat.id, label: cat.name, isGroup: true },
-    ...(cat.services || []).map((srv: any) => ({ value: srv.id, label: srv.name }))
-  ]);
+  const serviceCategoryOptions = apiCategories.map(cat => ({ value: cat.id, label: cat.name }));
+  const serviceOptions = getServicesForCategory(apiCategories, selectedServiceCategory);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,12 +272,27 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
 
       <form onSubmit={handleSubmit} noValidate className="p-4 flex flex-col gap-4 pb-64">
         <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-100">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Вид услуги <span className="text-red-500">*</span></label>
+          <div className="bg-orange-50 border border-orange-100 text-orange-700 rounded-xl p-3 text-sm flex gap-2 mb-4">
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <span>В одном заказе доступны услуги только в рамках одной категории.</span>
+          </div>
+
+          <label className="block text-sm font-medium text-gray-700 mb-1">Категория услуг <span className="text-red-500">*</span></label>
+          <CustomSelect
+            value={selectedServiceCategory}
+            onChange={handleServiceCategoryChange}
+            options={serviceCategoryOptions}
+            placeholder="Выберите категорию"
+            error={showErrors && !selectedServiceCategory}
+          />
+
+          <label className="block text-sm font-medium text-gray-700 mt-4 mb-1">Вид услуги <span className="text-red-500">*</span></label>
           <MultiSelect
             values={selectedServices}
             onChange={setSelectedServices}
             options={serviceOptions}
-            placeholder="Выберите услуги"
+            placeholder={selectedServiceCategory ? 'Выберите услуги' : 'Сначала выберите категорию'}
+            disabled={!selectedServiceCategory}
             error={showErrors && selectedServices.length === 0}
           />
         </div>
