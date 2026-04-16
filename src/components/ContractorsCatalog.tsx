@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { ViewState, Contractor } from '../types';
-import { ChevronLeft, Search, Filter, Star, MapPin, CheckCircle, Award, Briefcase, X, Clock, Globe, Instagram, Video, ArrowUpDown, Phone, Image as ImageIcon } from 'lucide-react';
+import { ChevronLeft, ChevronDown, Search, Filter, Star, MapPin, CheckCircle, Award, Briefcase, X, Clock, Globe, Instagram, Video, ArrowUpDown, Phone, Image as ImageIcon } from 'lucide-react';
 import RegionSelector from './RegionSelector';
 import { useData } from '../context/DataContext';
 import { customerApi } from '../lib/api';
+import { getContractorServiceGroups } from '../lib/contractorServices';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -28,6 +29,7 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
   const [isRegionModalOpen, setIsRegionModalOpen] = useState(false);
   const [selectedContractor, setSelectedContractor] = useState<Contractor | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [expandedServiceCards, setExpandedServiceCards] = useState<string[]>([]);
   
   const [filters, setFilters] = useState<FilterState>({
     serviceCategory: null,
@@ -126,6 +128,15 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
     setIsSortOpen(false);
   };
 
+  const handleToggleServices = (event: React.MouseEvent, contractorId: string) => {
+    event.stopPropagation();
+    setExpandedServiceCards((current) =>
+      current.includes(contractorId)
+        ? current.filter((id) => id !== contractorId)
+        : [...current, contractorId]
+    );
+  };
+
   const filteredContractors = useMemo(() => {
     let result = [...contractors];
 
@@ -185,7 +196,7 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
     });
 
     return result;
-  }, [searchQuery, filters]);
+  }, [contractors, searchQuery, filters]);
 
   const getProfileBadge = (type: string) => {
     switch (type) {
@@ -288,7 +299,11 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
           </div>
         ) : filteredContractors.length > 0 ? (
-          filteredContractors.map(contractor => (
+          filteredContractors.map(contractor => {
+            const serviceGroups = getContractorServiceGroups(contractor.services || [], serviceCategories);
+            const isServicesExpanded = expandedServiceCards.includes(contractor.id);
+
+            return (
             <div 
               key={contractor.id} 
               onClick={() => setSelectedContractor(contractor)}
@@ -329,16 +344,43 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
               )}
 
               {/* Services */}
-              <div className="mb-4">
-                <h4 className="text-xs font-bold text-gray-900 mb-2">Виды оказываемых услуг</h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {contractor.services.map((service, idx) => (
-                    <span key={idx} className="bg-gray-50 text-gray-600 text-[11px] px-2.5 py-1 rounded-lg border border-gray-200">
-                      {service}
-                    </span>
-                  ))}
+              {serviceGroups.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="text-xs font-bold text-gray-900 mb-2">Виды оказываемых услуг</h4>
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    {serviceGroups.map((group) => (
+                      <span key={group.category} className="bg-gray-50 text-gray-700 text-[11px] px-2.5 py-1 rounded-lg border border-gray-200 font-medium">
+                        {group.category}
+                      </span>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={(event) => handleToggleServices(event, contractor.id)}
+                      className="text-blue-600 text-[11px] font-semibold px-2.5 py-1 rounded-lg hover:bg-blue-50 inline-flex items-center gap-1 transition-colors"
+                      aria-expanded={isServicesExpanded}
+                    >
+                      {isServicesExpanded ? 'Свернуть' : 'Развернуть'}
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isServicesExpanded ? 'rotate-180' : ''}`} />
+                    </button>
+                  </div>
+                  {isServicesExpanded && (
+                    <div className="mt-3 space-y-3 rounded-lg border border-gray-100 bg-gray-50/70 p-3">
+                      {serviceGroups.map((group) => (
+                        <div key={group.category}>
+                          <div className="text-[11px] font-bold text-gray-900 mb-1.5">{group.category}</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {group.services.map((service) => (
+                              <span key={service} className="bg-white text-gray-600 text-[11px] px-2.5 py-1 rounded-lg border border-gray-200">
+                                {service}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
 
               {/* Region and Contacts */}
               <div className="grid grid-cols-2 gap-4 mb-4 text-sm border-t border-b border-gray-100 py-3">
@@ -405,7 +447,8 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
                 </button>
               )}
             </div>
-          ))
+            );
+          })
         ) : (
           <div className="text-center py-10 text-gray-500">
             <p>По вашему запросу ничего не найдено.</p>
