@@ -170,16 +170,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     try {
         const [usersData, executorsData, ordersData, paymentsData, bannersData, faqData, contentData, brandsData, categoriesData, supportData] = await Promise.all([
-          adminApi.getUsers().catch(() => []),
-          adminApi.getExecutors().catch(() => []),
-          adminApi.getOrders().catch(() => []),
-        adminApi.getPayments().catch(() => []),
-        adminApi.getBanners().catch(() => []),
-        adminApi.getFaq().catch(() => []),
-        adminApi.getContent().catch(() => []),
-        adminApi.getCarBrands().catch(() => []),
-        adminApi.getServiceCategories().catch(() => []),
-        adminApi.getSupportTickets().catch(() => []),
+          adminApi.getUsers().catch((e) => { console.error('API Error:', e); return []; }),
+          adminApi.getExecutors().catch((e) => { console.error('API Error:', e); return []; }),
+          adminApi.getOrders().catch((e) => { console.error('API Error:', e); return []; }),
+        adminApi.getPayments().catch((e) => { console.error('API Error:', e); return []; }),
+        adminApi.getBanners().catch((e) => { console.error('API Error:', e); return []; }),
+        adminApi.getFaq().catch((e) => { console.error('API Error:', e); return []; }),
+        adminApi.getContent().catch((e) => { console.error('API Error:', e); return []; }),
+        adminApi.getCarBrands().catch((e) => { console.error('API Error:', e); return []; }),
+        adminApi.getServiceCategories().catch((e) => { console.error('API Error:', e); return []; }),
+        adminApi.getSupportTickets().catch((e) => { console.error('API Error:', e); return []; }),
       ]);
 
       setCustomers((usersData || [])
@@ -325,11 +325,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsLoading(true);
       try {
         const [faqData, bannersData, regionsApiData, categoriesData, brandsData] = await Promise.all([
-          miscApi.getFaq().catch(() => []),
-          miscApi.getBanners().catch(() => []),
-          dictsApi.getRegions().catch(() => []),
-          dictsApi.getServiceCategories().catch(() => []),
-          dictsApi.getCarBrands().catch(() => []),
+          miscApi.getFaq().catch((e) => { console.error('API Error:', e); return []; }),
+          miscApi.getBanners().catch((e) => { console.error('API Error:', e); return []; }),
+          dictsApi.getRegions().catch((e) => { console.error('API Error:', e); return []; }),
+          dictsApi.getServiceCategories().catch((e) => { console.error('API Error:', e); return []; }),
+          Promise.resolve([]), // Removed getCarBrands() to save initial load
         ]);
 
         if (faqData && faqData.length > 0) {
@@ -391,7 +391,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     if (user?.role !== 'ADMIN') return;
 
-    let intervalId: ReturnType<typeof setInterval> | null = null;
+    let intervalId: ReturnType<typeof setTimeout> | null = null;
 
     const handleFocus = () => {
       refreshAdminData();
@@ -413,7 +413,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (intervalId) {
-        clearInterval(intervalId);
+        clearTimeout(intervalId);
       }
     };
   }, [user?.role, refreshAdminData]);

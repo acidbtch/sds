@@ -44,7 +44,7 @@ export default function Home({ onNavigate }: Props) {
   React.useEffect(() => {
     if (activeBanners.length <= 1) return;
     const interval = setInterval(() => {
-      setCurrentBannerIndex(prev => (prev + 1) % activeBanners.length);
+      setCurrentBannerIndex(prev => activeBanners.length > 0 ? (prev + 1) % activeBanners.length : 0);
     }, 60000);
     return () => clearInterval(interval);
   }, [activeBanners.length]);
@@ -60,9 +60,12 @@ export default function Home({ onNavigate }: Props) {
       </div>
 
       {/* Header Banner */}
-      <div className="bg-orange-500 text-white p-6 rounded-b-3xl shadow-lg w-full">
-        <h1 className="text-2xl font-bold mb-2">SDS | Simple Drive Solution</h1>
-        <p className="text-orange-100 text-sm">Заказ услуг автосервиса в Беларуси</p>
+      <div className="bg-orange-500 text-white p-6 rounded-b-3xl shadow-lg w-full flex items-center gap-4">
+        <img src="/logo.png" alt="SDS Logo" className="w-16 h-16 flex-shrink-0 object-cover rounded-xl" />
+        <div>
+          <h1 className="text-xl font-bold mb-1">SDS | Simple Drive Solution</h1>
+          <p className="text-orange-100 text-xs">Заказ услуг автосервиса в Беларуси</p>
+        </div>
       </div>
 
       {/* Leader Ads Banner */}

@@ -787,13 +787,15 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
                 <h3 className="text-[15px] font-bold text-[#0F2846] mb-3">Фото работ</h3>
                 <div className="grid grid-cols-3 gap-3">
                   {selectedContractor.photos.map((photo, idx) => (
-                    <img 
-                      key={idx}
-                      src={photo} 
-                      alt={`Фото работы ${idx + 1}`} 
-                      className="w-full aspect-square object-cover rounded-2xl cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
-                      onClick={() => setSelectedImage(photo)}
-                    />
+                    <div key={idx} className="w-full aspect-square bg-gray-50 rounded-2xl overflow-hidden border border-gray-100">
+                      <img 
+                        src={photo} 
+                        alt={`Фото работы ${idx + 1}`} 
+                        onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/200x200?text=No+Photo'; }}
+                        className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => setSelectedImage(photo)}
+                      />
+                    </div>
                   ))}
                 </div>
               </div>
@@ -805,13 +807,15 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
                 <h3 className="text-[15px] font-bold text-[#0F2846] mb-3">Документы</h3>
                 <div className="grid grid-cols-3 gap-3">
                   {selectedContractor.legalDocs.map((doc, idx) => (
-                    <img 
-                      key={idx}
-                      src={doc} 
-                      alt={`Документ ${idx + 1}`} 
-                      className="w-full aspect-square object-cover rounded-2xl cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
-                      onClick={() => setSelectedImage(doc)}
-                    />
+                    <div key={idx} className="w-full aspect-square bg-gray-50 rounded-2xl overflow-hidden border border-gray-100">
+                      <img 
+                        src={doc} 
+                        alt={`Документ ${idx + 1}`} 
+                        onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/200x200?text=Doc'; }}
+                        className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => setSelectedImage(doc)}
+                      />
+                    </div>
                   ))}
                 </div>
               </div>

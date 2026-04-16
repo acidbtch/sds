@@ -1,4 +1,3 @@
-// @ts-ignore
 export const API_URL = import.meta.env.VITE_API_URL || 'https://api.example.com/api/v1'; // Замените на реальный URL
 
 class ApiError extends Error {

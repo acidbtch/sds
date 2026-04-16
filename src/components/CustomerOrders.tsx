@@ -114,7 +114,7 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
   React.useEffect(() => {
     if (activeBanners.length <= 1) return;
     const interval = setInterval(() => {
-      setCurrentBannerIndex(prev => (prev + 1) % activeBanners.length);
+      setCurrentBannerIndex(prev => activeBanners.length > 0 ? (prev + 1) % activeBanners.length : 0);
     }, 60000);
     return () => clearInterval(interval);
   }, [activeBanners.length]);
@@ -337,7 +337,11 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
       )}
 
       <div className="p-4 flex-1 overflow-y-auto pb-24">
-        {ordersToShow.length === 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center items-center py-10">
+            <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+          </div>
+        ) : ordersToShow.length === 0 ? (
           <div className="text-center text-gray-500 mt-10">
             <p>Нет заказов в этой категории</p>
           </div>
@@ -403,7 +407,8 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
                                   <img 
                                     src={file.url || file} 
                                     alt={`Фото ${idx + 1}`} 
-                                    className="w-full h-full object-cover rounded-lg cursor-pointer border border-gray-200 hover:opacity-80 transition-opacity"
+                                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=No+Image'; }}
+                                    className="w-full h-full object-contain bg-gray-50 rounded-lg cursor-pointer border border-gray-200 hover:opacity-80 transition-opacity"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setSelectedImage(file.url || file);
@@ -856,13 +861,15 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
                 <h3 className="text-[15px] font-bold text-[#0F2846] mb-3">Фото работ</h3>
                 <div className="grid grid-cols-3 gap-3">
                   {selectedContractor.photos.map((photo, idx) => (
-                    <img 
-                      key={idx}
-                      src={photo} 
-                      alt={`Фото работы ${idx + 1}`} 
-                      className="w-full aspect-square object-cover rounded-2xl cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
-                      onClick={() => setSelectedImage(photo)}
-                    />
+                    <div key={idx} className="w-full aspect-square bg-gray-50 rounded-2xl overflow-hidden border border-gray-100">
+                      <img 
+                        src={photo} 
+                        alt={`Фото работы ${idx + 1}`} 
+                        onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/200x200?text=No+Photo'; }}
+                        className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => setSelectedImage(photo)}
+                      />
+                    </div>
                   ))}
                 </div>
               </div>

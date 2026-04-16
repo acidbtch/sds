@@ -154,16 +154,15 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
     deadline !== '';
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/[^\d+]/g, '');
-    if (!val.startsWith('+375')) {
-      val = '+375';
-    }
+    let input = e.target.value;
+    if (input.length < 4) input = '+375';
+    let val = input.replace(/[^\d]/g, '');
+    if (val.startsWith('375')) val = val.substring(3);
     let formatted = '+375';
-    const numbers = val.substring(4);
-    if (numbers.length > 0) formatted += ' ' + numbers.substring(0, 2);
-    if (numbers.length > 2) formatted += ' ' + numbers.substring(2, 5);
-    if (numbers.length > 5) formatted += ' ' + numbers.substring(5, 7);
-    if (numbers.length > 7) formatted += ' ' + numbers.substring(7, 9);
+    if (val.length > 0) formatted += ' ' + val.substring(0, 2);
+    if (val.length > 2) formatted += ' ' + val.substring(2, 5);
+    if (val.length > 5) formatted += ' ' + val.substring(5, 7);
+    if (val.length > 7) formatted += ' ' + val.substring(7, 9);
     setPhone(formatted);
   };
 

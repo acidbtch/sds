@@ -3,20 +3,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ViewState } from './types';
 import Home from './components/Home';
-import CustomerMenu from './components/CustomerMenu';
-import OrderForm from './components/OrderForm';
-import CustomerOrders from './components/CustomerOrders';
-import ContractorMenu from './components/ContractorMenu';
-import ContractorRegister from './components/ContractorRegister';
-import ContractorCabinet from './components/ContractorCabinet';
-import ContractorsCatalog from './components/ContractorsCatalog';
-import FAQ from './components/FAQ';
-import Support from './components/Support';
-import AdminPanel from './components/AdminPanel';
+
+const CustomerMenu = lazy(() => import('./components/CustomerMenu'));
+const OrderForm = lazy(() => import('./components/OrderForm'));
+const CustomerOrders = lazy(() => import('./components/CustomerOrders'));
+const ContractorMenu = lazy(() => import('./components/ContractorMenu'));
+const ContractorRegister = lazy(() => import('./components/ContractorRegister'));
+const ContractorCabinet = lazy(() => import('./components/ContractorCabinet'));
+const ContractorsCatalog = lazy(() => import('./components/ContractorsCatalog'));
+const FAQ = lazy(() => import('./components/FAQ'));
+const Support = lazy(() => import('./components/Support'));
+const AdminPanel = lazy(() => import('./components/AdminPanel'));
 
 import { DataProvider } from './context/DataContext';
 import { AuthProvider } from './context/AuthContext';
@@ -50,34 +51,35 @@ export default function App() {
 
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
-    if (!tg) {
-      return;
-    }
+    if (!tg) return;
 
     tg.ready();
-    const platform = String(tg.platform || '').toLowerCase();
-    const isPhonePlatform = platform === 'ios' || platform === 'android';
+    tg.expand();
 
-    if (isPhonePlatform) {
-      tg.expand();
-
-      if (typeof tg.requestFullscreen === 'function') {
-        try {
-          const fullscreenResult = tg.requestFullscreen();
-          if (
-            fullscreenResult &&
-            typeof fullscreenResult.catch === 'function'
-          ) {
-            fullscreenResult.catch(() => {
-              // Some Telegram clients do not support strict fullscreen mode.
-            });
-          }
-        } catch {
-          // Ignore unsupported fullscreen errors.
-        }
-      }
+    if (currentView === 'home') {
+      if (tg.isVersionAtLeast?.('6.1')) tg.BackButton?.hide();
+    } else {
+      if (tg.isVersionAtLeast?.('6.1')) tg.BackButton?.show();
     }
-  }, []);
+
+    const handleBack = () => {
+      if (currentView === 'contractors_catalog' && catalogSource === 'admin') {
+        setCurrentView('admin_panel');
+      } else if (previousView && previousView !== currentView) {
+        setCurrentView(previousView);
+      } else {
+        setCurrentView('home');
+      }
+      setPreviousView('home');
+    };
+
+    if (tg.isVersionAtLeast?.('6.1') && tg.BackButton) {
+      tg.BackButton.onClick(handleBack);
+      return () => {
+        tg.BackButton.offClick(handleBack);
+      };
+    }
+  }, [currentView, previousView, catalogSource]);
 
   const handleNavigate = (view: ViewState) => {
     if (view === 'contractors_catalog') {
@@ -134,7 +136,9 @@ export default function App() {
                 transition={{ duration: 0.2 }}
                 className="w-full min-h-screen min-h-[100dvh] bg-white relative"
               >
-                {renderView()}
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div></div>}>
+                  {renderView()}
+                </Suspense>
               </motion.div>
             </AnimatePresence>
           </div>
