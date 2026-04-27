@@ -37,6 +37,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser(userData);
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
+      localStorage.removeItem('access_token');
       setUser(null);
     }
   }, []);
@@ -49,6 +50,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await refreshUser();
     } catch (error) {
       console.error('Login failed:', error);
+      localStorage.removeItem('access_token');
       throw error;
     } finally {
       setIsLoading(false);

@@ -948,7 +948,7 @@ function PaymentsView({ payments }: { payments: any[] }) {
       {payments.map(p => (
         <div key={p.id} className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
           <div className="flex justify-between items-start mb-2">
-            <span className="text-xs font-mono text-gray-500">{p.id}</span>
+            <span className="text-xs font-medium text-gray-500">{p.id}</span>
             <span className={`text-xs font-bold px-2 py-1 rounded ${p.status === 'Успешно' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{p.status}</span>
           </div>
           <div className="flex justify-between items-center mb-2">

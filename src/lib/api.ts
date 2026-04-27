@@ -1,4 +1,6 @@
-export const API_URL = (import.meta as any).env?.VITE_API_URL || 'https://api.example.com/api/v1'; // Замените на реальный URL
+import { API_URL_MISSING_MESSAGE, resolveApiUrl } from './apiConfig';
+
+export const API_URL = resolveApiUrl((import.meta as any).env?.VITE_API_URL);
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -71,6 +73,10 @@ export function formatApiErrorMessage(errorData: unknown, fallback = 'API Error'
 }
 
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  if (!API_URL) {
+    throw new Error(API_URL_MISSING_MESSAGE);
+  }
+
   const token = localStorage.getItem('access_token');
   
   const headers: Record<string, string> = {

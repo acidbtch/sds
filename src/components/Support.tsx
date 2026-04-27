@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ViewState } from '../types';
 import { ChevronLeft, MessageCircle, PhoneCall, Mail, Send, Plus } from 'lucide-react';
 import { supportApi, miscApi } from '../lib/api';
+import { parseSupportTicketApiError, validateSupportTicketForm, type SupportFieldErrors } from '../lib/supportValidation';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -45,6 +46,7 @@ export default function Support({ onNavigate }: Props) {
   const [newMessage, setNewMessage] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [createFieldErrors, setCreateFieldErrors] = useState<SupportFieldErrors>({});
 
   // Chat
   const [activeTicket, setActiveTicket] = useState<TicketDetail | null>(null);
@@ -121,9 +123,16 @@ export default function Support({ onNavigate }: Props) {
 
   // Create ticket
   const handleCreateTicket = async () => {
-    if (!subject.trim() || !newMessage.trim()) return;
+    const fieldErrors = validateSupportTicketForm(subject, newMessage);
+    if (fieldErrors.subject || fieldErrors.message) {
+      setCreateFieldErrors(fieldErrors);
+      setCreateError(null);
+      return;
+    }
+
     setCreating(true);
     setCreateError(null);
+    setCreateFieldErrors({});
     try {
       const created = await supportApi.createTicket({
         subject: subject.trim(),
@@ -139,9 +148,14 @@ export default function Support({ onNavigate }: Props) {
       }
       setSubject('');
       setNewMessage('');
+      setCreateFieldErrors({});
     } catch (err) {
       console.error('Failed to create ticket:', err);
-      setCreateError(err instanceof Error ? err.message : 'Не удалось создать обращение');
+      const parsedErrors = parseSupportTicketApiError(
+        err instanceof Error ? err.message : 'Не удалось создать обращение'
+      );
+      setCreateFieldErrors(parsedErrors);
+      setCreateError(parsedErrors.form || null);
     } finally {
       setCreating(false);
     }
@@ -334,6 +348,7 @@ export default function Support({ onNavigate }: Props) {
               setSubject('');
               setNewMessage('');
               setCreateError(null);
+              setCreateFieldErrors({});
             }}
             className="absolute left-4 p-2 -ml-2 bg-[#E8EDF2] text-[#0F2846] hover:bg-[#D8DFE8] rounded-full transition-colors"
           >
@@ -352,21 +367,41 @@ export default function Support({ onNavigate }: Props) {
             <input
               type="text"
               value={subject}
-              onChange={e => setSubject(e.target.value)}
+              onChange={e => {
+                setSubject(e.target.value);
+                setCreateFieldErrors((current) => ({ ...current, subject: undefined }));
+              }}
               placeholder="Кратко опишите проблему"
-              className="w-full bg-gray-50 border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-xl px-4 py-3 text-sm transition-all outline-none"
+              className={`w-full bg-gray-50 border rounded-xl px-4 py-3 text-sm transition-all outline-none ${
+                createFieldErrors.subject
+                  ? 'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100'
+                  : 'border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+              }`}
             />
+            {createFieldErrors.subject && (
+              <p className="mt-1.5 text-sm text-red-500">{createFieldErrors.subject}</p>
+            )}
           </div>
 
           <div className="flex-1 flex flex-col">
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Сообщение</label>
             <textarea
               value={newMessage}
-              onChange={e => setNewMessage(e.target.value)}
+              onChange={e => {
+                setNewMessage(e.target.value);
+                setCreateFieldErrors((current) => ({ ...current, message: undefined }));
+              }}
               placeholder="Опишите вашу проблему подробнее..."
               rows={6}
-              className="w-full bg-gray-50 border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-xl px-4 py-3 text-sm transition-all outline-none resize-none flex-1"
+              className={`w-full bg-gray-50 border rounded-xl px-4 py-3 text-sm transition-all outline-none resize-none flex-1 ${
+                createFieldErrors.message
+                  ? 'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100'
+                  : 'border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+              }`}
             />
+            {createFieldErrors.message && (
+              <p className="mt-1.5 text-sm text-red-500">{createFieldErrors.message}</p>
+            )}
           </div>
 
           <button

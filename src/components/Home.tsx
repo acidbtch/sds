@@ -14,27 +14,18 @@ export default function Home({ onNavigate }: Props) {
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [legalModal, setLegalModal] = useState<'rules' | 'privacy' | null>(null);
 
-  const [debugInfo, setDebugInfo] = useState<string>('Initializing...');
-
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
-    const loc = window.location.href;
-    
     if (!tg) {
-      setDebugInfo(`No TG WebApp. URL: ${loc}`);
       return;
     }
-    
+
     tg.ready();
     const initData = tg.initData;
-    
+
     if (initData) {
-      setDebugInfo(`initData found. Attempting login...`);
       login(initData)
-        .then(() => setDebugInfo(prev => `${prev} -> Login successful!`))
-        .catch(err => setDebugInfo(prev => `${prev} -> Login failed: ${err.message}`));
-    } else {
-      setDebugInfo(`TG WebApp available, but initData is empty. URL: ${loc}`);
+        .catch(err => console.error('Telegram login failed:', err));
     }
   }, [login]);
 
@@ -54,11 +45,6 @@ export default function Home({ onNavigate }: Props) {
 
   return (
     <div className="flex flex-col min-h-screen bg-white pb-10">
-      {/* Debug Banner - Remove in production */}
-      <div className="bg-yellow-100 border-b border-yellow-200 p-2 text-xs text-yellow-800 break-words">
-        Debug: {debugInfo}
-      </div>
-
       {/* Header Banner */}
       <div className="bg-orange-500 text-white p-6 rounded-b-3xl shadow-lg w-full flex items-center gap-4">
         <img src="/logo.png" alt="SDS Logo" className="w-16 h-16 flex-shrink-0 object-cover rounded-xl" />
