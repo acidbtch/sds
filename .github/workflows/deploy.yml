@@ -9,6 +9,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Check secrets
+        run: |
+          test -n "${{ secrets.TS_OAUTH_CLIENT_ID }}" && echo "TS_OAUTH_CLIENT_ID ok" || (echo "TS_OAUTH_CLIENT_ID missing" && exit 1)
+          test -n "${{ secrets.TS_OAUTH_SECRET }}" && echo "TS_OAUTH_SECRET ok" || (echo "TS_OAUTH_SECRET missing" && exit 1)
+
       - name: Connect to Tailscale
         uses: tailscale/github-action@v4
         with:
@@ -21,7 +26,7 @@ jobs:
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}   # ← ВАЖНО
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
             set -e
             cd /regiuslab/sds-miniapp/sds-frontend
