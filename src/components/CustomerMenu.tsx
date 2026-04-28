@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ViewState } from '../types';
-import { ChevronLeft, PlusCircle, List, ChevronRight, Wrench, Star, Briefcase, X, CreditCard } from 'lucide-react';
+import { ChevronLeft, PlusCircle, List, ChevronRight, Star, Users, X, CreditCard } from 'lucide-react';
 import { useData } from '../context/DataContext';
 
 interface Props {
@@ -108,12 +108,12 @@ export default function CustomerMenu({ onNavigate, hasCatalogAccess, setHasCatal
           onClick={handleCatalogClick}
           className="flex items-center bg-white p-5 rounded-2xl shadow-md border border-gray-100 active:scale-[0.98] transition-transform text-left"
         >
-          <div className="w-12 h-12 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
-            <Briefcase className="w-6 h-6" />
+          <div className="w-12 h-12 bg-blue-500 text-white rounded-full flex items-center justify-center mr-4 flex-shrink-0">
+            <Users className="w-6 h-6" />
           </div>
           <div className="flex-1">
             <h3 className="font-semibold text-gray-900 text-lg">Каталог исполнителей</h3>
-            <p className="text-sm text-gray-500">{hasCatalogAccess ? 'Доступ открыт' : 'Доступ за 5.00 BYN'}</p>
+            <p className="text-sm text-gray-500">Доступ к полной базе автосервисов</p>
           </div>
           <ChevronRight className="w-5 h-5 text-gray-300" />
         </button>
@@ -133,12 +133,12 @@ export default function CustomerMenu({ onNavigate, hasCatalogAccess, setHasCatal
               </button>
             </div>
             <div className="p-6 text-center">
-              <div className="w-16 h-16 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Briefcase className="w-8 h-8" />
+              <div className="w-16 h-16 bg-blue-500 text-white rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8" />
               </div>
               <h4 className="text-xl font-bold text-gray-900 mb-2">Каталог исполнителей</h4>
               <p className="text-sm text-gray-600 mb-6">
-                Получите полный доступ к базе проверенных исполнителей с возможностью фильтрации и прямого контакта.
+                Получите доступ к полной базе автосервисов с возможностью фильтрации и прямого контакта.
               </p>
               <div className="bg-gray-50 rounded-xl p-4 mb-6">
                 <div className="flex justify-between items-center mb-2">
@@ -147,7 +147,7 @@ export default function CustomerMenu({ onNavigate, hasCatalogAccess, setHasCatal
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-500">Срок действия</span>
-                  <span className="font-medium text-gray-700">Навсегда</span>
+                  <span className="font-medium text-gray-700">10 дней</span>
                 </div>
               </div>
               <button 

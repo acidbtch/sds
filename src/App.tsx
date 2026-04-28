@@ -102,7 +102,7 @@ export default function App() {
       case 'order_form':
         return <OrderForm onNavigate={handleNavigate} carModels={carModels} previousView={previousView} />;
       case 'customer_orders':
-        return <CustomerOrders onNavigate={handleNavigate} hasCatalogAccess={hasCatalogAccess} setHasCatalogAccess={setHasCatalogAccess} />;
+        return <CustomerOrders onNavigate={handleNavigate} />;
       case 'contractor_menu':
         return <ContractorMenu onNavigate={handleNavigate} />;
       case 'contractor_register':

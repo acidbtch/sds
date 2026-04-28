@@ -741,7 +741,7 @@ export default function ContractorCabinet({ onNavigate }: Props) {
                   </div>
 
                   <div>
-                    <label className="block text-xs text-gray-500 mb-2">Виды оказываемых услуг <span className="text-red-500">*</span></label>
+                    <label className="block text-xs text-gray-500 mb-2">Категории и виды оказываемых услуг <span className="text-red-500">*</span></label>
                     <div className={`space-y-3 max-h-80 overflow-y-auto pr-2 rounded-lg p-2 relative transition-colors ${showErrors && editForm.services.length === 0 ? 'border-2 border-red-500' : 'border border-gray-200'}`}>
                       {serviceCategories.map(category => {
                         const allSelected = category.services.length > 0 && category.services.every(s => editForm.services.includes(s));

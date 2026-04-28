@@ -460,7 +460,7 @@ function ContractorsView({ contractors, setContractors, orders }: { contractors:
                 </div>
               )}
               <div>
-                <label className="block text-xs text-gray-500 mb-2">Виды оказываемых услуг <span className="text-red-500">*</span></label>
+                <label className="block text-xs text-gray-500 mb-2">Категории и виды оказываемых услуг <span className="text-red-500">*</span></label>
                 <div className="space-y-3 max-h-80 overflow-y-auto pr-2 rounded-lg p-2 border border-gray-200">
                   {serviceCategories.map(category => {
                     const currentServices = Array.isArray(editForm.services) ? editForm.services : [];
@@ -1261,7 +1261,7 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
           {renderField('Краткое название', 'shortName')}
           {renderField('Описание деятельности', 'description')}
           {(selectedRequest.profile === 'leader' || selectedRequest.profile === 'Лидер' || selectedRequest.data?.profileType === 'leader' || selectedRequest.data?.profileType === 'Лидер') && renderField('Текст рекламного баннера', 'bannerText')}
-          {renderField('Виды оказываемых услуг', 'services', true)}
+          {renderField('Категории и виды оказываемых услуг', 'services', true)}
           {renderField('Регион оказания услуг', 'regions', true)}
           {renderField('Контактный телефон', 'phone')}
           {renderField('Ссылка на Instagram', 'instagram')}

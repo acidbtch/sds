@@ -232,7 +232,7 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
             <h2 className="text-xl font-bold text-orange-500 mb-2">Лидер</h2>
             <div className="text-sm text-gray-600 mb-4 space-y-2">
               <p className="flex items-start"><CheckCircle className="w-4 h-4 text-orange-500 mr-2 mt-0.5 flex-shrink-0" /> Все возможности «Профи»</p>
-              <p className="flex items-start"><CheckCircle className="w-4 h-4 text-orange-500 mr-2 mt-0.5 flex-shrink-0" /> Размещение в рекламных баннерах</p>
+              <p className="flex items-start"><CheckCircle className="w-4 h-4 text-orange-500 mr-2 mt-0.5 flex-shrink-0" /> Размещение в карусели автосервисов на основных экранах</p>
               <p className="flex items-start"><CheckCircle className="w-4 h-4 text-orange-500 mr-2 mt-0.5 flex-shrink-0" /> Выделение цветом и значком в каталоге автосервисов</p>
               <p className="flex items-start"><CheckCircle className="w-4 h-4 text-orange-500 mr-2 mt-0.5 flex-shrink-0" /> Акции и бонусы от SDS</p>
             </div>
@@ -408,7 +408,7 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
         </div>
 
         <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-100">
-          <label className="block text-sm font-medium text-gray-700 mb-3">Виды оказываемых услуг <span className="text-red-500">*</span></label>
+          <label className="block text-sm font-medium text-gray-700 mb-3">Категории и виды оказываемых услуг <span className="text-red-500">*</span></label>
           
           <div className="space-y-3 mb-6 max-h-80 overflow-y-auto pr-2">
             {serviceCategories.map(category => {

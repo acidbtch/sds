@@ -201,10 +201,13 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
   const getProfileBadge = (type: string) => {
     switch (type) {
       case 'leader':
+      case 'Лидер':
         return <span className="shrink-0 whitespace-nowrap bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><Award className="w-3 h-3 shrink-0" /> Лидер</span>;
       case 'pro':
+      case 'Профи':
         return <span className="shrink-0 whitespace-nowrap bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3 shrink-0" /> Профи</span>;
       case 'partner':
+      case 'Партнёр':
         return <span className="shrink-0 whitespace-nowrap bg-gray-100 text-gray-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><Briefcase className="w-3 h-3 shrink-0" /> Партнер</span>;
       default:
         return null;
@@ -214,22 +217,20 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 pb-20">
       {/* Header */}
-      <div className="bg-white p-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => {
-              if (previousView === 'customer_orders') {
-                onNavigate('customer_orders');
-              } else {
-                onNavigate(isCustomer ? 'customer_menu' : 'admin_panel');
-              }
-            }}
-            className="p-2 -ml-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-full transition-colors"
-          >
-            <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
-          </button>
-          <h1 className="text-xl font-bold text-gray-900">Каталог исполнителей</h1>
-        </div>
+      <div className="bg-white p-4 flex items-center justify-center shadow-md sticky top-0 z-10 relative">
+        <button
+          onClick={() => {
+            if (previousView === 'customer_orders') {
+              onNavigate('customer_orders');
+            } else {
+              onNavigate(isCustomer ? 'customer_menu' : 'admin_panel');
+            }
+          }}
+          className="absolute left-4 p-2 -ml-2 bg-[#E8EDF2] text-[#0F2846] hover:bg-[#D8DFE8] rounded-full transition-colors"
+        >
+          <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
+        </button>
+        <h1 className="text-xl font-bold text-gray-900">Каталог исполнителей</h1>
       </div>
 
       {/* Search and Filter Bar */}
@@ -307,7 +308,7 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
             <div 
               key={contractor.id} 
               onClick={() => setSelectedContractor(contractor)}
-              className={`bg-white rounded-2xl p-4 shadow-sm border cursor-pointer transition-shadow hover:shadow-md ${contractor.profileType === 'leader' ? 'border-orange-500 bg-orange-50/10' : 'border-gray-100'}`}
+              className={`rounded-2xl p-4 shadow-sm border cursor-pointer transition-shadow hover:shadow-md ${contractor.profileType === 'leader' || contractor.profileType === 'Лидер' ? 'bg-amber-50 border-amber-200' : 'bg-white border-gray-100'}`}
             >
               <div className="flex gap-4 mb-4">
                 {/* Logo */}
@@ -317,7 +318,7 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
                   ) : (
                     <Briefcase className="w-8 h-8 text-gray-400" />
                   )}
-                  {contractor.profileType === 'leader' && (
+                  {(contractor.profileType === 'leader' || contractor.profileType === 'Лидер') && (
                     <div className="absolute top-1 right-1 bg-white rounded-full p-0.5 shadow-sm z-10">
                       <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
                     </div>
@@ -346,7 +347,7 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
               {/* Services */}
               {serviceGroups.length > 0 && (
                 <div className="mb-4">
-                  <h4 className="text-xs font-bold text-gray-900 mb-2">Виды оказываемых услуг</h4>
+                  <h4 className="text-xs font-bold text-gray-900 mb-2">Категории и виды оказываемых услуг</h4>
                   <div className="flex flex-wrap gap-1.5 items-center">
                     {serviceGroups.map((group) => (
                       <span key={group.category} className="bg-gray-50 text-gray-700 text-[11px] px-2.5 py-1 rounded-lg border border-gray-200 font-medium">
@@ -660,18 +661,7 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
                     {selectedContractor.shortName || selectedContractor.name.replace(/ООО |ИП |ЧУП |ОАО |"/g, '')}
                   </h1>
                   <div className="shrink-0 ml-2 mt-1">
-                    {selectedContractor.profileType === 'leader' && (
-                      <span className="bg-[#FFF4E5] text-[#D97706] text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
-                        <Star className="w-3.5 h-3.5 fill-current" />
-                        Лидер
-                      </span>
-                    )}
-                    {selectedContractor.profileType === 'pro' && (
-                      <span className="bg-blue-50 text-blue-600 text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
-                        <CheckCircle className="w-3.5 h-3.5" />
-                        PRO
-                      </span>
-                    )}
+                    {getProfileBadge(selectedContractor.profileType)}
                   </div>
                 </div>
                 <div className="text-[13px] text-gray-500 mt-1">

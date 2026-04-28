@@ -137,12 +137,20 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: currentYear - 1966 + 1 }, (_, i) => currentYear - i);
+  const getRegionId = (regionName: string) => {
+    const minskDistrict = regionName.startsWith('Минск / ')
+      ? regionName.replace('Минск / ', '')
+      : null;
+
+    return regionIdByName[regionName] || (minskDistrict ? regionIdByName[minskDistrict] : undefined);
+  };
 
   const isFormValid = 
     selectedServiceCategory !== '' &&
     selectedServices.length > 0 &&
     selectedRegions.length > 0 &&
     Object.keys(regionIdByName).length > 0 &&
+    selectedRegions.every(region => Boolean(getRegionId(region))) &&
     selectedMake !== '' &&
     selectedModel !== '' &&
     selectedYear !== '' &&
@@ -201,10 +209,12 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
     setIsLoading(true);
     
     try {
-      const regionName = selectedRegions[0];
-      const regionId = regionIdByName[regionName];
+      const regionIds = selectedRegions
+        .map(getRegionId)
+        .filter((id): id is string => Boolean(id));
+      const regionId = regionIds[0];
       if (!regionId) {
-        throw new Error(`Не удалось определить регион "${regionName}"`);
+        throw new Error(`Не удалось определить регион "${selectedRegions[0]}"`);
       }
 
       // Create new order via API
@@ -212,6 +222,7 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
         service_id: selectedServices[0],
         service_ids: selectedServices,
         region_id: regionId,
+        region_ids: regionIds,
         car_brand_id: selectedMake,
         car_model_id: selectedModel,
         engine_type: selectedEngine,
@@ -522,7 +533,7 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
         </div>
 
         <div className="text-xs text-gray-500 px-2">
-          Заказывая услугу я соглашаюсь с <a href="#" onClick={(e) => e.preventDefault()} className="text-orange-500 underline">Правилами работы приложения</a> и <a href="#" onClick={(e) => e.preventDefault()} className="text-orange-500 underline">Политикой обработки персональных данных</a>.
+          Заказывая услугу, я соглашаюсь с <a href="#" onClick={(e) => e.preventDefault()} className="text-orange-500 underline">Правилами работы приложения</a> и <a href="#" onClick={(e) => e.preventDefault()} className="text-orange-500 underline">Политикой обработки персональных данных</a>.
         </div>
 
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 z-20 flex gap-2 max-w-md mx-auto w-full">

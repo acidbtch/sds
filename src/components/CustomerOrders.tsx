@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { ViewState, Order, Contractor } from '../types';
-import { ChevronLeft, ChevronRight, Star, AlertCircle, CheckCircle, XCircle, ChevronDown, X, Clock, MapPin, Award, Briefcase, Globe, Instagram, Video, CreditCard, Loader2 } from 'lucide-react';
+import { ChevronLeft, Star, AlertCircle, CheckCircle, XCircle, ChevronDown, X, Clock, MapPin, Award, Briefcase, Globe, Instagram, Video, Loader2 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { customerApi, paymentsApi } from '../lib/api';
+import { customerApi } from '../lib/api';
 import { filterCustomerOrdersForUser, mapCustomerOrderFromApi } from '../lib/customerOrders';
 
 const REVIEW_CRITERIA = [
@@ -32,17 +32,14 @@ const normalizeTier = (tier: string | null | undefined): 'partner' | 'pro' | 'le
 
 interface Props {
   onNavigate: (view: ViewState) => void;
-  hasCatalogAccess: boolean;
-  setHasCatalogAccess: (access: boolean) => void;
 }
 
-export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCatalogAccess }: Props) {
+export default function CustomerOrders({ onNavigate }: Props) {
   const { contractors, banners } = useData();
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
   const [expandedOrders, setExpandedOrders] = useState<string[]>([]);
-  const [showCatalogPayment, setShowCatalogPayment] = useState(false);
   const [reviews, setReviews] = useState<Record<string, { rating: number, criteria: string[], text: string }>>({});
   const [isCriteriaOpen, setIsCriteriaOpen] = useState<Record<string, boolean>>({});
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -104,24 +101,6 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
   }, [activeBanners.length]);
 
   const currentBanner = activeBanners[currentBannerIndex];
-
-  const handleCatalogClick = () => {
-    if (hasCatalogAccess) {
-      onNavigate('contractors_catalog');
-    } else {
-      setShowCatalogPayment(true);
-    }
-  };
-
-  const handlePayment = async () => {
-    try {
-      const { payment_url } = await paymentsApi.checkout(5, 'CUSTOMER_ACCESS');
-      window.open(payment_url, '_blank');
-    } catch (error) {
-      console.error('Payment failed:', error);
-      alert('Ошибка при оплате');
-    }
-  };
 
   const handleAcceptResponse = async (orderId: string, responseId: string) => {
     try {
@@ -191,10 +170,13 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
   const getProfileBadge = (type: string) => {
     switch (type) {
       case 'leader':
+      case 'Лидер':
         return <span className="shrink-0 whitespace-nowrap bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><Award className="w-3 h-3 shrink-0" /> Лидер</span>;
       case 'pro':
+      case 'Профи':
         return <span className="shrink-0 whitespace-nowrap bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3 shrink-0" /> Профи</span>;
       case 'partner':
+      case 'Партнёр':
         return <span className="shrink-0 whitespace-nowrap bg-gray-100 text-gray-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><Briefcase className="w-3 h-3 shrink-0" /> Партнер</span>;
       default:
         return null;
@@ -603,63 +585,7 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
           </div>
         )}
 
-        {/* Catalog Button */}
-        <div className="mt-8">
-          <button 
-            onClick={handleCatalogClick}
-            className="w-full bg-blue-50 text-blue-600 border border-blue-200 p-4 rounded-2xl flex items-center justify-between active:scale-[0.98] transition-transform"
-          >
-            <div className="text-left">
-              <h3 className="font-bold text-lg">Посмотреть всех исполнителей</h3>
-              <p className="text-xs text-blue-500 mt-1">{hasCatalogAccess ? 'Доступ открыт' : 'Доступ к полному каталогу автосервисов'}</p>
-            </div>
-            <ChevronRight className="w-6 h-6" />
-          </button>
-        </div>
       </div>
-
-      {/* Payment Modal */}
-      {showCatalogPayment && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center">
-              <h3 className="font-bold text-lg text-gray-900">Доступ к каталогу</h3>
-              <button 
-                onClick={() => setShowCatalogPayment(false)}
-                className="p-2 text-gray-400 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6 text-center">
-              <div className="w-16 h-16 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Briefcase className="w-8 h-8" />
-              </div>
-              <h4 className="text-xl font-bold text-gray-900 mb-2">Каталог исполнителей</h4>
-              <p className="text-sm text-gray-600 mb-6">
-                Получите полный доступ к базе проверенных исполнителей с возможностью фильтрации и прямого контакта.
-              </p>
-              <div className="bg-gray-50 rounded-xl p-4 mb-6">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-gray-600">Стоимость доступа</span>
-                  <span className="font-bold text-gray-900">5.00 BYN</span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-500">Срок действия</span>
-                  <span className="font-medium text-gray-700">Навсегда</span>
-                </div>
-              </div>
-              <button 
-                onClick={handlePayment}
-                className="w-full bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
-              >
-                <CreditCard className="w-5 h-5" />
-                Оплатить 5.00 BYN
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Full Profile Modal */}
       {selectedContractor && (
@@ -678,18 +604,7 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
                 <h1 className="text-2xl font-bold text-[#0F2846]">
                   {selectedContractor.shortName || selectedContractor.name.replace(/ООО |ИП |ЧУП |ОАО |"/g, '')}
                 </h1>
-                {selectedContractor.profileType === 'leader' && (
-                  <span className="bg-[#FFF4E5] text-[#D97706] text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
-                    <Star className="w-3.5 h-3.5 fill-current" />
-                    Лидер
-                  </span>
-                )}
-                {selectedContractor.profileType === 'pro' && (
-                  <span className="bg-blue-50 text-blue-600 text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    PRO
-                  </span>
-                )}
+                {getProfileBadge(selectedContractor.profileType)}
               </div>
               <div className="text-[13px] text-gray-500">
                 {selectedContractor.legalStatus || 'ООО'} "{selectedContractor.name.replace(/ООО |ИП |ЧУП |ОАО |"/g, '')}"

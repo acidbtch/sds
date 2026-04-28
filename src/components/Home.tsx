@@ -47,7 +47,7 @@ export default function Home({ onNavigate }: Props) {
     <div className="flex flex-col min-h-screen bg-white pb-10">
       {/* Header Banner */}
       <div className="bg-orange-500 text-white p-6 rounded-b-3xl shadow-lg w-full flex items-center gap-4">
-        <img src="/logo.png" alt="SDS Logo" className="w-16 h-16 flex-shrink-0 object-cover rounded-xl" />
+        <img src="/logo.png" alt="SDS Logo" className="w-16 h-16 flex-shrink-0 object-cover rounded-full bg-white" />
         <div>
           <h1 className="text-xl font-bold mb-1">SDS | Simple Drive Solution</h1>
           <p className="text-orange-100 text-xs">Заказ услуг автосервиса в Беларуси</p>
@@ -82,18 +82,20 @@ export default function Home({ onNavigate }: Props) {
       {/* Main Menu */}
       <div className="p-4 mt-4 flex flex-col gap-3 max-w-md mx-auto w-full">
         <MenuButton 
-          icon={<Wrench className="w-8 h-8 text-orange-500" />}
+          icon={<Wrench className="w-8 h-8 text-white" />}
           title="Заказать услугу"
           subtitle="Поиск подходящего автосервиса"
           onClick={() => onNavigate('customer_menu')}
           large={true}
+          iconBgClass="bg-orange-500"
         />
         <MenuButton 
-          icon={<User className="w-8 h-8 text-blue-500" />}
+          icon={<User className="w-8 h-8 text-white" />}
           title="Исполнитель"
           subtitle="Для автосервисов и СТО"
           onClick={() => onNavigate('contractor_menu')}
           large={true}
+          iconBgClass="bg-blue-500"
         />
         <MenuButton 
           icon={<HelpCircle className="w-6 h-6 text-gray-500" />}
@@ -119,11 +121,11 @@ export default function Home({ onNavigate }: Props) {
       <div className="mt-auto pt-8 pb-4 px-4 text-center text-xs text-gray-400 space-y-2">
         <p>
           При использовании приложения Вы соглашаетесь с{' '}
-          <button onClick={() => setLegalModal('rules')} className="text-gray-500 underline hover:text-gray-700">пользовательским соглашением</button>
+          <button onClick={() => setLegalModal('rules')} className="text-gray-500 underline hover:text-gray-700">Правилами работы приложения</button>.
         </p>
         <p>
           При использовании приложения Вы соглашаетесь с{' '}
-          <button onClick={() => setLegalModal('privacy')} className="text-gray-500 underline hover:text-gray-700">обработкой персональных данных</button>
+          <button onClick={() => setLegalModal('privacy')} className="text-gray-500 underline hover:text-gray-700">Политикой обработки персональных данных</button>.
         </p>
       </div>
 
@@ -149,17 +151,17 @@ export default function Home({ onNavigate }: Props) {
   );
 }
 
-function MenuButton({ icon, title, subtitle, onClick, large = false }: { icon: React.ReactNode, title: string, subtitle: string, onClick: () => void, large?: boolean }) {
+function MenuButton({ icon, title, subtitle, onClick, large = false, iconBgClass = 'bg-gray-50' }: { icon: React.ReactNode, title: string, subtitle: string, onClick: () => void, large?: boolean, iconBgClass?: string }) {
   return (
     <button 
       onClick={onClick}
       className={`flex items-center w-full bg-white ${large ? 'p-5 rounded-3xl border-2 border-gray-200' : 'p-4 rounded-2xl border border-gray-100'} shadow-md active:scale-[0.98] transition-transform text-left`}
     >
-      <div className={`${large ? 'w-14 h-14' : 'w-12 h-12'} bg-gray-50 rounded-full flex items-center justify-center mr-4 flex-shrink-0`}>
+      <div className={`${large ? 'w-14 h-14' : 'w-12 h-12'} ${iconBgClass} rounded-full flex items-center justify-center mr-4 flex-shrink-0`}>
         {icon}
       </div>
       <div className="flex-1">
-        <h3 className={`font-semibold text-gray-900 ${large ? 'text-xl' : 'text-lg'}`}>{title}</h3>
+        <h3 className={`${large ? 'font-bold text-xl' : 'font-semibold text-lg'} text-gray-900`}>{title}</h3>
         <p className={`${large ? 'text-base' : 'text-sm'} text-gray-500`}>{subtitle}</p>
       </div>
       <ChevronRight className="w-5 h-5 text-gray-300" />

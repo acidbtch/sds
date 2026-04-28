@@ -15,25 +15,33 @@ interface Props {
 export default function RegionSelector({ isOpen, onClose, selectedRegions, onSelect, multiSelect = false, isCustomer = false }: Props) {
   const { regionsData } = useData();
   const activeRegionsData = Object.keys(regionsData).length > 0 ? regionsData : FALLBACK_REGIONS;
+  const minskPrefix = 'Минск / ';
+  const toRawRegionValue = (value: string) => value.startsWith(minskPrefix) ? value.slice(minskPrefix.length) : value;
+  const formatRegionValue = (value: string) => {
+    const minskDistricts = activeRegionsData['Минск'] || [];
+    return isCustomer && minskDistricts.includes(value) ? `${minskPrefix}${value}` : value;
+  };
   
   const [activeTab, setActiveTab] = useState<string>('Брестская область');
   const [searchQuery, setSearchQuery] = useState('');
   const [localSelected, setLocalSelected] = useState<string[]>([]);
+  const canMultiSelectActiveTab = multiSelect || (isCustomer && activeTab === 'Минск');
 
   useEffect(() => {
     if (isOpen) {
+      const rawSelectedRegions = selectedRegions.map(toRawRegionValue);
       if (selectedRegions.length === 0) {
         setLocalSelected(!multiSelect ? ['Брестская область'] : []);
         setActiveTab('Брестская область');
       } else {
-        setLocalSelected(selectedRegions);
-        if (selectedRegions.includes('Вся Беларусь')) {
+        setLocalSelected(rawSelectedRegions);
+        if (rawSelectedRegions.includes('Вся Беларусь')) {
           setActiveTab('Вся Беларусь');
         } else {
           // Find which region the first selected city belongs to, or default to Brest
           let foundRegion = 'Брестская область';
           for (const [region, cities] of Object.entries(activeRegionsData)) {
-            if (cities.includes(selectedRegions[0]) || region === selectedRegions[0]) {
+            if (cities.includes(rawSelectedRegions[0]) || region === rawSelectedRegions[0]) {
               foundRegion = region;
               break;
             }
@@ -54,13 +62,13 @@ export default function RegionSelector({ isOpen, onClose, selectedRegions, onSel
       if (localSelected.includes('Вся Беларусь')) {
         setLocalSelected([]);
       } else if (!multiSelect) {
-        setLocalSelected([region]);
+        setLocalSelected(isCustomer && region === 'Минск' ? [] : [region]);
       }
     }
   };
 
   const handleCityToggle = (city: string) => {
-    if (!multiSelect) {
+    if (!canMultiSelectActiveTab) {
       if (localSelected.includes(city)) {
         setLocalSelected([activeTab]);
       } else {
@@ -93,7 +101,7 @@ export default function RegionSelector({ isOpen, onClose, selectedRegions, onSel
   };
 
   const handleRegionToggle = (region: string) => {
-    if (!multiSelect) {
+    if (!canMultiSelectActiveTab) {
       setLocalSelected([region]);
       return;
     }
@@ -136,7 +144,7 @@ export default function RegionSelector({ isOpen, onClose, selectedRegions, onSel
     if (finalSelected.length === 0) {
       onSelect([activeTab]);
     } else {
-      onSelect(finalSelected);
+      onSelect(finalSelected.map(formatRegionValue));
     }
     onClose();
   };
@@ -186,13 +194,13 @@ export default function RegionSelector({ isOpen, onClose, selectedRegions, onSel
       </div>
       
       <div className="border-b border-gray-100 bg-white">
-        <div className={`flex flex-wrap ${isCustomer ? 'gap-1.5 p-2' : 'gap-2 p-4'}`}>
+        <div className={isCustomer ? 'grid grid-cols-2 gap-2 p-2' : 'flex flex-wrap gap-2 p-4'}>
           {availableRegions.map(region => (
             <button
               key={region}
               type="button"
               onClick={() => handleTabClick(region)}
-              className={`${isCustomer ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'} rounded-full border transition-colors ${activeTab === region ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'}`}
+              className={`${isCustomer ? 'w-full px-3 py-2 text-xs min-h-[38px]' : 'px-4 py-2 text-sm'} rounded-full border transition-colors ${activeTab === region ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'}`}
             >
               {region}
             </button>
@@ -229,9 +237,9 @@ export default function RegionSelector({ isOpen, onClose, selectedRegions, onSel
                   <div className="relative flex items-center justify-center flex-shrink-0">
                     <input 
                       type="checkbox"
-                      checked={multiSelect ? (localSelected.includes(activeTab) || localSelected.includes(city)) : localSelected.includes(city)}
+                      checked={canMultiSelectActiveTab ? (localSelected.includes(activeTab) || localSelected.includes(city)) : localSelected.includes(city)}
                       onChange={() => handleCityToggle(city)}
-                      className={`peer appearance-none w-6 h-6 border border-gray-300 focus:ring-2 focus:ring-orange-500/20 checked:bg-orange-500 checked:border-orange-500 transition-colors cursor-pointer ${multiSelect ? 'rounded' : 'rounded-full'}`}
+                      className={`peer appearance-none w-6 h-6 border border-gray-300 focus:ring-2 focus:ring-orange-500/20 checked:bg-orange-500 checked:border-orange-500 transition-colors cursor-pointer ${canMultiSelectActiveTab ? 'rounded' : 'rounded-full'}`}
                     />
                     <svg className="absolute w-4 h-4 text-white pointer-events-none opacity-0 peer-checked:opacity-100" viewBox="0 0 14 10" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M1 5L4.5 8.5L13 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -256,7 +264,7 @@ export default function RegionSelector({ isOpen, onClose, selectedRegions, onSel
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 flex flex-col gap-4 z-20 w-full max-w-md mx-auto">
         <div className="flex justify-between items-center w-full px-2">
           <div className="text-sm font-bold text-gray-900">
-            {localSelected.length > 0 ? localSelected.join(', ') : activeTab}
+            {localSelected.length > 0 ? localSelected.map(formatRegionValue).join(', ') : activeTab}
           </div>
           <button 
             type="button" 
