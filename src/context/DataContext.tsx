@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Contractor, Order, ViewState } from '../types';
 import { dictsApi, miscApi, adminApi } from '../lib/api';
+import { mapOrderFromApi } from '../lib/orderMapping';
 import { useAuth } from './AuthContext';
 
 // Define the types for our context state
@@ -221,26 +222,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         subEnd: c.subscription_until ? new Date(c.subscription_until).toLocaleDateString('ru-RU') : '',
       })));
 
-      setOrders((ordersData || []).map((o: any) => ({
-        id: o.id,
-        serviceType: o.service_name || o.service_id || '',
-        carMake: o.car_brand_name || o.car_brand_id || '',
-        carModel: o.car_model_name || o.car_model_id || '',
-        year: o.year?.toString() || '',
-        region: o.region_name || o.region_id || '',
-        customerName: o.owner_name || '',
-        date: o.created_at ? new Date(o.created_at).toLocaleDateString('ru-RU') : '',
-        deadline: o.deadline ? new Date(o.deadline).toLocaleDateString('ru-RU') : '',
-        status: o.status === 'SEARCHING' ? 'pending' : o.status === 'MATCHED' ? 'active' : o.status === 'COMPLETED' ? 'completed' : 'cancelled',
-        description: o.description || '',
-        responses: [],
-        engine: o.engine_type,
-        gearbox: o.gearbox_type,
-        drive: o.drive_type,
-        body: o.body_type,
-        phone: o.owner_phone,
-        media: o.photos || [],
-      })));
+      setOrders((ordersData || []).map(mapOrderFromApi));
 
       setPayments((paymentsData || []).map((p: any) => ({
         id: p.id,

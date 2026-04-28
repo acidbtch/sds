@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Star, AlertCircle, CheckCircle, XCircle, Che
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { customerApi, paymentsApi } from '../lib/api';
-import { filterCustomerOrdersForUser } from '../lib/customerOrders';
+import { filterCustomerOrdersForUser, mapCustomerOrderFromApi } from '../lib/customerOrders';
 
 const REVIEW_CRITERIA = [
   'Быстрый отклик',
@@ -57,27 +57,7 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
         const fetchedOrders = await customerApi.getOrders();
         if (fetchedOrders) {
           // Map API orders to our Order interface
-          const mappedOrders = filterCustomerOrdersForUser(fetchedOrders, user).map((o: any) => ({
-            id: o.id,
-            serviceType: o.service_name || o.service_id || 'Услуга',
-            carMake: o.car_brand_name || o.car_brand_id || '',
-            carModel: o.car_model_name || o.car_model_id || '',
-            year: o.year?.toString() || '',
-            region: o.region_name || o.region_id || '',
-            customerName: o.owner_name || '',
-            date: new Date(o.created_at).toLocaleDateString('ru-RU'),
-            deadline: o.deadline ? new Date(o.deadline).toLocaleDateString('ru-RU') : '',
-            status: (o.status === 'SEARCHING' ? 'pending' : o.status === 'MATCHED' ? 'active' : o.status === 'COMPLETED' ? 'completed' : 'cancelled') as 'pending' | 'active' | 'completed' | 'cancelled',
-            description: o.description || '',
-            responses: [],
-            responsesCount: typeof o.responses_count === 'number' ? o.responses_count : 0,
-            engine: o.engine_type,
-            gearbox: o.gearbox_type,
-            drive: o.drive_type,
-            body: o.body_type,
-            phone: o.owner_phone,
-            media: o.photos || []
-          }));
+          const mappedOrders = filterCustomerOrdersForUser(fetchedOrders, user).map(mapCustomerOrderFromApi);
 
           const responseCounts = await Promise.all(
             mappedOrders.map(async (order) => {

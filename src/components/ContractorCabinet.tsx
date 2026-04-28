@@ -8,6 +8,7 @@ import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { executorApi, dictsApi } from '../lib/api';
 import { uploadMediaFile } from '../lib/media';
+import { mapOrderFromApi } from '../lib/orderMapping';
 
 // --- Helpers ---
 
@@ -34,28 +35,6 @@ const tierBadgeClass = (tier: 'partner' | 'pro' | 'leader'): string => {
     case 'partner': return 'bg-blue-100 text-blue-600';
   }
 };
-
-const mapOrderFromApi = (o: any): Order => ({
-  id: o.id,
-  serviceType: o.service_name || 'Услуга',
-  carMake: o.car_brand_name || '',
-  carModel: o.car_model_name || '',
-  year: o.year?.toString() || '',
-  region: o.region_name || '',
-  customerName: o.owner_name || '',
-  date: new Date(o.created_at).toLocaleDateString('ru-RU'),
-  deadline: o.deadline ? new Date(o.deadline).toLocaleDateString('ru-RU') : '',
-  status: (o.status === 'SEARCHING' ? 'pending' : o.status === 'MATCHED' ? 'active' : o.status === 'COMPLETED' ? 'completed' : 'cancelled') as Order['status'],
-  description: o.description || '',
-  responses: [],
-  phone: o.owner_phone,
-  media: o.photos || [],
-  engine: o.engine || '',
-  gearbox: o.gearbox || '',
-  drive: o.drive || '',
-  body: o.body_type || '',
-  vin: o.vin || '',
-});
 
 // --- Profile form types ---
 

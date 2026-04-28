@@ -1,4 +1,5 @@
 import { Order } from '../types';
+import { mapOrderFromApi } from './orderMapping';
 
 type CustomerOrderUser = {
   id?: string | number | null;
@@ -55,33 +56,5 @@ export function filterCustomerOrdersForUser<T>(orders: T[], user: CustomerOrderU
 }
 
 export function mapCustomerOrderFromApi(o: any): Order {
-  return {
-    id: o.id,
-    serviceType: o.service_name || o.service_id || 'Услуга',
-    carMake: o.car_brand_name || o.car_brand_id || '',
-    carModel: o.car_model_name || o.car_model_id || '',
-    year: o.year?.toString() || '',
-    region: o.region_name || o.region_id || '',
-    customerName: o.owner_name || '',
-    date: o.created_at ? new Date(o.created_at).toLocaleDateString('ru-RU') : '',
-    deadline: o.deadline ? new Date(o.deadline).toLocaleDateString('ru-RU') : '',
-    status: (
-      o.status === 'SEARCHING'
-        ? 'pending'
-        : o.status === 'MATCHED'
-          ? 'active'
-          : o.status === 'COMPLETED'
-            ? 'completed'
-            : 'cancelled'
-    ) as Order['status'],
-    description: o.description || '',
-    responses: [],
-    responsesCount: typeof o.responses_count === 'number' ? o.responses_count : 0,
-    engine: o.engine_type,
-    gearbox: o.gearbox_type,
-    drive: o.drive_type,
-    body: o.body_type,
-    phone: o.owner_phone,
-    media: o.photos || [],
-  };
+  return mapOrderFromApi(o);
 }
