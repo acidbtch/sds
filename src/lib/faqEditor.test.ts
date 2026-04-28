@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { formatFaqAnswerMarkdown, insertFaqBullet } from './faqEditor';
+import { formatFaqAnswerMarkdown, insertEditorBullet, insertFaqBullet, prependFaqItem } from './faqEditor';
 
 assert.deepEqual(
   insertFaqBullet('', 0, 0),
@@ -38,5 +38,20 @@ assert.equal(
   '1. Первый пункт\n2. Второй пункт',
   'numbered lists should keep standard markdown indentation',
 );
+
+assert.deepEqual(
+  insertEditorBullet('Правило', 7, 7),
+  { text: 'Правило\n• ', cursor: 10 },
+  'shared editor helper should insert dot bullets for long text sections',
+);
+
+const existingFaq = [{ id: 'old', question: 'Старый вопрос' }];
+const newFaq = { id: 'new', question: 'Новый вопрос' };
+assert.deepEqual(
+  prependFaqItem(existingFaq, newFaq),
+  [newFaq, ...existingFaq],
+  'new FAQ drafts should appear at the beginning of the list',
+);
+assert.deepEqual(existingFaq, [{ id: 'old', question: 'Старый вопрос' }], 'existing FAQ list should not be mutated');
 
 console.log('faq editor helpers passed');

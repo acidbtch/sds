@@ -12,7 +12,7 @@ import { useData } from '../context/DataContext';
 import { ScheduleSelector, formatSchedule, defaultSchedule } from './ScheduleSelector';
 import { adminApi } from '../lib/api';
 import { uploadMediaFile } from '../lib/media';
-import { insertFaqBullet } from '../lib/faqEditor';
+import { insertEditorBullet, insertFaqBullet, prependFaqItem } from '../lib/faqEditor';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -65,7 +65,7 @@ export default function AdminPanel({ onNavigate, carModels, setCarModels }: Prop
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-white relative">
+    <div className="flex flex-col min-h-screen bg-white relative [&_button]:transition-all [&_button:not(:disabled)]:active:scale-[0.98] [&_button:not(:disabled)]:active:opacity-90">
       {/* Header */}
       <div className="bg-slate-900 text-white p-4 flex items-center justify-center shadow-md sticky top-0 z-30 relative">
         <button 
@@ -1844,6 +1844,7 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
   const [faqAnswer, setFaqAnswer] = useState('');
   const [draftFaqIds, setDraftFaqIds] = useState<string[]>([]);
   const faqAnswerRef = useRef<HTMLTextAreaElement | null>(null);
+  const editTextRef = useRef<HTMLTextAreaElement | null>(null);
 
   const sections = [
     { id: 'faq', title: 'FAQ (Вопросы и ответы)' },
@@ -1875,7 +1876,7 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
   const handleAddFaq = () => {
     const newId = Date.now().toString();
     const newItem = { id: newId, question: 'Новый вопрос', answer: 'Ответ на вопрос' };
-    setContent((prev: any) => ({ ...prev, faq: [...prev.faq, newItem] }));
+    setContent((prev: any) => ({ ...prev, faq: prependFaqItem(prev.faq, newItem) }));
     setDraftFaqIds(prev => [...prev, newId]);
     startEditFaq(newId, 'Новый вопрос', 'Ответ на вопрос');
   };
@@ -1912,17 +1913,29 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
     }
   };
 
-  const handleInsertFaqBullet = () => {
-    const textarea = faqAnswerRef.current;
-    const selectionStart = textarea?.selectionStart ?? faqAnswer.length;
+  const insertBulletIntoText = (
+    textarea: HTMLTextAreaElement | null,
+    value: string,
+    onChange: (nextValue: string) => void,
+    insertBullet = insertEditorBullet,
+  ) => {
+    const selectionStart = textarea?.selectionStart ?? value.length;
     const selectionEnd = textarea?.selectionEnd ?? selectionStart;
-    const next = insertFaqBullet(faqAnswer, selectionStart, selectionEnd);
+    const next = insertBullet(value, selectionStart, selectionEnd);
 
-    setFaqAnswer(next.text);
+    onChange(next.text);
     requestAnimationFrame(() => {
       textarea?.focus();
       textarea?.setSelectionRange(next.cursor, next.cursor);
     });
+  };
+
+  const handleInsertFaqBullet = () => {
+    insertBulletIntoText(faqAnswerRef.current, faqAnswer, setFaqAnswer, insertFaqBullet);
+  };
+
+  const handleInsertContentBullet = () => {
+    insertBulletIntoText(editTextRef.current, editText, setEditText);
   };
 
   const deleteFaq = async (id: string) => {
@@ -2067,6 +2080,7 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
 
   if (editingSection) {
     const sectionTitle = sections.find(s => s.id === editingSection)?.title;
+    const canInsertContentBullet = editingSection === 'rules' || editingSection === 'privacy';
     return (
       <div className="space-y-4">
         <button onClick={() => setEditingSection(null)} className="text-sm text-blue-600 font-medium flex items-center">
@@ -2074,7 +2088,21 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
         </button>
         <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
           <h2 className="text-lg font-bold mb-4">Редактирование: {sectionTitle}</h2>
+          {canInsertContentBullet && (
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <p className="text-xs text-gray-500">Поставьте курсор в текст и добавьте пункт с новой строки.</p>
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={handleInsertContentBullet}
+                className="shrink-0 bg-[#E8EDF2] text-[#0F2846] px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-[#D8DFE8]"
+              >
+                • Пункт
+              </button>
+            </div>
+          )}
           <textarea 
+            ref={editTextRef}
             className="w-full border border-gray-300 rounded-lg p-3 text-sm min-h-[300px] mb-4"
             value={editText}
             onChange={e => setEditText(e.target.value)}
