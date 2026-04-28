@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:api-errors": "tsx src/lib/apiErrors.test.ts",
+    "test:admin-role-errors": "tsx src/lib/adminRoleErrors.test.ts",
     "test:api-config": "tsx src/lib/apiConfig.test.ts",
     "test:admin-customer-orders": "tsx src/lib/adminCustomerOrders.test.ts",
     "test:contractor-services": "tsx src/lib/contractorServices.test.ts",

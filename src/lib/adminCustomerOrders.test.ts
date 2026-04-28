@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   canManageCustomerAdminRole,
+  getCustomerStateBadge,
   getCustomerContactRows,
   getCustomerDisplayContact,
   getNextCustomerAdminRole,
@@ -172,6 +173,24 @@ assert.equal(
   canManageCustomerAdminRole({ id: 'another-admin', username: 'boss' }, mappedAdminCustomer),
   true,
   'an admin should be allowed to change another user admin role',
+);
+
+assert.deepEqual(
+  getCustomerStateBadge({ role: 'CUSTOMER', status: 'active' }),
+  { label: 'Активен', className: 'bg-green-100 text-green-700' },
+  'an active customer should keep the green active badge',
+);
+
+assert.deepEqual(
+  getCustomerStateBadge({ role: 'ADMIN', status: 'active' }),
+  { label: 'Админ', className: 'bg-blue-100 text-blue-700' },
+  'an active admin should be shown as a blue admin badge instead of active',
+);
+
+assert.deepEqual(
+  getCustomerStateBadge({ role: 'ADMIN', status: 'blocked' }),
+  { label: 'Заблокирован', className: 'bg-red-100 text-red-700' },
+  'a blocked admin should still show the blocked state',
 );
 
 console.log('admin customer orders helpers passed');

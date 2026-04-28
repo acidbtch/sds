@@ -12,7 +12,8 @@ import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { ScheduleSelector, formatSchedule, defaultSchedule } from './ScheduleSelector';
 import { adminApi } from '../lib/api';
-import { canManageCustomerAdminRole, getCustomerContactRows, getNextCustomerAdminRole, getOrdersForCustomer } from '../lib/adminCustomerOrders';
+import { getAdminRoleUpdateErrorMessage, isAdminRoleEndpointMissing } from '../lib/adminRoleErrors';
+import { canManageCustomerAdminRole, getCustomerContactRows, getCustomerStateBadge, getNextCustomerAdminRole, getOrdersForCustomer } from '../lib/adminCustomerOrders';
 import { uploadMediaFile } from '../lib/media';
 import { getFaqItemsForEditor, insertEditorBullet, insertFaqBullet, saveFaqEditorItem } from '../lib/faqEditor';
 
@@ -249,6 +250,23 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
   const [search, setSearch] = useState('');
   const [roleConfirm, setRoleConfirm] = useState<{ customer: any; nextRole: 'CUSTOMER' | 'EXECUTOR' | 'ADMIN' } | null>(null);
   const [isRoleUpdating, setIsRoleUpdating] = useState(false);
+  const [isRoleApiUnavailable, setIsRoleApiUnavailable] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    adminApi.supportsUserRoleUpdate()
+      .then((isSupported) => {
+        if (isMounted) setIsRoleApiUnavailable(!isSupported);
+      })
+      .catch((error) => {
+        console.error('Failed to check user role endpoint support:', error);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const filtered = customers.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search));
 
@@ -275,6 +293,7 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
   const openRoleConfirm = () => {
     if (!selectedCustomer) return;
     if (!canManageCustomerAdminRole(user, selectedCustomer)) return;
+    if (isRoleApiUnavailable) return;
     setRoleConfirm({
       customer: selectedCustomer,
       nextRole: getNextCustomerAdminRole(selectedCustomer),
@@ -305,7 +324,11 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
       await refreshAdminData();
     } catch (error) {
       console.error('Failed to update user role:', error);
-      alert('Ошибка при изменении статуса пользователя');
+      if (isAdminRoleEndpointMissing(error)) {
+        setIsRoleApiUnavailable(true);
+        setRoleConfirm(null);
+      }
+      alert(getAdminRoleUpdateErrorMessage(error));
     } finally {
       setIsRoleUpdating(false);
     }
@@ -325,6 +348,8 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
     const customerOrders = getOrdersForCustomer(orders, selectedCustomer);
     const selectedCustomerContactRows = getCustomerContactRows(selectedCustomer);
     const canChangeAdminRole = canManageCustomerAdminRole(user, selectedCustomer);
+    const isRoleButtonDisabled = isRoleUpdating || !canChangeAdminRole || isRoleApiUnavailable;
+    const customerStateBadge = getCustomerStateBadge(selectedCustomer);
 
     return (
       <div className="space-y-4">
@@ -334,8 +359,8 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
         <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
           <div className="flex justify-between items-start mb-4">
             <h2 className="text-xl font-bold">{selectedCustomer.name}</h2>
-            <span className={`shrink-0 whitespace-nowrap px-2 py-1 text-xs rounded-md font-bold ${selectedCustomer.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-              {selectedCustomer.status === 'active' ? 'Активен' : 'Заблокирован'}
+            <span className={`shrink-0 whitespace-nowrap px-2 py-1 text-xs rounded-md font-bold ${customerStateBadge.className}`}>
+              {customerStateBadge.label}
             </span>
           </div>
           <div className="space-y-2 text-sm mb-6">
@@ -377,17 +402,22 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
           <div className="space-y-2">
             <button
               onClick={openRoleConfirm}
-              disabled={isRoleUpdating || !canChangeAdminRole}
-              className={`w-full py-3 rounded-lg font-bold text-white transition active:scale-[0.98] disabled:opacity-60 ${!canChangeAdminRole ? 'bg-gray-400' : selectedCustomer.role === 'ADMIN' ? 'bg-slate-700' : 'bg-blue-600'}`}
+              disabled={isRoleButtonDisabled}
+              className={`w-full py-3 rounded-lg font-bold text-white transition active:scale-[0.98] disabled:opacity-60 ${!canChangeAdminRole || isRoleApiUnavailable ? 'bg-gray-400' : selectedCustomer.role === 'ADMIN' ? 'bg-slate-700' : 'bg-blue-600'}`}
             >
               {!canChangeAdminRole
                 ? 'Нельзя изменить свой статус'
+                : isRoleApiUnavailable
+                  ? 'Смена роли недоступна'
                 : selectedCustomer.role === 'ADMIN'
                   ? `Вернуть статус ${getRoleLabel(selectedCustomer.previousRole)}`
                   : 'Сделать админом'}
             </button>
             {!canChangeAdminRole && (
               <p className="text-xs text-gray-500 text-center">Для своего аккаунта эта кнопка недоступна.</p>
+            )}
+            {isRoleApiUnavailable && canChangeAdminRole && (
+              <p className="text-xs text-gray-500 text-center">На сервере пока нет endpoint-а для смены роли.</p>
             )}
             <button
               onClick={toggleStatus}

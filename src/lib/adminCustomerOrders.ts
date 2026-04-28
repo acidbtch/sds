@@ -121,6 +121,18 @@ export function canManageCustomerAdminRole(currentUser: CurrentAdminUser | null 
   return !(currentUsernames.length > 0 && intersects(currentUsernames, customerUsernames));
 }
 
+export function getCustomerStateBadge(customer: Pick<AdminCustomer, 'role' | 'status'>) {
+  if (customer.status === 'blocked') {
+    return { label: 'Заблокирован', className: 'bg-red-100 text-red-700' };
+  }
+
+  if (customer.role === 'ADMIN') {
+    return { label: 'Админ', className: 'bg-blue-100 text-blue-700' };
+  }
+
+  return { label: 'Активен', className: 'bg-green-100 text-green-700' };
+}
+
 export function mapAdminCustomerFromApi(user: any, orders: Order[]): AdminCustomer {
   const userId = displayValue(user.id ?? user.user_id);
   const role = normalizeRole(user.role) || 'CUSTOMER';

@@ -1,4 +1,5 @@
 import { API_URL_MISSING_MESSAGE, resolveApiUrl } from './apiConfig';
+import { hasAdminRoleUpdateEndpoint } from './adminRoleErrors';
 
 export const API_URL = resolveApiUrl((import.meta as any).env?.VITE_API_URL);
 
@@ -215,6 +216,7 @@ export const adminApi = {
       method: 'PATCH',
       body: JSON.stringify({ role }),
     }),
+  supportsUserRoleUpdate: async () => hasAdminRoleUpdateEndpoint(await fetchApi<any>('/openapi.json')),
   updateContent: (type: 'rules' | 'privacy' | 'templates', content: string) => 
     fetchApi<any>(`/admin/content/${type}`, { method: 'PUT', body: JSON.stringify({ content }) }),
   updateFaq: (faq: any[]) => fetchApi<any>('/admin/content/faq', { method: 'PUT', body: JSON.stringify(faq) }),
