@@ -13,7 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { ScheduleSelector, formatSchedule, defaultSchedule } from './ScheduleSelector';
 import { adminApi } from '../lib/api';
 import { getAdminRoleUpdateErrorMessage, isAdminRoleEndpointMissing } from '../lib/adminRoleErrors';
-import { canManageCustomerAdminRole, getCustomerContactRows, getCustomerStateBadge, getNextCustomerAdminRole, getOrdersForCustomer } from '../lib/adminCustomerOrders';
+import { canManageCustomerAdminRole, canManageCustomerBlockStatus, getCustomerContactRows, getCustomerStateBadge, getCustomerStateDotClass, getNextCustomerAdminRole, getOrdersForCustomer } from '../lib/adminCustomerOrders';
 import { uploadMediaFile } from '../lib/media';
 import { getFaqItemsForEditor, insertEditorBullet, insertFaqBullet, saveFaqEditorItem } from '../lib/faqEditor';
 
@@ -271,6 +271,8 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
   const filtered = customers.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search));
 
   const toggleStatus = async () => {
+    if (!selectedCustomer || !canManageCustomerBlockStatus(user, selectedCustomer)) return;
+
     try {
       await adminApi.toggleUserBlock(selectedCustomer.id);
       await refreshAdminData();
@@ -348,6 +350,7 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
     const customerOrders = getOrdersForCustomer(orders, selectedCustomer);
     const selectedCustomerContactRows = getCustomerContactRows(selectedCustomer);
     const canChangeAdminRole = canManageCustomerAdminRole(user, selectedCustomer);
+    const canChangeBlockStatus = canManageCustomerBlockStatus(user, selectedCustomer);
     const isRoleButtonDisabled = isRoleUpdating || !canChangeAdminRole || isRoleApiUnavailable;
     const customerStateBadge = getCustomerStateBadge(selectedCustomer);
 
@@ -372,7 +375,6 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
               <p><span className="text-gray-500">Контакты:</span> Не указаны</p>
             )}
             <p><span className="text-gray-500">Регистрация:</span> {selectedCustomer.regDate}</p>
-            <p><span className="text-gray-500">Статус доступа:</span> {getRoleLabel(selectedCustomer.role)}</p>
             <p><span className="text-gray-500">Всего заказов:</span> {customerOrders.length}</p>
           </div>
           
@@ -421,10 +423,14 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
             )}
             <button
               onClick={toggleStatus}
-              className={`w-full py-3 rounded-lg font-bold text-white transition active:scale-[0.98] ${selectedCustomer.status === 'active' ? 'bg-red-500' : 'bg-green-500'}`}
+              disabled={!canChangeBlockStatus}
+              className={`w-full py-3 rounded-lg font-bold text-white transition active:scale-[0.98] ${!canChangeBlockStatus ? 'bg-gray-400 cursor-not-allowed active:scale-100' : selectedCustomer.status === 'active' ? 'bg-red-500' : 'bg-green-500'}`}
             >
-              {selectedCustomer.status === 'active' ? 'Заблокировать пользователя' : 'Разблокировать пользователя'}
+              {!canChangeBlockStatus ? 'Нельзя заблокировать свой аккаунт' : selectedCustomer.status === 'active' ? 'Заблокировать пользователя' : 'Разблокировать пользователя'}
             </button>
+            {!canChangeBlockStatus && (
+              <p className="text-xs text-gray-500 text-center">Для своего аккаунта эта кнопка недоступна.</p>
+            )}
           </div>
         </div>
         {roleConfirm && (
@@ -485,7 +491,7 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
           <div key={c.id} onClick={() => setSelectedCustomer(c)} className="bg-white p-4 rounded-xl shadow-md border border-gray-100 cursor-pointer hover:bg-gray-50">
             <div className="flex justify-between items-start mb-1">
               <h3 className="font-bold text-gray-900">{c.name}</h3>
-              <span className={`w-2 h-2 rounded-full mt-1.5 ${c.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+              <span className={`w-2 h-2 rounded-full mt-1.5 ${getCustomerStateDotClass(c)}`}></span>
             </div>
             <div className="space-y-0.5 text-sm text-gray-500">
               {getCustomerContactRows(c).map(row => (

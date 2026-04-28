@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import {
+  canManageCustomerBlockStatus,
   canManageCustomerAdminRole,
+  getCustomerStateDotClass,
   getCustomerStateBadge,
   getCustomerContactRows,
   getCustomerDisplayContact,
@@ -175,6 +177,18 @@ assert.equal(
   'an admin should be allowed to change another user admin role',
 );
 
+assert.equal(
+  canManageCustomerBlockStatus({ id: 'artem-user', username: 'artem' }, mappedAdminCustomer),
+  false,
+  'an admin should not be allowed to block their own account',
+);
+
+assert.equal(
+  canManageCustomerBlockStatus({ id: 'another-admin', username: 'boss' }, mappedAdminCustomer),
+  true,
+  'an admin should be allowed to block another user account',
+);
+
 assert.deepEqual(
   getCustomerStateBadge({ role: 'CUSTOMER', status: 'active' }),
   { label: 'Активен', className: 'bg-green-100 text-green-700' },
@@ -191,6 +205,24 @@ assert.deepEqual(
   getCustomerStateBadge({ role: 'ADMIN', status: 'blocked' }),
   { label: 'Заблокирован', className: 'bg-red-100 text-red-700' },
   'a blocked admin should still show the blocked state',
+);
+
+assert.equal(
+  getCustomerStateDotClass({ role: 'CUSTOMER', status: 'active' }),
+  'bg-green-500',
+  'an active customer should use a green list status dot',
+);
+
+assert.equal(
+  getCustomerStateDotClass({ role: 'ADMIN', status: 'active' }),
+  'bg-blue-500',
+  'an active admin should use a blue list status dot',
+);
+
+assert.equal(
+  getCustomerStateDotClass({ role: 'ADMIN', status: 'blocked' }),
+  'bg-red-500',
+  'a blocked admin should keep the red blocked list status dot',
 );
 
 console.log('admin customer orders helpers passed');

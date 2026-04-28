@@ -121,6 +121,10 @@ export function canManageCustomerAdminRole(currentUser: CurrentAdminUser | null 
   return !(currentUsernames.length > 0 && intersects(currentUsernames, customerUsernames));
 }
 
+export function canManageCustomerBlockStatus(currentUser: CurrentAdminUser | null | undefined, customer: CustomerOrderOwner): boolean {
+  return canManageCustomerAdminRole(currentUser, customer);
+}
+
 export function getCustomerStateBadge(customer: Pick<AdminCustomer, 'role' | 'status'>) {
   if (customer.status === 'blocked') {
     return { label: 'Заблокирован', className: 'bg-red-100 text-red-700' };
@@ -131,6 +135,12 @@ export function getCustomerStateBadge(customer: Pick<AdminCustomer, 'role' | 'st
   }
 
   return { label: 'Активен', className: 'bg-green-100 text-green-700' };
+}
+
+export function getCustomerStateDotClass(customer: Pick<AdminCustomer, 'role' | 'status'>) {
+  if (customer.status === 'blocked') return 'bg-red-500';
+  if (customer.role === 'ADMIN') return 'bg-blue-500';
+  return 'bg-green-500';
 }
 
 export function mapAdminCustomerFromApi(user: any, orders: Order[]): AdminCustomer {
