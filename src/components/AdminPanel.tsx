@@ -9,9 +9,10 @@ import {
 import RegionSelector from './RegionSelector';
 import { CustomSelect } from './CustomSelect';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import { ScheduleSelector, formatSchedule, defaultSchedule } from './ScheduleSelector';
 import { adminApi } from '../lib/api';
-import { getCustomerContactRows, getNextCustomerAdminRole, getOrdersForCustomer } from '../lib/adminCustomerOrders';
+import { canManageCustomerAdminRole, getCustomerContactRows, getNextCustomerAdminRole, getOrdersForCustomer } from '../lib/adminCustomerOrders';
 import { uploadMediaFile } from '../lib/media';
 import { getFaqItemsForEditor, insertEditorBullet, insertFaqBullet, saveFaqEditorItem } from '../lib/faqEditor';
 
@@ -243,6 +244,7 @@ function StatCard({ title, value, subtitle, color, onClick }: { title: string, v
 
 function CustomersView({ customers, setCustomers, orders }: { customers: any[], setCustomers: any, orders: any[] }) {
   const { refreshAdminData } = useData();
+  const { user } = useAuth();
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [search, setSearch] = useState('');
   const [roleConfirm, setRoleConfirm] = useState<{ customer: any; nextRole: 'CUSTOMER' | 'EXECUTOR' | 'ADMIN' } | null>(null);
@@ -272,6 +274,7 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
 
   const openRoleConfirm = () => {
     if (!selectedCustomer) return;
+    if (!canManageCustomerAdminRole(user, selectedCustomer)) return;
     setRoleConfirm({
       customer: selectedCustomer,
       nextRole: getNextCustomerAdminRole(selectedCustomer),
@@ -321,6 +324,7 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
   if (selectedCustomer) {
     const customerOrders = getOrdersForCustomer(orders, selectedCustomer);
     const selectedCustomerContactRows = getCustomerContactRows(selectedCustomer);
+    const canChangeAdminRole = canManageCustomerAdminRole(user, selectedCustomer);
 
     return (
       <div className="space-y-4">
@@ -373,11 +377,18 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
           <div className="space-y-2">
             <button
               onClick={openRoleConfirm}
-              disabled={isRoleUpdating}
-              className={`w-full py-3 rounded-lg font-bold text-white transition active:scale-[0.98] disabled:opacity-60 ${selectedCustomer.role === 'ADMIN' ? 'bg-slate-700' : 'bg-blue-600'}`}
+              disabled={isRoleUpdating || !canChangeAdminRole}
+              className={`w-full py-3 rounded-lg font-bold text-white transition active:scale-[0.98] disabled:opacity-60 ${!canChangeAdminRole ? 'bg-gray-400' : selectedCustomer.role === 'ADMIN' ? 'bg-slate-700' : 'bg-blue-600'}`}
             >
-              {selectedCustomer.role === 'ADMIN' ? `Вернуть статус ${getRoleLabel(selectedCustomer.previousRole)}` : 'Сделать админом'}
+              {!canChangeAdminRole
+                ? 'Нельзя изменить свой статус'
+                : selectedCustomer.role === 'ADMIN'
+                  ? `Вернуть статус ${getRoleLabel(selectedCustomer.previousRole)}`
+                  : 'Сделать админом'}
             </button>
+            {!canChangeAdminRole && (
+              <p className="text-xs text-gray-500 text-center">Для своего аккаунта эта кнопка недоступна.</p>
+            )}
             <button
               onClick={toggleStatus}
               className={`w-full py-3 rounded-lg font-bold text-white transition active:scale-[0.98] ${selectedCustomer.status === 'active' ? 'bg-red-500' : 'bg-green-500'}`}

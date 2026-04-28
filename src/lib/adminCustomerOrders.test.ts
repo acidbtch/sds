@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  canManageCustomerAdminRole,
   getCustomerContactRows,
   getCustomerDisplayContact,
   getNextCustomerAdminRole,
@@ -159,6 +160,18 @@ assert.equal(
   getNextCustomerAdminRole({ ...mappedAdminCustomer, role: 'ADMIN', previousRole: 'CUSTOMER' }),
   'CUSTOMER',
   'an admin promoted from customer should be restored to CUSTOMER on second click',
+);
+
+assert.equal(
+  canManageCustomerAdminRole({ id: 'artem-user', username: 'artem' }, mappedAdminCustomer),
+  false,
+  'an admin should not be allowed to change their own admin role',
+);
+
+assert.equal(
+  canManageCustomerAdminRole({ id: 'another-admin', username: 'boss' }, mappedAdminCustomer),
+  true,
+  'an admin should be allowed to change another user admin role',
 );
 
 console.log('admin customer orders helpers passed');

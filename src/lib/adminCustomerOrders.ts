@@ -10,6 +10,11 @@ type CustomerOrderOwner = {
   phone?: string | null;
 };
 
+type CurrentAdminUser = {
+  id?: string | number | null;
+  username?: string | null;
+};
+
 type CustomerContactRow = {
   label: string;
   value: string;
@@ -102,6 +107,18 @@ export function getCustomerContactRows(customer: CustomerOrderOwner): CustomerCo
 
 export function getNextCustomerAdminRole(customer: Pick<AdminCustomer, 'role' | 'previousRole'>): AdminUserRole {
   return customer.role === 'ADMIN' ? customer.previousRole || 'CUSTOMER' : 'ADMIN';
+}
+
+export function canManageCustomerAdminRole(currentUser: CurrentAdminUser | null | undefined, customer: CustomerOrderOwner): boolean {
+  if (!currentUser) return true;
+
+  const currentUserIds = uniqueValues([currentUser.id]);
+  const customerUserIds = uniqueValues([customer.id, customer.userId]);
+  if (currentUserIds.length > 0 && intersects(currentUserIds, customerUserIds)) return false;
+
+  const currentUsernames = uniqueValues([currentUser.username]);
+  const customerUsernames = uniqueValues([customer.username]);
+  return !(currentUsernames.length > 0 && intersects(currentUsernames, customerUsernames));
 }
 
 export function mapAdminCustomerFromApi(user: any, orders: Order[]): AdminCustomer {
