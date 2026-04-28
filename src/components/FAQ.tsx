@@ -4,6 +4,7 @@ import { ChevronLeft, HelpCircle, FileText, Shield, ChevronDown } from 'lucide-r
 import { useData } from '../context/DataContext';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
+import { formatFaqAnswerMarkdown } from '../lib/faqEditor';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -56,7 +57,7 @@ export default function FAQ({ onNavigate }: Props) {
             {openSections.includes(item.id) && (
               <div className="px-5 pb-5 pt-0 border-t border-gray-50 mt-2">
                 <div className={markdownClasses}>
-                  <ReactMarkdown remarkPlugins={[remarkBreaks]}>{item.answer}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkBreaks]}>{formatFaqAnswerMarkdown(item.answer)}</ReactMarkdown>
                 </div>
               </div>
             )}

@@ -11,6 +11,7 @@
     "test:api-config": "tsx src/lib/apiConfig.test.ts",
     "test:contractor-services": "tsx src/lib/contractorServices.test.ts",
     "test:customer-orders": "tsx src/lib/customerOrders.test.ts",
+    "test:faq-editor": "tsx src/lib/faqEditor.test.ts",
     "test:order-mapping": "tsx src/lib/orderMapping.test.ts",
     "test:order-services": "tsx src/lib/orderServiceSelection.test.ts",
     "test:support-validation": "tsx src/lib/supportValidation.test.ts",

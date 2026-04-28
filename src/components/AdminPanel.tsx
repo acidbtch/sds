@@ -12,6 +12,7 @@ import { useData } from '../context/DataContext';
 import { ScheduleSelector, formatSchedule, defaultSchedule } from './ScheduleSelector';
 import { adminApi } from '../lib/api';
 import { uploadMediaFile } from '../lib/media';
+import { insertFaqBullet } from '../lib/faqEditor';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -1841,6 +1842,8 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
   const [editingFaqId, setEditingFaqId] = useState<string | null>(null);
   const [faqQuestion, setFaqQuestion] = useState('');
   const [faqAnswer, setFaqAnswer] = useState('');
+  const [draftFaqIds, setDraftFaqIds] = useState<string[]>([]);
+  const faqAnswerRef = useRef<HTMLTextAreaElement | null>(null);
 
   const sections = [
     { id: 'faq', title: 'FAQ (Вопросы и ответы)' },
@@ -1871,9 +1874,19 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
 
   const handleAddFaq = () => {
     const newId = Date.now().toString();
-    const newFaq = [...content.faq, { id: newId, question: 'Новый вопрос', answer: 'Ответ на вопрос' }];
+    const newItem = { id: newId, question: 'Новый вопрос', answer: 'Ответ на вопрос' };
+    setContent((prev: any) => ({ ...prev, faq: [...prev.faq, newItem] }));
+    setDraftFaqIds(prev => [...prev, newId]);
     startEditFaq(newId, 'Новый вопрос', 'Ответ на вопрос');
-    refreshAdminData();
+  };
+
+  const cancelFaqEdit = () => {
+    if (editingFaqId && draftFaqIds.includes(editingFaqId)) {
+      const draftId = editingFaqId;
+      setContent((prev: any) => ({ ...prev, faq: prev.faq.filter((item: any) => item.id !== draftId) }));
+      setDraftFaqIds(prev => prev.filter(id => id !== draftId));
+    }
+    setEditingFaqId(null);
   };
 
   const startEditFaq = (id: string, question: string, answer: string) => {
@@ -1890,12 +1903,26 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
         );
         await adminApi.updateFaq(newFaq);
         setEditingFaqId(null);
+        setDraftFaqIds(prev => prev.filter(id => id !== editingFaqId));
         await refreshAdminData();
       } catch (error) {
         console.error('Failed to update FAQ:', error);
         alert('Ошибка при сохранении FAQ');
       }
     }
+  };
+
+  const handleInsertFaqBullet = () => {
+    const textarea = faqAnswerRef.current;
+    const selectionStart = textarea?.selectionStart ?? faqAnswer.length;
+    const selectionEnd = textarea?.selectionEnd ?? selectionStart;
+    const next = insertFaqBullet(faqAnswer, selectionStart, selectionEnd);
+
+    setFaqAnswer(next.text);
+    requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(next.cursor, next.cursor);
+    });
   };
 
   const deleteFaq = async (id: string) => {
@@ -1969,16 +1996,30 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Ответ (поддерживается Markdown: **жирный**)</label>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <label className="block text-xs font-medium text-gray-700">Ответ (Markdown: **жирный**, списки)</label>
+                        <button
+                          type="button"
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={handleInsertFaqBullet}
+                          className="shrink-0 bg-[#E8EDF2] text-[#0F2846] px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-[#D8DFE8]"
+                        >
+                          • Пункт
+                        </button>
+                      </div>
                       <textarea 
+                        ref={faqAnswerRef}
                         value={faqAnswer}
                         onChange={e => setFaqAnswer(e.target.value)}
                         className="w-full border border-gray-300 rounded-lg p-2 text-sm min-h-[100px]"
                       ></textarea>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Поставьте курсор в нужное место и нажмите "• Пункт", добавится новая строка с точкой.
+                      </p>
                     </div>
                     <div className="flex gap-2">
                       <button onClick={saveFaqEdit} className="bg-green-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold">Сохранить</button>
-                      <button onClick={() => setEditingFaqId(null)} className="bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold">Отмена</button>
+                      <button onClick={cancelFaqEdit} className="bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold">Отмена</button>
                     </div>
                   </div>
                 ) : (
