@@ -1,15 +1,19 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Contractor, Order, ViewState } from '../types';
 import { dictsApi, miscApi, adminApi } from '../lib/api';
+import { getCustomerDisplayContact, getOrdersForCustomer } from '../lib/adminCustomerOrders';
 import { mapOrderFromApi } from '../lib/orderMapping';
 import { useAuth } from './AuthContext';
 
 // Define the types for our context state
 interface Customer {
   id: string;
+  userId?: string;
   name: string;
   phone: string;
   tgId: string;
+  telegramId?: string;
+  username?: string;
   regDate: string;
   orders: number;
   status: 'active' | 'blocked';
@@ -183,17 +187,45 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         adminApi.getSupportTickets().catch((e) => { console.error('API Error:', e); return []; }),
       ]);
 
+      const mappedOrders = (ordersData || []).map(mapOrderFromApi);
+
       setCustomers((usersData || [])
         .filter((u: any) => u.role === 'CUSTOMER')
-        .map((u: any) => ({
-          id: u.id,
-          name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username,
-          phone: u.profile?.phone || '',
-          tgId: u.username,
-          regDate: u.created_at ? new Date(u.created_at).toLocaleDateString('ru-RU') : '',
-          orders: 0,
-          status: u.is_blocked ? 'blocked' : 'active',
-        })));
+        .map((u: any) => {
+          const userId = String(u.id ?? u.user_id ?? '');
+          const telegramId = String(
+            u.telegram_id ??
+            u.telegramId ??
+            u.telegram_user_id ??
+            u.telegramUserId ??
+            u.tg_id ??
+            u.tgId ??
+            u.profile?.telegram_id ??
+            u.telegram?.id ??
+            ''
+          );
+          const username = u.username || '';
+          const baseCustomer = {
+            id: userId,
+            userId,
+            name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || username,
+            phone: u.profile?.phone || '',
+            tgId: telegramId || username,
+            telegramId,
+            username,
+            regDate: u.created_at ? new Date(u.created_at).toLocaleDateString('ru-RU') : '',
+            status: u.is_blocked ? 'blocked' as const : 'active' as const,
+          };
+          const customerOrders = getOrdersForCustomer(mappedOrders, baseCustomer);
+          const displayContact = getCustomerDisplayContact(mappedOrders, baseCustomer);
+
+          return {
+            ...baseCustomer,
+            name: displayContact.name || baseCustomer.name,
+            phone: displayContact.phone || baseCustomer.phone,
+            orders: customerOrders.length,
+          };
+        }));
 
       setContractors((executorsData || []).map((c: any) => ({
         id: c.id,
@@ -222,7 +254,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         subEnd: c.subscription_until ? new Date(c.subscription_until).toLocaleDateString('ru-RU') : '',
       })));
 
-      setOrders((ordersData || []).map(mapOrderFromApi));
+      setOrders(mappedOrders);
 
       setPayments((paymentsData || []).map((p: any) => ({
         id: p.id,

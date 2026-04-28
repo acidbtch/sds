@@ -54,11 +54,16 @@ export interface Order {
   region?: string;
   phone?: string;
   customerName?: string;
+  customerId?: string;
+  customerUserId?: string;
+  customerTelegramId?: string;
+  customerUsername?: string;
   deadline?: string;
   vin?: string;
   media?: string[];
   status: 'pending' | 'active' | 'completed' | 'cancelled';
   date: string;
+  createdAt?: string;
   description: string;
   responses: ContractorResponse[];
   responsesCount?: number;

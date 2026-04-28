@@ -17,7 +17,7 @@ interface Props {
 }
 
 export default function OrderForm({ onNavigate, carModels, previousView }: Props) {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [submitted, setSubmitted] = useState(false);
   const [selectedMake, setSelectedMake] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
@@ -216,6 +216,8 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
       if (!regionId) {
         throw new Error(`Не удалось определить регион "${selectedRegions[0]}"`);
       }
+      const ownerName = name.trim();
+      const ownerPhone = phone.trim();
 
       // Create new order via API
       const orderData = {
@@ -232,14 +234,20 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
         engine_volume: engineVolume ? parseFloat(engineVolume.replace(',', '.')) : undefined,
         vin: vin || undefined,
         year: parseInt(selectedYear, 10),
-        owner_name: name,
-        owner_phone: phone,
+        owner_name: ownerName,
+        owner_phone: ownerPhone,
         description: description,
         deadline: deadline ? new Date(deadline).toISOString() : undefined,
         attachments: attachments.map(a => a.key)
       };
       
       await customerApi.createOrder(orderData);
+      try {
+        await customerApi.createProfile({ name: ownerName, phone: ownerPhone });
+        await refreshUser();
+      } catch (profileError) {
+        console.error('Failed to update customer contact profile:', profileError);
+      }
       
       setSubmitted(true);
       setTimeout(() => {

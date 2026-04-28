@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test:api-errors": "tsx src/lib/apiErrors.test.ts",
     "test:api-config": "tsx src/lib/apiConfig.test.ts",
+    "test:admin-customer-orders": "tsx src/lib/adminCustomerOrders.test.ts",
     "test:contractor-services": "tsx src/lib/contractorServices.test.ts",
     "test:customer-orders": "tsx src/lib/customerOrders.test.ts",
     "test:faq-editor": "tsx src/lib/faqEditor.test.ts",

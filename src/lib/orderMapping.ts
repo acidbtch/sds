@@ -16,6 +16,32 @@ function displayString(value: unknown) {
   return normalized;
 }
 
+function idString(value: unknown) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+}
+
+function objectId(value: unknown, ...keys: string[]) {
+  if (!value || typeof value !== 'object') return '';
+
+  const record = value as Record<string, unknown>;
+  for (const key of keys) {
+    const normalized = idString(record[key]);
+    if (normalized) return normalized;
+  }
+
+  return '';
+}
+
+function firstIdValue(...candidates: unknown[]) {
+  for (const candidate of candidates) {
+    const value = idString(candidate);
+    if (value) return value;
+  }
+
+  return '';
+}
+
 function objectName(value: unknown): string {
   if (!value || typeof value !== 'object') return displayString(value);
 
@@ -111,11 +137,55 @@ export function mapOrderFromApi(o: any): Order {
     region: firstDisplayValue(o.region_name, o.region, o.region_id),
     phone: displayString(o.owner_phone || o.phone),
     customerName: firstDisplayValue(o.owner_name, o.customer_name, o.customer),
+    customerId: firstIdValue(
+      o.customer_id,
+      o.customerId,
+      o.owner_id,
+      o.ownerId,
+      o.client_id,
+      o.clientId,
+      objectId(o.customer, 'id'),
+      objectId(o.owner, 'id')
+    ),
+    customerUserId: firstIdValue(
+      o.customer_user_id,
+      o.customerUserId,
+      o.owner_user_id,
+      o.ownerUserId,
+      o.user_id,
+      o.userId,
+      o.created_by,
+      o.createdBy,
+      objectId(o.customer, 'user_id', 'userId'),
+      objectId(o.owner, 'user_id', 'userId')
+    ),
+    customerTelegramId: firstIdValue(
+      o.customer_telegram_id,
+      o.customerTelegramId,
+      o.owner_telegram_id,
+      o.ownerTelegramId,
+      o.telegram_id,
+      o.telegramId,
+      o.tg_id,
+      o.tgId,
+      objectId(o.customer, 'telegram_id', 'telegramId', 'tg_id', 'tgId'),
+      objectId(o.owner, 'telegram_id', 'telegramId', 'tg_id', 'tgId')
+    ),
+    customerUsername: firstDisplayValue(
+      o.customer_username,
+      o.customerUsername,
+      o.owner_username,
+      o.ownerUsername,
+      o.username,
+      o.customer?.username,
+      o.owner?.username
+    ),
     deadline: formatDate(o.deadline),
     vin: displayString(o.vin),
     media: o.photos || o.media || o.attachments || [],
     status: mapOrderStatus(o.status),
     date: formatDate(o.created_at || o.date),
+    createdAt: idString(o.created_at || o.date),
     description: displayString(o.description),
     responses: [],
     responsesCount: typeof o.responses_count === 'number' ? o.responses_count : 0,

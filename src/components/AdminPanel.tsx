@@ -11,6 +11,7 @@ import { CustomSelect } from './CustomSelect';
 import { useData } from '../context/DataContext';
 import { ScheduleSelector, formatSchedule, defaultSchedule } from './ScheduleSelector';
 import { adminApi } from '../lib/api';
+import { getCustomerContactRows, getOrdersForCustomer } from '../lib/adminCustomerOrders';
 import { uploadMediaFile } from '../lib/media';
 import { getFaqItemsForEditor, insertEditorBullet, insertFaqBullet, saveFaqEditorItem } from '../lib/faqEditor';
 
@@ -269,7 +270,8 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
   };
 
   if (selectedCustomer) {
-    const customerOrders = orders.filter(o => o.phone === selectedCustomer.phone || o.customerName === selectedCustomer.name);
+    const customerOrders = getOrdersForCustomer(orders, selectedCustomer);
+    const selectedCustomerContactRows = getCustomerContactRows(selectedCustomer);
 
     return (
       <div className="space-y-4">
@@ -284,8 +286,13 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
             </span>
           </div>
           <div className="space-y-2 text-sm mb-6">
-            <p><span className="text-gray-500">Телефон:</span> {selectedCustomer.phone}</p>
-            <p><span className="text-gray-500">Telegram:</span> {selectedCustomer.tgId}</p>
+            {selectedCustomerContactRows.length > 0 ? (
+              selectedCustomerContactRows.map(row => (
+                <p key={row.label}><span className="text-gray-500">{row.label}:</span> {row.value}</p>
+              ))
+            ) : (
+              <p><span className="text-gray-500">Контакты:</span> Не указаны</p>
+            )}
             <p><span className="text-gray-500">Регистрация:</span> {selectedCustomer.regDate}</p>
             <p><span className="text-gray-500">Всего заказов:</span> {customerOrders.length}</p>
           </div>
@@ -345,7 +352,11 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
             <h3 className="font-bold text-gray-900">{c.name}</h3>
             <span className={`w-2 h-2 rounded-full mt-1.5 ${c.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`}></span>
           </div>
-          <p className="text-sm text-gray-500">{c.phone} • {c.tgId}</p>
+          <div className="space-y-0.5 text-sm text-gray-500">
+            {getCustomerContactRows(c).map(row => (
+              <p key={row.label}><span>{row.label}:</span> {row.value}</p>
+            ))}
+          </div>
           <div className="flex justify-between mt-2 text-xs text-gray-400">
             <span>Заказов: {c.orders}</span>
             <span>Рег: {c.regDate}</span>
