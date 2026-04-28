@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
-import { getCustomerContactRows, getCustomerDisplayContact, getOrdersForCustomer } from './adminCustomerOrders';
+import {
+  getCustomerContactRows,
+  getCustomerDisplayContact,
+  getOrdersForCustomer,
+  mapAdminCustomerFromApi,
+} from './adminCustomerOrders';
 import { mapOrderFromApi } from './orderMapping';
 
 const customer = {
@@ -88,6 +93,47 @@ assert.deepEqual(
   getCustomerContactRows({ telegramId: '', phone: '+375292222222' }),
   [{ label: 'Телефон', value: '+375292222222' }],
   'empty contact values should be hidden',
+);
+
+const adminCustomerOrders = [
+  mapOrderFromApi({
+    id: 'linked-order-old-phone',
+    customer_user_id: 'artem-user',
+    owner_name: 'Артем',
+    owner_phone: '+375291912105',
+    created_at: '2026-04-27T10:00:00.000Z',
+    service_name: 'Linked order',
+    status: 'NEW',
+  }),
+  ...[1, 2, 3, 4].map(index => mapOrderFromApi({
+    id: `phone-order-${index}`,
+    owner_name: 'Артем',
+    owner_phone: '+375291912105',
+    created_at: `2026-04-28T1${index}:00:00.000Z`,
+    service_name: `Phone order ${index}`,
+    status: 'NEW',
+  })),
+];
+
+const mappedAdminCustomer = mapAdminCustomerFromApi({
+  id: 'artem-user',
+  role: 'CUSTOMER',
+  first_name: 'Артем',
+  telegram_id: '8264937938',
+  profile: { phone: '+375291000000' },
+  created_at: '2026-04-13T10:00:00.000Z',
+}, adminCustomerOrders);
+
+assert.equal(
+  mappedAdminCustomer.phone,
+  '+375291912105',
+  'admin customer should display the phone from the newest matching order',
+);
+
+assert.equal(
+  mappedAdminCustomer.orders,
+  5,
+  'admin customer list count should be calculated after applying the displayed phone',
 );
 
 console.log('admin customer orders helpers passed');

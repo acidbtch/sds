@@ -346,23 +346,27 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
         </div>
       </div>
 
-      {filtered.map(c => (
-        <div key={c.id} onClick={() => setSelectedCustomer(c)} className="bg-white p-4 rounded-xl shadow-md border border-gray-100 cursor-pointer hover:bg-gray-50">
-          <div className="flex justify-between items-start mb-1">
-            <h3 className="font-bold text-gray-900">{c.name}</h3>
-            <span className={`w-2 h-2 rounded-full mt-1.5 ${c.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+      {filtered.map(c => {
+        const customerOrdersCount = getOrdersForCustomer(orders, c).length;
+
+        return (
+          <div key={c.id} onClick={() => setSelectedCustomer(c)} className="bg-white p-4 rounded-xl shadow-md border border-gray-100 cursor-pointer hover:bg-gray-50">
+            <div className="flex justify-between items-start mb-1">
+              <h3 className="font-bold text-gray-900">{c.name}</h3>
+              <span className={`w-2 h-2 rounded-full mt-1.5 ${c.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+            </div>
+            <div className="space-y-0.5 text-sm text-gray-500">
+              {getCustomerContactRows(c).map(row => (
+                <p key={row.label}><span>{row.label}:</span> {row.value}</p>
+              ))}
+            </div>
+            <div className="flex justify-between mt-2 text-xs text-gray-400">
+              <span>Заказов: {customerOrdersCount}</span>
+              <span>Рег: {c.regDate}</span>
+            </div>
           </div>
-          <div className="space-y-0.5 text-sm text-gray-500">
-            {getCustomerContactRows(c).map(row => (
-              <p key={row.label}><span>{row.label}:</span> {row.value}</p>
-            ))}
-          </div>
-          <div className="flex justify-between mt-2 text-xs text-gray-400">
-            <span>Заказов: {c.orders}</span>
-            <span>Рег: {c.regDate}</span>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

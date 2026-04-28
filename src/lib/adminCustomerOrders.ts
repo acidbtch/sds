@@ -15,6 +15,21 @@ type CustomerContactRow = {
   value: string;
 };
 
+type AdminCustomerStatus = 'active' | 'blocked';
+
+export type AdminCustomer = CustomerOrderOwner & {
+  id: string;
+  userId: string;
+  name: string;
+  phone: string;
+  tgId: string;
+  telegramId: string;
+  username: string;
+  regDate: string;
+  orders: number;
+  status: AdminCustomerStatus;
+};
+
 function normalize(value: unknown) {
   return value === null || value === undefined ? '' : String(value).trim().toLowerCase();
 }
@@ -75,4 +90,44 @@ export function getCustomerContactRows(customer: CustomerOrderOwner): CustomerCo
     { label: 'Telegram ID', value: displayValue(customer.telegramId || customer.tgId || customer.username) },
     { label: 'Телефон', value: displayValue(customer.phone) },
   ].filter(row => row.value);
+}
+
+export function mapAdminCustomerFromApi(user: any, orders: Order[]): AdminCustomer {
+  const userId = displayValue(user.id ?? user.user_id);
+  const telegramId = displayValue(
+    user.telegram_id ??
+    user.telegramId ??
+    user.telegram_user_id ??
+    user.telegramUserId ??
+    user.tg_id ??
+    user.tgId ??
+    user.profile?.telegram_id ??
+    user.telegram?.id
+  );
+  const username = displayValue(user.username);
+
+  const baseCustomer: AdminCustomer = {
+    id: userId,
+    userId,
+    name: `${displayValue(user.first_name)} ${displayValue(user.last_name)}`.trim() || username,
+    phone: displayValue(user.profile?.phone),
+    tgId: telegramId || username,
+    telegramId,
+    username,
+    regDate: user.created_at ? new Date(user.created_at).toLocaleDateString('ru-RU') : '',
+    orders: 0,
+    status: user.is_blocked ? 'blocked' : 'active',
+  };
+
+  const displayContact = getCustomerDisplayContact(orders, baseCustomer);
+  const displayCustomer = {
+    ...baseCustomer,
+    name: displayContact.name || baseCustomer.name,
+    phone: displayContact.phone || baseCustomer.phone,
+  };
+
+  return {
+    ...displayCustomer,
+    orders: getOrdersForCustomer(orders, displayCustomer).length,
+  };
 }
