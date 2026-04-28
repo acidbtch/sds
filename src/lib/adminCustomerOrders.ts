@@ -15,6 +15,7 @@ type CustomerContactRow = {
   value: string;
 };
 
+type AdminUserRole = 'CUSTOMER' | 'EXECUTOR' | 'ADMIN';
 type AdminCustomerStatus = 'active' | 'blocked';
 
 export type AdminCustomer = CustomerOrderOwner & {
@@ -28,6 +29,8 @@ export type AdminCustomer = CustomerOrderOwner & {
   regDate: string;
   orders: number;
   status: AdminCustomerStatus;
+  role: AdminUserRole;
+  previousRole: AdminUserRole;
 };
 
 function normalize(value: unknown) {
@@ -36,6 +39,11 @@ function normalize(value: unknown) {
 
 function displayValue(value: unknown) {
   return value === null || value === undefined ? '' : String(value).trim();
+}
+
+function normalizeRole(value: unknown): AdminUserRole | '' {
+  const role = displayValue(value).toUpperCase();
+  return role === 'ADMIN' || role === 'EXECUTOR' || role === 'CUSTOMER' ? role : '';
 }
 
 function uniqueValues(values: unknown[]) {
@@ -92,8 +100,19 @@ export function getCustomerContactRows(customer: CustomerOrderOwner): CustomerCo
   ].filter(row => row.value);
 }
 
+export function getNextCustomerAdminRole(customer: Pick<AdminCustomer, 'role' | 'previousRole'>): AdminUserRole {
+  return customer.role === 'ADMIN' ? customer.previousRole || 'CUSTOMER' : 'ADMIN';
+}
+
 export function mapAdminCustomerFromApi(user: any, orders: Order[]): AdminCustomer {
   const userId = displayValue(user.id ?? user.user_id);
+  const role = normalizeRole(user.role) || 'CUSTOMER';
+  const previousRole =
+    normalizeRole(user.previous_role) ||
+    normalizeRole(user.previousRole) ||
+    normalizeRole(user.role_before_admin) ||
+    normalizeRole(user.roleBeforeAdmin) ||
+    (role === 'ADMIN' ? 'CUSTOMER' : role);
   const telegramId = displayValue(
     user.telegram_id ??
     user.telegramId ??
@@ -117,6 +136,8 @@ export function mapAdminCustomerFromApi(user: any, orders: Order[]): AdminCustom
     regDate: user.created_at ? new Date(user.created_at).toLocaleDateString('ru-RU') : '',
     orders: 0,
     status: user.is_blocked ? 'blocked' : 'active',
+    role,
+    previousRole,
   };
 
   const displayContact = getCustomerDisplayContact(orders, baseCustomer);

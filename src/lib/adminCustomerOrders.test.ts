@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   getCustomerContactRows,
   getCustomerDisplayContact,
+  getNextCustomerAdminRole,
   getOrdersForCustomer,
   mapAdminCustomerFromApi,
 } from './adminCustomerOrders';
@@ -134,6 +135,30 @@ assert.equal(
   mappedAdminCustomer.orders,
   5,
   'admin customer list count should be calculated after applying the displayed phone',
+);
+
+assert.equal(
+  mappedAdminCustomer.role,
+  'CUSTOMER',
+  'admin customer should keep the backend user role',
+);
+
+assert.equal(
+  mappedAdminCustomer.previousRole,
+  'CUSTOMER',
+  'a regular customer should remember CUSTOMER as the role to restore',
+);
+
+assert.equal(
+  getNextCustomerAdminRole(mappedAdminCustomer),
+  'ADMIN',
+  'a regular customer should be promoted to ADMIN on first click',
+);
+
+assert.equal(
+  getNextCustomerAdminRole({ ...mappedAdminCustomer, role: 'ADMIN', previousRole: 'CUSTOMER' }),
+  'CUSTOMER',
+  'an admin promoted from customer should be restored to CUSTOMER on second click',
 );
 
 console.log('admin customer orders helpers passed');

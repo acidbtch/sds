@@ -210,6 +210,11 @@ export const adminApi = {
       body: JSON.stringify({ status, comment }),
     }),
   toggleUserBlock: (userId: string) => fetchApi<any>(`/admin/users/${userId}/block`, { method: 'POST' }),
+  updateUserRole: (userId: string, role: 'CUSTOMER' | 'EXECUTOR' | 'ADMIN') =>
+    fetchApi<any>(`/admin/users/${userId}/role`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    }),
   updateContent: (type: 'rules' | 'privacy' | 'templates', content: string) => 
     fetchApi<any>(`/admin/content/${type}`, { method: 'PUT', body: JSON.stringify({ content }) }),
   updateFaq: (faq: any[]) => fetchApi<any>('/admin/content/faq', { method: 'PUT', body: JSON.stringify(faq) }),

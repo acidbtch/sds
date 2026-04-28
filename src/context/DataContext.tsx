@@ -190,7 +190,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const mappedOrders = (ordersData || []).map(mapOrderFromApi);
 
       setCustomers((usersData || [])
-        .filter((u: any) => u.role === 'CUSTOMER')
+        .filter((u: any) => ['CUSTOMER', 'ADMIN'].includes(String(u.role || '').toUpperCase()))
         .map((u: any) => mapAdminCustomerFromApi(u, mappedOrders)));
 
       setContractors((executorsData || []).map((c: any) => ({

@@ -11,7 +11,7 @@ import { CustomSelect } from './CustomSelect';
 import { useData } from '../context/DataContext';
 import { ScheduleSelector, formatSchedule, defaultSchedule } from './ScheduleSelector';
 import { adminApi } from '../lib/api';
-import { getCustomerContactRows, getOrdersForCustomer } from '../lib/adminCustomerOrders';
+import { getCustomerContactRows, getNextCustomerAdminRole, getOrdersForCustomer } from '../lib/adminCustomerOrders';
 import { uploadMediaFile } from '../lib/media';
 import { getFaqItemsForEditor, insertEditorBullet, insertFaqBullet, saveFaqEditorItem } from '../lib/faqEditor';
 
@@ -245,6 +245,8 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
   const { refreshAdminData } = useData();
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [search, setSearch] = useState('');
+  const [roleConfirm, setRoleConfirm] = useState<{ customer: any; nextRole: 'CUSTOMER' | 'EXECUTOR' | 'ADMIN' } | null>(null);
+  const [isRoleUpdating, setIsRoleUpdating] = useState(false);
 
   const filtered = customers.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search));
 
@@ -256,6 +258,53 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
     } catch (error) {
       console.error('Failed to toggle user status:', error);
       alert('Ошибка при изменении статуса пользователя');
+    }
+  };
+
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case 'ADMIN': return 'Админ';
+      case 'EXECUTOR': return 'Исполнитель';
+      case 'CUSTOMER': return 'Клиент';
+      default: return role || 'Клиент';
+    }
+  };
+
+  const openRoleConfirm = () => {
+    if (!selectedCustomer) return;
+    setRoleConfirm({
+      customer: selectedCustomer,
+      nextRole: getNextCustomerAdminRole(selectedCustomer),
+    });
+  };
+
+  const confirmRoleChange = async () => {
+    if (!roleConfirm) return;
+
+    const currentRole = roleConfirm.customer.role || 'CUSTOMER';
+    const previousRole = roleConfirm.nextRole === 'ADMIN'
+      ? (currentRole === 'ADMIN' ? roleConfirm.customer.previousRole : currentRole)
+      : roleConfirm.nextRole;
+    const updatedCustomer = {
+      ...roleConfirm.customer,
+      role: roleConfirm.nextRole,
+      previousRole,
+    };
+
+    setIsRoleUpdating(true);
+    try {
+      await adminApi.updateUserRole(roleConfirm.customer.id, roleConfirm.nextRole);
+      setCustomers((current: any[]) => current.map(customer => (
+        customer.id === roleConfirm.customer.id ? updatedCustomer : customer
+      )));
+      setSelectedCustomer(updatedCustomer);
+      setRoleConfirm(null);
+      await refreshAdminData();
+    } catch (error) {
+      console.error('Failed to update user role:', error);
+      alert('Ошибка при изменении статуса пользователя');
+    } finally {
+      setIsRoleUpdating(false);
     }
   };
 
@@ -294,6 +343,7 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
               <p><span className="text-gray-500">Контакты:</span> Не указаны</p>
             )}
             <p><span className="text-gray-500">Регистрация:</span> {selectedCustomer.regDate}</p>
+            <p><span className="text-gray-500">Статус доступа:</span> {getRoleLabel(selectedCustomer.role)}</p>
             <p><span className="text-gray-500">Всего заказов:</span> {customerOrders.length}</p>
           </div>
           
@@ -320,13 +370,54 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
             )}
           </div>
 
-          <button 
-            onClick={toggleStatus}
-            className={`w-full py-3 rounded-xl font-bold text-white ${selectedCustomer.status === 'active' ? 'bg-red-500' : 'bg-green-500'}`}
-          >
-            {selectedCustomer.status === 'active' ? 'Заблокировать пользователя' : 'Разблокировать пользователя'}
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={openRoleConfirm}
+              disabled={isRoleUpdating}
+              className={`w-full py-3 rounded-lg font-bold text-white transition active:scale-[0.98] disabled:opacity-60 ${selectedCustomer.role === 'ADMIN' ? 'bg-slate-700' : 'bg-blue-600'}`}
+            >
+              {selectedCustomer.role === 'ADMIN' ? `Вернуть статус ${getRoleLabel(selectedCustomer.previousRole)}` : 'Сделать админом'}
+            </button>
+            <button
+              onClick={toggleStatus}
+              className={`w-full py-3 rounded-lg font-bold text-white transition active:scale-[0.98] ${selectedCustomer.status === 'active' ? 'bg-red-500' : 'bg-green-500'}`}
+            >
+              {selectedCustomer.status === 'active' ? 'Заблокировать пользователя' : 'Разблокировать пользователя'}
+            </button>
+          </div>
         </div>
+        {roleConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl">
+              <h3 className="text-lg font-bold text-gray-900">
+                {roleConfirm.nextRole === 'ADMIN' ? 'Сделать пользователя админом?' : 'Вернуть предыдущий статус?'}
+              </h3>
+              <p className="mt-3 text-sm text-gray-600">
+                {roleConfirm.nextRole === 'ADMIN'
+                  ? `Пользователь ${roleConfirm.customer.name} получит доступ к админке. Будет отправлен статус: ADMIN.`
+                  : `Пользователю ${roleConfirm.customer.name} будет возвращен статус: ${roleConfirm.nextRole}.`}
+              </p>
+              <div className="mt-5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRoleConfirm(null)}
+                  disabled={isRoleUpdating}
+                  className="flex-1 rounded-lg bg-gray-100 py-3 font-bold text-gray-700 transition active:scale-[0.98] disabled:opacity-60"
+                >
+                  Отмена
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmRoleChange}
+                  disabled={isRoleUpdating}
+                  className="flex-1 rounded-lg bg-blue-600 py-3 font-bold text-white transition active:scale-[0.98] disabled:opacity-60"
+                >
+                  {isRoleUpdating ? 'Сохраняем...' : 'Подтвердить'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
