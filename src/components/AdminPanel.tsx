@@ -12,7 +12,7 @@ import { useData } from '../context/DataContext';
 import { ScheduleSelector, formatSchedule, defaultSchedule } from './ScheduleSelector';
 import { adminApi } from '../lib/api';
 import { uploadMediaFile } from '../lib/media';
-import { insertEditorBullet, insertFaqBullet, prependFaqItem } from '../lib/faqEditor';
+import { getFaqItemsForEditor, insertEditorBullet, insertFaqBullet, saveFaqEditorItem } from '../lib/faqEditor';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -35,7 +35,7 @@ export default function AdminPanel({ onNavigate, carModels, setCarModels }: Prop
     banners, setBanners,
     moderation, setModeration,
     support, setSupport,
-    content, setContent,
+    content,
     serviceCategories, setServiceCategories
   } = useData();
 
@@ -119,7 +119,7 @@ export default function AdminPanel({ onNavigate, carModels, setCarModels }: Prop
         {activeTab === 'banners' && <BannersView banners={banners} setBanners={setBanners} contractors={contractors} setContractors={setContractors} />}
         {activeTab === 'moderation' && <ModerationView moderation={moderation} setModeration={setModeration} contractors={contractors} setContractors={setContractors} banners={banners} setBanners={setBanners} />}
         {activeTab === 'support' && <SupportView support={support} setSupport={setSupport} />}
-        {activeTab === 'content' && <ContentView content={content} setContent={setContent} />}
+        {activeTab === 'content' && <ContentView content={content} />}
         {activeTab === 'cars' && <CarsView carModels={carModels} setCarModels={setCarModels} />}
         {activeTab === 'services' && <ServicesView serviceCategories={serviceCategories} setServiceCategories={setServiceCategories} contractors={contractors} setContractors={setContractors} orders={orders} setOrders={setOrders} />}
       </div>
@@ -1833,7 +1833,7 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
     </div>
   );
 }
-function ContentView({ content, setContent }: { content: any, setContent: any }) {
+function ContentView({ content }: { content: any }) {
   const { refreshAdminData } = useData();
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
@@ -1842,7 +1842,7 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
   const [editingFaqId, setEditingFaqId] = useState<string | null>(null);
   const [faqQuestion, setFaqQuestion] = useState('');
   const [faqAnswer, setFaqAnswer] = useState('');
-  const [draftFaqIds, setDraftFaqIds] = useState<string[]>([]);
+  const [draftFaqItem, setDraftFaqItem] = useState<any | null>(null);
   const faqAnswerRef = useRef<HTMLTextAreaElement | null>(null);
   const editTextRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -1874,18 +1874,20 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
   };
 
   const handleAddFaq = () => {
+    if (editingFaqId) {
+      requestAnimationFrame(() => faqAnswerRef.current?.focus());
+      return;
+    }
+
     const newId = Date.now().toString();
     const newItem = { id: newId, question: 'Новый вопрос', answer: 'Ответ на вопрос' };
-    setContent((prev: any) => ({ ...prev, faq: prependFaqItem(prev.faq, newItem) }));
-    setDraftFaqIds(prev => [...prev, newId]);
+    setDraftFaqItem(newItem);
     startEditFaq(newId, 'Новый вопрос', 'Ответ на вопрос');
   };
 
   const cancelFaqEdit = () => {
-    if (editingFaqId && draftFaqIds.includes(editingFaqId)) {
-      const draftId = editingFaqId;
-      setContent((prev: any) => ({ ...prev, faq: prev.faq.filter((item: any) => item.id !== draftId) }));
-      setDraftFaqIds(prev => prev.filter(id => id !== draftId));
+    if (editingFaqId && draftFaqItem?.id === editingFaqId) {
+      setDraftFaqItem(null);
     }
     setEditingFaqId(null);
   };
@@ -1899,12 +1901,17 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
   const saveFaqEdit = async () => {
     if (editingFaqId) {
       try {
-        const newFaq = content.faq.map((item: any) => 
-          item.id === editingFaqId ? { ...item, question: faqQuestion, answer: faqAnswer } : item
+        const isDraft = draftFaqItem?.id === editingFaqId;
+        const newFaq = saveFaqEditorItem(
+          content.faq,
+          { id: editingFaqId, question: faqQuestion, answer: faqAnswer },
+          isDraft,
         );
         await adminApi.updateFaq(newFaq);
         setEditingFaqId(null);
-        setDraftFaqIds(prev => prev.filter(id => id !== editingFaqId));
+        if (isDraft) {
+          setDraftFaqItem(null);
+        }
         await refreshAdminData();
       } catch (error) {
         console.error('Failed to update FAQ:', error);
@@ -1981,6 +1988,7 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
 
   if (editingSection === 'faq') {
     const sectionTitle = sections.find(s => s.id === editingSection)?.title;
+    const faqItemsForEditor = getFaqItemsForEditor(content.faq, draftFaqItem);
     return (
       <div className="space-y-4">
         <button onClick={() => setEditingSection(null)} className="text-sm text-blue-600 font-medium flex items-center">
@@ -1989,15 +1997,23 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
         <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-bold">Редактирование: {sectionTitle}</h2>
-            <button onClick={handleAddFaq} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold">
+            <button
+              onClick={handleAddFaq}
+              disabled={Boolean(editingFaqId)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-bold ${editingFaqId ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white'}`}
+            >
               + Добавить вопрос
             </button>
           </div>
           
           <div className="space-y-3">
-            {content.faq.map((item: any, index: number) => (
-              <div key={item.id} className="border border-gray-200 rounded-lg p-3">
-                {editingFaqId === item.id ? (
+            {faqItemsForEditor.map((item: any) => {
+              const savedIndex = content.faq.findIndex((savedItem: any) => savedItem.id === item.id);
+              const isSavedItem = savedIndex !== -1;
+
+              return (
+                <div key={item.id} className="border border-gray-200 rounded-lg p-3">
+                  {editingFaqId === item.id ? (
                   <div className="space-y-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Вопрос</label>
@@ -2035,7 +2051,7 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
                       <button onClick={cancelFaqEdit} className="bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold">Отмена</button>
                     </div>
                   </div>
-                ) : (
+                  ) : (
                   <div className="flex justify-between items-start">
                     <div className="flex-1 pr-4">
                       <h3 className="font-bold text-gray-900 text-sm">{item.question}</h3>
@@ -2044,17 +2060,17 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
                     <div className="flex flex-col gap-1 ml-2 items-end">
                       <div className="flex gap-1 mb-1">
                         <button 
-                          onClick={() => moveFaqUp(index)} 
-                          disabled={index === 0}
-                          className={`p-1 rounded ${index === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}
+                          onClick={() => moveFaqUp(savedIndex)}
+                          disabled={!isSavedItem || savedIndex === 0}
+                          className={`p-1 rounded ${!isSavedItem || savedIndex === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}
                           title="Поднять выше"
                         >
                           <ArrowUp className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={() => moveFaqDown(index)} 
-                          disabled={index === content.faq.length - 1}
-                          className={`p-1 rounded ${index === content.faq.length - 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}
+                          onClick={() => moveFaqDown(savedIndex)}
+                          disabled={!isSavedItem || savedIndex === content.faq.length - 1}
+                          className={`p-1 rounded ${!isSavedItem || savedIndex === content.faq.length - 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}
                           title="Опустить ниже"
                         >
                           <ArrowDown className="w-4 h-4" />
@@ -2066,10 +2082,11 @@ function ContentView({ content, setContent }: { content: any, setContent: any })
                       </div>
                     </div>
                   </div>
-                )}
-              </div>
-            ))}
-            {content.faq.length === 0 && (
+                  )}
+                </div>
+              );
+            })}
+            {faqItemsForEditor.length === 0 && (
               <p className="text-sm text-gray-500 text-center py-4">Нет добавленных вопросов</p>
             )}
           </div>

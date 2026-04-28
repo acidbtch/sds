@@ -15,8 +15,28 @@ export function insertFaqBullet(text: string, selectionStart: number, selectionE
   return insertEditorBullet(text, selectionStart, selectionEnd);
 }
 
-export function prependFaqItem<T>(items: T[], item: T) {
+function prependFaqItem<T>(items: T[], item: T) {
   return [item, ...items];
+}
+
+export type FaqEditorItem = {
+  id: string;
+  question: string;
+  answer?: string;
+};
+
+export function getFaqItemsForEditor<T>(items: T[], draftItem: T | null) {
+  return draftItem ? prependFaqItem(items, draftItem) : items;
+}
+
+export function saveFaqEditorItem<T extends FaqEditorItem>(items: T[], item: T, isDraft: boolean) {
+  if (isDraft) {
+    return prependFaqItem(items, item);
+  }
+
+  return items.map(existingItem => (
+    existingItem.id === item.id ? { ...existingItem, ...item } : existingItem
+  ));
 }
 
 export function formatFaqAnswerMarkdown(markdown: string) {

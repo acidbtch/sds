@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
-import { formatFaqAnswerMarkdown, insertEditorBullet, insertFaqBullet, prependFaqItem } from './faqEditor';
+import {
+  formatFaqAnswerMarkdown,
+  getFaqItemsForEditor,
+  insertEditorBullet,
+  insertFaqBullet,
+  saveFaqEditorItem,
+} from './faqEditor';
 
 assert.deepEqual(
   insertFaqBullet('', 0, 0),
@@ -46,12 +52,31 @@ assert.deepEqual(
 );
 
 const existingFaq = [{ id: 'old', question: 'Старый вопрос' }];
-const newFaq = { id: 'new', question: 'Новый вопрос' };
+const newFaq = { id: 'new', question: 'Новый вопрос', answer: 'Ответ на вопрос' };
 assert.deepEqual(
-  prependFaqItem(existingFaq, newFaq),
+  saveFaqEditorItem(existingFaq, newFaq, true),
   [newFaq, ...existingFaq],
-  'new FAQ drafts should appear at the beginning of the list',
+  'new saved FAQ items should appear at the beginning of the list',
 );
 assert.deepEqual(existingFaq, [{ id: 'old', question: 'Старый вопрос' }], 'existing FAQ list should not be mutated');
+
+const draftFaq = { id: 'draft', question: 'Черновик', answer: 'Пока не сохранён' };
+assert.deepEqual(
+  getFaqItemsForEditor(existingFaq, draftFaq),
+  [draftFaq, ...existingFaq],
+  'FAQ draft should be visible in admin editor before saved items',
+);
+assert.deepEqual(
+  existingFaq,
+  [{ id: 'old', question: 'Старый вопрос' }],
+  'FAQ draft should not be inserted into shared content until save',
+);
+
+const updatedFaq = { id: 'old', question: 'Обновлённый вопрос', answer: 'Обновлённый ответ' };
+assert.deepEqual(
+  saveFaqEditorItem(existingFaq, updatedFaq, false),
+  [updatedFaq],
+  'existing FAQ items should update in place',
+);
 
 console.log('faq editor helpers passed');
