@@ -278,7 +278,7 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
         <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
           <div className="flex justify-between items-start mb-4">
             <h2 className="text-xl font-bold">{selectedCustomer.name}</h2>
-            <span className={`px-2 py-1 text-xs rounded-md font-bold ${selectedCustomer.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+            <span className={`shrink-0 whitespace-nowrap px-2 py-1 text-xs rounded-md font-bold ${selectedCustomer.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
               {selectedCustomer.status === 'active' ? 'Активен' : 'Заблокирован'}
             </span>
           </div>
@@ -293,11 +293,11 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
           <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600 mb-6 space-y-2">
             {customerOrders.length > 0 ? (
               customerOrders.map(o => (
-                <div key={o.id} className="flex justify-between items-center border-b border-gray-200 last:border-0 pb-2 last:pb-0">
-                  <div>
+                <div key={o.id} className="flex justify-between items-center gap-2 border-b border-gray-200 last:border-0 pb-2 last:pb-0">
+                  <div className="min-w-0 flex-1 truncate">
                     <span className="font-medium">Заказ #{o.id}</span> - {o.serviceType}
                   </div>
-                  <span className={`text-xs font-bold px-2 py-1 rounded ${
+                  <span className={`shrink-0 whitespace-nowrap text-xs font-bold px-2 py-1 rounded ${
                     o.status === 'completed' ? 'bg-green-100 text-green-700' : 
                     o.status === 'active' ? 'bg-blue-100 text-blue-700' : 
                     o.status === 'cancelled' ? 'bg-red-100 text-red-700' : 
@@ -762,11 +762,11 @@ function ContractorsView({ contractors, setContractors, orders }: { contractors:
                 {orders.filter(o => o.responses?.some((r: any) => r.contractorId === selected.id)).length > 0 ? (
                   orders.filter(o => o.responses?.some((r: any) => r.contractorId === selected.id)).map(o => (
                     <div key={o.id} className="flex flex-col border-b border-gray-200 last:border-0 pb-3 last:pb-0">
-                      <div className="flex justify-between items-center mb-1">
-                        <div>
+                      <div className="flex justify-between items-center gap-2 mb-1">
+                        <div className="min-w-0 flex-1 truncate">
                           <span className="font-medium">Заказ #{o.id}</span> - {o.serviceType}
                         </div>
-                        <span className={`text-[10px] font-bold px-2 py-1 rounded ${
+                        <span className={`shrink-0 whitespace-nowrap text-[10px] font-bold px-2 py-1 rounded ${
                           o.status === 'completed' ? 'bg-green-100 text-green-700' : 
                           o.status === 'active' ? 'bg-blue-100 text-blue-700' : 
                           o.status === 'cancelled' ? 'bg-red-100 text-red-700' : 
@@ -863,11 +863,11 @@ function OrdersView({ orders }: { orders: any[] }) {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'pending': return <span className="text-xs font-bold px-2 py-1 rounded bg-orange-100 text-orange-700">Новый</span>;
-      case 'active': return <span className="text-xs font-bold px-2 py-1 rounded bg-blue-100 text-blue-700">В работе</span>;
-      case 'completed': return <span className="text-xs font-bold px-2 py-1 rounded bg-green-100 text-green-700">Выполнен</span>;
-      case 'cancelled': return <span className="text-xs font-bold px-2 py-1 rounded bg-red-100 text-red-700">Отменен</span>;
-      default: return <span className="text-xs font-bold px-2 py-1 rounded bg-gray-100 text-gray-700">{status}</span>;
+      case 'pending': return <span className="shrink-0 whitespace-nowrap text-xs font-bold px-2 py-1 rounded bg-orange-100 text-orange-700">Новый</span>;
+      case 'active': return <span className="shrink-0 whitespace-nowrap text-xs font-bold px-2 py-1 rounded bg-blue-100 text-blue-700">В работе</span>;
+      case 'completed': return <span className="shrink-0 whitespace-nowrap text-xs font-bold px-2 py-1 rounded bg-green-100 text-green-700">Выполнен</span>;
+      case 'cancelled': return <span className="shrink-0 whitespace-nowrap text-xs font-bold px-2 py-1 rounded bg-red-100 text-red-700">Отменен</span>;
+      default: return <span className="shrink-0 whitespace-nowrap text-xs font-bold px-2 py-1 rounded bg-gray-100 text-gray-700">{status}</span>;
     }
   };
 
@@ -888,8 +888,8 @@ function OrdersView({ orders }: { orders: any[] }) {
 
       {filtered.map(o => (
         <div key={o.id} className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
-          <div className="flex justify-between items-start mb-2">
-            <span className="text-xs font-bold text-gray-500">#{o.id} от {o.date}</span>
+          <div className="flex justify-between items-start gap-2 mb-2">
+            <span className="min-w-0 flex-1 truncate text-xs font-bold text-gray-500">#{o.id} от {o.date}</span>
             {getStatusBadge(o.status)}
           </div>
           <h3 className="font-bold text-gray-900 mb-1">{o.serviceType}</h3>
@@ -947,9 +947,9 @@ function PaymentsView({ payments }: { payments: any[] }) {
     <div className="space-y-4">
       {payments.map(p => (
         <div key={p.id} className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
-          <div className="flex justify-between items-start mb-2">
-            <span className="text-xs font-medium text-gray-500">{p.id}</span>
-            <span className={`text-xs font-bold px-2 py-1 rounded ${p.status === 'Успешно' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{p.status}</span>
+          <div className="flex justify-between items-start gap-2 mb-2">
+            <span className="min-w-0 flex-1 truncate text-xs font-medium text-gray-500">{p.id}</span>
+            <span className={`shrink-0 whitespace-nowrap text-xs font-bold px-2 py-1 rounded ${p.status === 'Успешно' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{p.status}</span>
           </div>
           <div className="flex justify-between items-center mb-2">
             <h3 className="font-bold text-gray-900">{p.amount}</h3>
@@ -1161,7 +1161,7 @@ function BannersView({ banners, setBanners, contractors, setContractors }: { ban
             ) : (
               <>
                 <div className="flex justify-between items-start mb-3">
-                  <span className={`text-xs font-bold px-2 py-1 rounded ${b.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-[#E8EDF2] text-[#0F2846]'}`}>
+                  <span className={`shrink-0 whitespace-nowrap text-xs font-bold px-2 py-1 rounded ${b.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-[#E8EDF2] text-[#0F2846]'}`}>
                     {b.status === 'active' ? 'Активен' : 'Неактивен'}
                   </span>
                   <div className="flex gap-3">
@@ -1248,7 +1248,7 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
               <p className="text-xs text-gray-500">{isEdit ? 'Редактирование профиля' : 'Новая регистрация'}</p>
             </div>
           </div>
-          <span className={`text-xs font-bold px-2 py-1 rounded ${isEdit ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+          <span className={`shrink-0 whitespace-nowrap text-xs font-bold px-2 py-1 rounded ${isEdit ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
             {isEdit ? 'Редактирование' : 'Новая заявка'}
           </span>
         </div>
@@ -1335,7 +1335,7 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
       {moderation.filter(m => m.status === 'new').map(m => (
         <div key={m.id} className="bg-white p-4 rounded-xl shadow-md border border-gray-200 hover:border-blue-300 transition-colors">
           <div className="flex justify-between items-start mb-2">
-            <span className={`text-xs font-bold px-2 py-1 rounded ${m.type === 'edit' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+            <span className={`shrink-0 whitespace-nowrap text-xs font-bold px-2 py-1 rounded ${m.type === 'edit' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
               {m.type === 'edit' ? 'Редактирование' : 'Новая заявка'}
             </span>
             <span className="text-xs text-gray-500">{m.date}</span>
@@ -1544,7 +1544,7 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
           className="bg-white p-4 rounded-xl shadow-md border border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
         >
           <div className="flex justify-between items-start mb-2">
-            <span className={`text-xs font-bold px-2 py-1 rounded ${s.status === 'open' ? 'bg-blue-100 text-blue-700' : s.status === 'waiting_customer' ? 'bg-amber-100 text-amber-700' : s.status === 'in_progress' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+            <span className={`shrink-0 whitespace-nowrap text-xs font-bold px-2 py-1 rounded ${s.status === 'open' ? 'bg-blue-100 text-blue-700' : s.status === 'waiting_customer' ? 'bg-amber-100 text-amber-700' : s.status === 'in_progress' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
               {s.status === 'open' ? 'Открыто' : s.status === 'waiting_customer' ? 'Ждет ответа' : s.status === 'in_progress' ? 'В работе' : 'Решено'}
             </span>
             <span className="text-xs text-gray-500">

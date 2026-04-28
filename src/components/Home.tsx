@@ -58,7 +58,7 @@ export default function Home({ onNavigate }: Props) {
       {currentBanner && (
         <div className="px-4 mt-6 max-w-md mx-auto w-full space-y-4">
           <div key={currentBanner.id} className="bg-white rounded-md p-4 shadow-lg border-l-4 border-orange-500 flex items-center gap-4 relative overflow-hidden">
-            <div className="absolute top-0 right-0 bg-orange-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-md uppercase tracking-wider">
+            <div className="absolute top-0 right-0 whitespace-nowrap bg-orange-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-md uppercase tracking-wider">
               Лидер
             </div>
             <div className="w-16 h-16 bg-[#E8EDF2] rounded-md flex items-center justify-center flex-shrink-0 overflow-hidden">

@@ -490,12 +490,12 @@ export default function ContractorCabinet({ onNavigate }: Props) {
                       </div>
                     )}
                     <div className={hasResponded ? 'opacity-40 blur-[1px] transition-all' : ''}>
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="text-xs font-semibold text-gray-400 bg-[#E8EDF2] px-2 py-1 rounded-md">
+                      <div className="flex justify-between items-start gap-2 mb-2">
+                        <span className="min-w-0 flex-1 truncate text-xs font-semibold text-gray-400 bg-[#E8EDF2] px-2 py-1 rounded-md">
                           № {order.id} от {order.date}
                         </span>
-                        <span className="flex items-center text-xs font-bold text-blue-500 bg-blue-50 px-2 py-1 rounded-md">
-                          <AlertCircle className="w-3 h-3 mr-1" />
+                        <span className="flex shrink-0 items-center justify-center gap-1 whitespace-nowrap text-xs font-bold leading-none text-blue-500 bg-blue-50 px-2 py-1 rounded-md min-h-[30px]">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
                           Новый
                         </span>
                       </div>
@@ -584,11 +584,11 @@ export default function ContractorCabinet({ onNavigate }: Props) {
                 return (
                 <div key={order.id} className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
                   <div className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="text-xs font-semibold text-gray-400 bg-[#E8EDF2] px-2 py-1 rounded-md">
+                    <div className="flex justify-between items-start gap-2 mb-2">
+                      <span className="min-w-0 flex-1 truncate text-xs font-semibold text-gray-400 bg-[#E8EDF2] px-2 py-1 rounded-md">
                         № {order.id} от {order.date}
                       </span>
-                      <span className="flex items-center text-xs font-bold text-green-500 bg-green-50 px-2 py-1 rounded-md">
+                      <span className="flex shrink-0 items-center justify-center whitespace-nowrap text-xs font-bold leading-none text-green-500 bg-green-50 px-2 py-1 rounded-md min-h-[30px]">
                         В работе
                       </span>
                     </div>

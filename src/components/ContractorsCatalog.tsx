@@ -201,11 +201,11 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
   const getProfileBadge = (type: string) => {
     switch (type) {
       case 'leader':
-        return <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><Award className="w-3 h-3" /> Лидер</span>;
+        return <span className="shrink-0 whitespace-nowrap bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><Award className="w-3 h-3 shrink-0" /> Лидер</span>;
       case 'pro':
-        return <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Профи</span>;
+        return <span className="shrink-0 whitespace-nowrap bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3 shrink-0" /> Профи</span>;
       case 'partner':
-        return <span className="bg-gray-100 text-gray-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><Briefcase className="w-3 h-3" /> Партнер</span>;
+        return <span className="shrink-0 whitespace-nowrap bg-gray-100 text-gray-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><Briefcase className="w-3 h-3 shrink-0" /> Партнер</span>;
       default:
         return null;
     }

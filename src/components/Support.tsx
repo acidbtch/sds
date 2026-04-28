@@ -494,7 +494,7 @@ export default function Support({ onNavigate }: Props) {
                     <p className="text-sm font-medium text-gray-900 truncate">{ticket.subject || 'Без темы'}</p>
                     <p className="text-xs text-gray-400 mt-0.5">{formatDate(ticket.created_at)}</p>
                   </div>
-                  <span className={`ml-3 px-2 py-0.5 text-xs font-medium rounded-full flex-shrink-0 ${statusColor(ticket.status)}`}>
+                  <span className={`ml-3 px-2 py-0.5 text-xs font-medium rounded-full flex-shrink-0 whitespace-nowrap ${statusColor(ticket.status)}`}>
                     {statusLabel(ticket.status)}
                   </span>
                 </button>

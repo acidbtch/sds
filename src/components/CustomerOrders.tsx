@@ -191,11 +191,11 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
   const getProfileBadge = (type: string) => {
     switch (type) {
       case 'leader':
-        return <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><Award className="w-3 h-3" /> Лидер</span>;
+        return <span className="shrink-0 whitespace-nowrap bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><Award className="w-3 h-3 shrink-0" /> Лидер</span>;
       case 'pro':
-        return <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Профи</span>;
+        return <span className="shrink-0 whitespace-nowrap bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3 shrink-0" /> Профи</span>;
       case 'partner':
-        return <span className="bg-gray-100 text-gray-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><Briefcase className="w-3 h-3" /> Партнер</span>;
+        return <span className="shrink-0 whitespace-nowrap bg-gray-100 text-gray-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><Briefcase className="w-3 h-3 shrink-0" /> Партнер</span>;
       default:
         return null;
     }
@@ -337,25 +337,25 @@ export default function CustomerOrders({ onNavigate, hasCatalogAccess, setHasCat
                   className="p-4 cursor-pointer active:bg-gray-50 transition-colors"
                   onClick={() => toggleOrder(order.id)}
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-xs font-semibold text-gray-400 bg-[#E8EDF2] px-2 py-1 rounded-md">
+                  <div className="flex justify-between items-start gap-2 mb-2">
+                    <span className="min-w-0 flex-1 truncate text-xs font-semibold text-gray-400 bg-[#E8EDF2] px-2 py-1 rounded-md">
                       № {order.id} от {order.date}
                     </span>
                     {order.status === 'pending' && (
-                      <span className="flex items-center text-xs font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded-md">
-                        <AlertCircle className="w-3 h-3 mr-1" />
+                      <span className="flex shrink-0 items-center justify-center gap-1 whitespace-nowrap text-xs font-bold leading-none text-orange-500 bg-orange-50 px-2 py-1 rounded-md min-h-[30px]">
+                        <AlertCircle className="w-3 h-3 shrink-0" />
                         {(order.responsesCount ?? (order.responses || []).length)} отклик(ов)
                       </span>
                     )}
                     {order.status === 'active' && (
-                      <span className="flex items-center text-xs font-bold text-blue-500 bg-blue-50 px-2 py-1 rounded-md">
-                        <Clock className="w-3 h-3 mr-1" />
+                      <span className="flex shrink-0 items-center justify-center gap-1 whitespace-nowrap text-xs font-bold leading-none text-blue-500 bg-blue-50 px-2 py-1 rounded-md min-h-[30px]">
+                        <Clock className="w-3 h-3 shrink-0" />
                         В работе
                       </span>
                     )}
                     {order.status === 'completed' && (
-                      <span className="flex items-center text-xs font-bold text-green-500 bg-green-50 px-2 py-1 rounded-md">
-                        <CheckCircle className="w-3 h-3 mr-1" />
+                      <span className="flex shrink-0 items-center justify-center gap-1 whitespace-nowrap text-xs font-bold leading-none text-green-500 bg-green-50 px-2 py-1 rounded-md min-h-[30px]">
+                        <CheckCircle className="w-3 h-3 shrink-0" />
                         Выполнен
                       </span>
                     )}
