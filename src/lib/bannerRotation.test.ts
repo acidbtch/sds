@@ -7,8 +7,8 @@ import {
 
 assert.equal(
   BANNER_ROTATION_INTERVAL_MS,
-  5 * 60 * 1000,
-  'leader banners should rotate about once every five minutes',
+  30 * 1000,
+  'leader banners should rotate about once every thirty seconds while the interval is being tuned',
 );
 
 assert.equal(
