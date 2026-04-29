@@ -12,7 +12,7 @@ import { getServicesForCategory, resetServicesForCategoryChange } from '../lib/o
 
 interface Props {
   onNavigate: (view: ViewState) => void;
-  carModels: Record<string, string[]>;
+  carModels: Record<string, unknown[]>;
   previousView?: ViewState | null;
 }
 

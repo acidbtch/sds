@@ -13,14 +13,16 @@ import { useAuth } from '../context/AuthContext';
 import { ScheduleSelector, formatSchedule, defaultSchedule } from './ScheduleSelector';
 import { adminApi } from '../lib/api';
 import { getAdminRoleUpdateErrorMessage, isAdminRoleEndpointMissing } from '../lib/adminRoleErrors';
+import type { AdminCarModelsByBrand } from '../lib/adminCars';
+import { getAdminCarBrandOptions, getAdminCarEntityId, getAdminCarModelOptions } from '../lib/adminCars';
 import { canManageCustomerAdminRole, canManageCustomerBlockStatus, getCustomerContactRows, getCustomerStateBadge, getCustomerStateDotClass, getNextCustomerAdminRole, getOrdersForCustomer } from '../lib/adminCustomerOrders';
 import { uploadMediaFile } from '../lib/media';
 import { getFaqItemsForEditor, insertEditorBullet, insertFaqBullet, saveFaqEditorItem } from '../lib/faqEditor';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
-  carModels: Record<string, string[]>;
-  setCarModels: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
+  carModels: AdminCarModelsByBrand;
+  setCarModels: React.Dispatch<React.SetStateAction<AdminCarModelsByBrand>>;
 }
 
 type AdminTab = 'dashboard' | 'customers' | 'contractors' | 'orders' | 'payments' | 'banners' | 'moderation' | 'support' | 'content' | 'cars' | 'services';
@@ -1717,9 +1719,9 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
   );
 }
 
-function CarsView({ carModels, setCarModels }: { carModels: Record<string, string[]>, setCarModels: React.Dispatch<React.SetStateAction<Record<string, string[]>>> }) {
+function CarsView({ carModels, setCarModels }: { carModels: AdminCarModelsByBrand, setCarModels: React.Dispatch<React.SetStateAction<AdminCarModelsByBrand>> }) {
   const { refreshAdminData, carBrands } = useData();
-  const [localCarModels, setLocalCarModels] = useState<Record<string, string[]>>(carModels);
+  const [localCarModels, setLocalCarModels] = useState<AdminCarModelsByBrand>(carModels);
   const [newMake, setNewMake] = useState('');
   const [selectedMake, setSelectedMake] = useState<string | null>(null);
   const [newModel, setNewModel] = useState('');
@@ -1734,7 +1736,7 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
   useEffect(() => {
     if (!carBrands.length) return;
 
-    const brandIds = carBrands.map((brand: any) => String(brand.id));
+    const brandIds = carBrands.map(getAdminCarEntityId).filter(Boolean);
     const knownBrandIds = Object.keys(carModels);
     const needsLoad = brandIds.length > 0 && brandIds.some((id) => !knownBrandIds.includes(id));
 
@@ -1744,12 +1746,12 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
 
     const loadCarModels = async () => {
       const entries = await Promise.all(
-        carBrands.map(async (brand: any) => [String(brand.id), await adminApi.getCarModels(brand.id).catch(() => [])] as const)
+        brandIds.map(async (brandId) => [brandId, await adminApi.getCarModels(brandId).catch(() => [])] as const)
       );
 
       if (cancelled) return;
 
-      const nextModels = Object.fromEntries(entries) as Record<string, string[]>;
+      const nextModels = Object.fromEntries(entries) as AdminCarModelsByBrand;
       setLocalCarModels(nextModels);
       setCarModels(nextModels);
     };
@@ -1761,16 +1763,20 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
     };
   }, [carBrands, carModels, setCarModels]);
 
-  const syncCarModels = (nextModels: Record<string, string[]>) => {
+  const syncCarModels = (nextModels: AdminCarModelsByBrand) => {
     setLocalCarModels(nextModels);
     setCarModels(nextModels);
   };
 
+  const brandOptions = getAdminCarBrandOptions(carBrands, localCarModels);
+  const selectedBrand = brandOptions.find((brand) => brand.id === selectedMake);
+  const selectedBrandModels = getAdminCarModelOptions(localCarModels, selectedMake);
+
   const handleAddMake = async () => {
-    if (newMake.trim() && !localCarModels[newMake.trim()]) {
+    const makeName = newMake.trim();
+    if (makeName && !brandOptions.some((brand) => brand.name.toLowerCase() === makeName.toLowerCase())) {
       try {
-        await adminApi.createCarMake(newMake.trim());
-        syncCarModels({ ...localCarModels, [newMake.trim()]: [] });
+        await adminApi.createCarMake(makeName);
         setNewMake('');
         await refreshAdminData();
       } catch (error) {
@@ -1799,11 +1805,6 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
       const newMakeName = editingMake.new.trim();
       try {
         await adminApi.updateCarMake(editingMake.old, newMakeName);
-        const newModels = { ...localCarModels };
-        newModels[newMakeName] = newModels[editingMake.old];
-        delete newModels[editingMake.old];
-        syncCarModels(newModels);
-        if (selectedMake === editingMake.old) setSelectedMake(newMakeName);
         await refreshAdminData();
       } catch (error) {
         console.error('Failed to update car make:', error);
@@ -1814,12 +1815,14 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
   };
 
   const handleAddModel = async () => {
-    if (selectedMake && newModel.trim() && !localCarModels[selectedMake].includes(newModel.trim())) {
+    const modelName = newModel.trim();
+    if (selectedMake && modelName && !selectedBrandModels.some((model) => model.name.toLowerCase() === modelName.toLowerCase())) {
       try {
-        await adminApi.createCarModel(selectedMake, newModel.trim());
+        const createdModel = await adminApi.createCarModel(selectedMake, modelName);
+        const createdModelId = getAdminCarEntityId(createdModel) || modelName;
         syncCarModels({
           ...localCarModels,
-          [selectedMake]: [...localCarModels[selectedMake], newModel.trim()]
+          [selectedMake]: [...(localCarModels[selectedMake] || []), { id: createdModelId, name: modelName }]
         });
         setNewModel('');
         await refreshAdminData();
@@ -1835,7 +1838,7 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
       await adminApi.deleteCarModel(make, model);
       syncCarModels({
         ...localCarModels,
-        [make]: localCarModels[make].filter(m => m !== model)
+        [make]: (localCarModels[make] || []).filter(m => getAdminCarEntityId(m) !== model)
       });
       await refreshAdminData();
     } catch (error) {
@@ -1851,7 +1854,13 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
         await adminApi.updateCarModel(selectedMake, editingModel.old, newModelName);
         syncCarModels({
           ...localCarModels,
-          [selectedMake]: localCarModels[selectedMake].map(m => m === editingModel.old ? newModelName : m)
+          [selectedMake]: (localCarModels[selectedMake] || []).map((model) => {
+            if (getAdminCarEntityId(model) !== editingModel.old) return model;
+            if (typeof model === 'object' && model !== null) {
+              return { ...model as Record<string, unknown>, name: newModelName };
+            }
+            return newModelName;
+          })
         });
         await refreshAdminData();
       } catch (error) {
@@ -1896,13 +1905,13 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
         </div>
         
         <div className="flex flex-wrap gap-2">
-          {Object.keys(localCarModels).map(make => (
+          {brandOptions.map(brand => (
             <div 
-              key={make} 
-              onClick={() => setSelectedMake(make)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors ${selectedMake === make ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-[#E8EDF2] text-[#0F2846] hover:bg-[#D8DFE8]'}`}
+              key={brand.id}
+              onClick={() => setSelectedMake(brand.id)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors ${selectedMake === brand.id ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-[#E8EDF2] text-[#0F2846] hover:bg-[#D8DFE8]'}`}
             >
-              {editingMake?.old === make ? (
+              {editingMake?.old === brand.id ? (
                 <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                   <input 
                     type="text" 
@@ -1917,9 +1926,9 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
                 </div>
               ) : (
                 <>
-                  <span className="font-medium" onDoubleClick={(e) => { e.stopPropagation(); setEditingMake({old: make, new: make}); }}>{make}</span>
+                  <span className="font-medium" onDoubleClick={(e) => { e.stopPropagation(); setEditingMake({old: brand.id, new: brand.name}); }}>{brand.name}</span>
                   <button 
-                    onClick={(e) => { e.stopPropagation(); handleDeleteMake(make); }}
+                    onClick={(e) => { e.stopPropagation(); handleDeleteMake(brand.id); }}
                     className="text-gray-400 hover:text-red-500 ml-1"
                   >
                     <X className="w-4 h-4" />
@@ -1934,7 +1943,7 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
 
       {selectedMake && (
         <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
-          <h3 className="font-bold text-gray-900 mb-3">Модели: {selectedMake}</h3>
+          <h3 className="font-bold text-gray-900 mb-3">Модели: {selectedBrand?.name || selectedMake}</h3>
           <div className="flex gap-2 mb-4">
             <input 
               type="text" 
@@ -1948,9 +1957,9 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
           </div>
           
           <div className="flex flex-wrap gap-2">
-            {localCarModels[selectedMake].map(model => (
-              <div key={model} className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm">
-                {editingModel?.old === model ? (
+            {selectedBrandModels.map(model => (
+              <div key={model.id} className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+                {editingModel?.old === model.id ? (
                   <div className="flex items-center gap-1">
                     <input 
                       type="text" 
@@ -1965,9 +1974,9 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
                   </div>
                 ) : (
                   <>
-                    <span className="text-gray-700" onDoubleClick={() => setEditingModel({old: model, new: model})}>{model}</span>
+                    <span className="text-gray-700" onDoubleClick={() => setEditingModel({old: model.id, new: model.name})}>{model.name}</span>
                     <button 
-                      onClick={() => handleDeleteModel(selectedMake, model)}
+                      onClick={() => handleDeleteModel(selectedMake, model.id)}
                       className="text-gray-400 hover:text-red-500 ml-1"
                     >
                       <X className="w-4 h-4" />
@@ -1976,7 +1985,7 @@ function CarsView({ carModels, setCarModels }: { carModels: Record<string, strin
                 )}
               </div>
             ))}
-            {localCarModels[selectedMake].length === 0 && (
+            {selectedBrandModels.length === 0 && (
               <p className="text-sm text-gray-500 w-full text-center py-2">Нет добавленных моделей</p>
             )}
           </div>
@@ -2258,9 +2267,11 @@ function ContentView({ content }: { content: any }) {
         </button>
         <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
           <h2 className="text-lg font-bold mb-4">Редактирование: {sectionTitle}</h2>
-          {canInsertContentBullet && (
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <p className="text-xs text-gray-500">Поставьте курсор в текст и добавьте пункт с новой строки.</p>
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <label className="block text-xs font-medium text-gray-700">
+              Текст (Markdown: **жирный**, списки)
+            </label>
+            {canInsertContentBullet && (
               <button
                 type="button"
                 onMouseDown={e => e.preventDefault()}
@@ -2269,6 +2280,11 @@ function ContentView({ content }: { content: any }) {
               >
                 • Пункт
               </button>
+            )}
+          </div>
+          {canInsertContentBullet && (
+            <div className="mb-2">
+              <p className="text-xs text-gray-500">Поставьте курсор в текст и добавьте пункт с новой строки.</p>
             </div>
           )}
           <textarea 

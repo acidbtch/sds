@@ -6,5 +6,6 @@ coverage/
 *.log
 .codex/
 .serena/
+.playwright-mcp/
 .env*
 !.env.example

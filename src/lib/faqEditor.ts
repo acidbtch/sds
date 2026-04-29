@@ -39,6 +39,10 @@ export function saveFaqEditorItem<T extends FaqEditorItem>(items: T[], item: T, 
   ));
 }
 
-export function formatFaqAnswerMarkdown(markdown: string) {
+export function formatContentMarkdown(markdown: string) {
   return markdown.replace(/^(\s{0,3})•\s+/gm, '$1- ');
+}
+
+export function formatFaqAnswerMarkdown(markdown: string) {
+  return formatContentMarkdown(markdown);
 }

@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import ReactMarkdown from 'react-markdown';
+import remarkBreaks from 'remark-breaks';
 import {
+  formatContentMarkdown,
   formatFaqAnswerMarkdown,
   getFaqItemsForEditor,
   insertEditorBullet,
@@ -37,6 +42,31 @@ assert.equal(
   formatFaqAnswerMarkdown('• Первый пункт\n• Второй пункт'),
   '- Первый пункт\n- Второй пункт',
   'manual dot bullets should render as markdown bullets with list indentation',
+);
+
+assert.equal(
+  formatContentMarkdown('**Заголовок**\n• Первый пункт\n• Второй пункт'),
+  '**Заголовок**\n- Первый пункт\n- Второй пункт',
+  'rules and privacy content should preserve markdown and render dot bullets as lists',
+);
+
+const renderedContentMarkdown = renderToStaticMarkup(
+  React.createElement(
+    ReactMarkdown,
+    { remarkPlugins: [remarkBreaks] },
+    formatContentMarkdown('**Заголовок**\n• Первый пункт'),
+  ),
+);
+
+assert.match(
+  renderedContentMarkdown,
+  /<strong>Заголовок<\/strong>/,
+  'rules and privacy markdown should render bold text',
+);
+assert.match(
+  renderedContentMarkdown,
+  /<ul>/,
+  'rules and privacy dot bullets should render as markdown lists',
 );
 
 assert.equal(

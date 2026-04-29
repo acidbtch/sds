@@ -22,7 +22,7 @@ const AdminPanel = lazy(() => import('./components/AdminPanel'));
 import { DataProvider } from './context/DataContext';
 import { AuthProvider } from './context/AuthContext';
 
-const INITIAL_CAR_MODELS: Record<string, string[]> = {
+const INITIAL_CAR_MODELS: Record<string, unknown[]> = {
   "Audi": ["A3", "A4", "A6", "Q3", "Q5", "Q7"],
   "BMW": ["3 Series", "5 Series", "X3", "X5", "X6"],
   "Mercedes-Benz": ["C-Class", "E-Class", "GLC", "GLE"],
@@ -45,7 +45,7 @@ const INITIAL_CAR_MODELS: Record<string, string[]> = {
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewState>('home');
   const [previousView, setPreviousView] = useState<ViewState | null>(null);
-  const [carModels, setCarModels] = useState<Record<string, string[]>>(INITIAL_CAR_MODELS);
+  const [carModels, setCarModels] = useState<Record<string, unknown[]>>(INITIAL_CAR_MODELS);
   const [hasCatalogAccess, setHasCatalogAccess] = useState(false);
   const [catalogSource, setCatalogSource] = useState<'customer' | 'admin'>('customer');
 

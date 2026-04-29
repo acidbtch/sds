@@ -4,6 +4,9 @@ import { ChevronRight, Wrench, User, HelpCircle, MessageCircle, Star, Settings, 
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { BANNER_ROTATION_INTERVAL_MS, getNextBannerIndex, getVisibleBannerIndex } from '../lib/bannerRotation';
+import ReactMarkdown from 'react-markdown';
+import remarkBreaks from 'remark-breaks';
+import { formatContentMarkdown } from '../lib/faqEditor';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -43,6 +46,8 @@ export default function Home({ onNavigate }: Props) {
 
   const currentBanner = activeBanners[getVisibleBannerIndex(currentBannerIndex, activeBanners.length)];
   const faqItems = content.faq || [];
+  const legalModalContent = legalModal === 'rules' ? content.rules : content.privacy;
+  const legalMarkdownClasses = "text-sm text-gray-700 leading-relaxed [&_p]:mb-3 [&_p:last-child]:mb-0 [&_strong]:font-bold [&_strong]:text-gray-900 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_li]:mb-1";
 
   return (
     <div className="flex flex-col min-h-screen bg-white pb-10">
@@ -142,8 +147,10 @@ export default function Home({ onNavigate }: Props) {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6 overflow-y-auto whitespace-pre-wrap text-sm text-gray-700 leading-relaxed">
-              {legalModal === 'rules' ? content.rules : content.privacy}
+            <div className={`p-6 overflow-y-auto ${legalMarkdownClasses}`}>
+              <ReactMarkdown remarkPlugins={[remarkBreaks]}>
+                {formatContentMarkdown(legalModalContent || '')}
+              </ReactMarkdown>
             </div>
           </div>
         </div>
