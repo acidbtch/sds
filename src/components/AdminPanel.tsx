@@ -16,7 +16,6 @@ import { getAdminRoleUpdateErrorMessage, isAdminRoleEndpointMissing } from '../l
 import { canManageCustomerAdminRole, canManageCustomerBlockStatus, getCustomerContactRows, getCustomerStateBadge, getCustomerStateDotClass, getNextCustomerAdminRole, getOrdersForCustomer } from '../lib/adminCustomerOrders';
 import { uploadMediaFile } from '../lib/media';
 import { getFaqItemsForEditor, insertEditorBullet, insertFaqBullet, saveFaqEditorItem } from '../lib/faqEditor';
-import { CLIENT_SERVICE_CATEGORY_IMPORT, getClientServiceCategoryImportSummary } from '../data/serviceCategoriesImport';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -2321,8 +2320,6 @@ function ServicesView({
   const [newService, setNewService] = useState('');
   const [editingCategory, setEditingCategory] = useState<{id: string, name: string} | null>(null);
   const [editingService, setEditingService] = useState<{old: string, new: string} | null>(null);
-  const [isImportingCategories, setIsImportingCategories] = useState(false);
-  const importSummary = getClientServiceCategoryImportSummary();
 
   useEffect(() => {
     setLocalCategories(serviceCategories);
@@ -2441,59 +2438,10 @@ function ServicesView({
     }
   };
 
-  const handleImportClientCategories = async () => {
-    if (isImportingCategories) return;
-
-    const confirmed = window.confirm(
-      `Заменить текущий список услуг категориями из файла клиента?\n\nБудет загружено: ${importSummary.categoriesCount} категорий и ${importSummary.servicesCount} видов услуг.`
-    );
-    if (!confirmed) return;
-
-    const categoriesForServer = CLIENT_SERVICE_CATEGORY_IMPORT.map(category => ({
-      name: category.name,
-      services: [...category.services],
-    }));
-    const categoriesForUi = categoriesForServer.map((category, index) => ({
-      id: `client-import-${index + 1}`,
-      ...category,
-    }));
-
-    setIsImportingCategories(true);
-    try {
-      await adminApi.updateServiceCategories(categoriesForServer);
-      setLocalCategories(categoriesForUi);
-      setServiceCategories(categoriesForUi);
-      setSelectedCategory(categoriesForUi[0]?.id ?? null);
-      alert('Категории услуг из файла клиента загружены');
-      await refreshAdminData();
-    } catch (error) {
-      console.error('Failed to import client service categories:', error);
-      alert('Ошибка при импорте категорий услуг');
-    } finally {
-      setIsImportingCategories(false);
-    }
-  };
-
   const hasChanges = JSON.stringify(localCategories) !== JSON.stringify(serviceCategories);
 
   return (
     <div className="space-y-6">
-      <div className="bg-orange-50 p-4 rounded-2xl border border-orange-200 space-y-3">
-        <div>
-          <h2 className="font-bold text-gray-900">Импорт категорий из файла клиента</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Заменит текущий список на {importSummary.categoriesCount} категорий и {importSummary.servicesCount} видов услуг.
-          </p>
-        </div>
-        <button
-          onClick={handleImportClientCategories}
-          disabled={isImportingCategories}
-          className={`w-full px-4 py-3 rounded-xl font-bold transition-colors shadow-sm ${isImportingCategories ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600 text-white'}`}
-        >
-          {isImportingCategories ? 'Импортируем...' : 'Загрузить категории из файла клиента'}
-        </button>
-      </div>
-
       <div className="flex justify-end">
         <button 
           onClick={handleSave}
