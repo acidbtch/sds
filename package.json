@@ -17,6 +17,7 @@
     "test:faq-editor": "tsx src/lib/faqEditor.test.ts",
     "test:order-mapping": "tsx src/lib/orderMapping.test.ts",
     "test:order-services": "tsx src/lib/orderServiceSelection.test.ts",
+    "test:service-categories-import": "tsx src/data/serviceCategoriesImport.test.ts",
     "test:support-validation": "tsx src/lib/supportValidation.test.ts",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
