@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ViewState } from '../types';
 import { ChevronLeft, PlusCircle, List, ChevronRight, Star, Users, X, CreditCard } from 'lucide-react';
 import { useData } from '../context/DataContext';
+import { BANNER_ROTATION_INTERVAL_MS, getNextBannerIndex, getVisibleBannerIndex } from '../lib/bannerRotation';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -19,12 +20,12 @@ export default function CustomerMenu({ onNavigate, hasCatalogAccess, setHasCatal
   React.useEffect(() => {
     if (activeBanners.length <= 1) return;
     const interval = setInterval(() => {
-      setCurrentBannerIndex(prev => (prev + 1) % activeBanners.length);
-    }, 60000);
+      setCurrentBannerIndex(prev => getNextBannerIndex(prev, activeBanners.length));
+    }, BANNER_ROTATION_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [activeBanners.length]);
 
-  const currentBanner = activeBanners[currentBannerIndex];
+  const currentBanner = activeBanners[getVisibleBannerIndex(currentBannerIndex, activeBanners.length)];
 
   const handleCatalogClick = () => {
     if (hasCatalogAccess) {

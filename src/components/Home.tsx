@@ -3,6 +3,7 @@ import { ViewState } from '../types';
 import { ChevronRight, Wrench, User, HelpCircle, MessageCircle, Star, Settings, ChevronDown, X } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
+import { BANNER_ROTATION_INTERVAL_MS, getNextBannerIndex, getVisibleBannerIndex } from '../lib/bannerRotation';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -35,12 +36,12 @@ export default function Home({ onNavigate }: Props) {
   React.useEffect(() => {
     if (activeBanners.length <= 1) return;
     const interval = setInterval(() => {
-      setCurrentBannerIndex(prev => activeBanners.length > 0 ? (prev + 1) % activeBanners.length : 0);
-    }, 60000);
+      setCurrentBannerIndex(prev => getNextBannerIndex(prev, activeBanners.length));
+    }, BANNER_ROTATION_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [activeBanners.length]);
 
-  const currentBanner = activeBanners[currentBannerIndex];
+  const currentBanner = activeBanners[getVisibleBannerIndex(currentBannerIndex, activeBanners.length)];
   const faqItems = content.faq || [];
 
   return (
