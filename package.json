@@ -8,6 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:api-errors": "tsx src/lib/apiErrors.test.ts",
+    "test:api-recovery": "tsx src/lib/apiRecovery.test.ts",
+    "test:app-lifecycle": "tsx src/lib/appLifecycle.test.ts",
     "test:admin-role-errors": "tsx src/lib/adminRoleErrors.test.ts",
     "test:admin-cars": "tsx src/lib/adminCars.test.ts",
     "test:api-config": "tsx src/lib/apiConfig.test.ts",

@@ -2012,7 +2012,6 @@ function ContentView({ content }: { content: any }) {
     { id: 'faq', title: 'FAQ (Вопросы и ответы)' },
     { id: 'rules', title: 'Правила сервиса' },
     { id: 'privacy', title: 'Политика конфиденциальности' },
-    { id: 'templates', title: 'Шаблоны уведомлений (Telegram)' },
   ];
 
   const startEdit = (id: string) => {

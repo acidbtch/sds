@@ -2,12 +2,66 @@ import { API_URL_MISSING_MESSAGE, resolveApiUrl } from './apiConfig';
 import { hasAdminRoleUpdateEndpoint } from './adminRoleErrors';
 
 export const API_URL = resolveApiUrl((import.meta as any).env?.VITE_API_URL);
+export const API_REQUEST_TIMEOUT_MS = 20 * 1000;
 
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
     this.name = 'ApiError';
   }
+}
+
+export class ApiTimeoutError extends Error {
+  constructor(public endpoint: string, public timeoutMs: number) {
+    super(`Request timed out after ${timeoutMs}ms`);
+    this.name = 'ApiTimeoutError';
+  }
+}
+
+export function isAuthExpiredError(error: unknown) {
+  return error instanceof ApiError && (error.status === 401 || error.status === 403);
+}
+
+function isAbortError(error: unknown) {
+  return (
+    error instanceof Error &&
+    (error.name === 'AbortError' || error.name === 'TimeoutError')
+  );
+}
+
+export function isTransientApiError(error: unknown) {
+  return error instanceof ApiTimeoutError || error instanceof TypeError || isAbortError(error);
+}
+
+function createTimeoutSignal(externalSignal?: AbortSignal | null) {
+  const controller = new AbortController();
+  let timedOut = false;
+  let removeExternalAbort: (() => void) | null = null;
+
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, API_REQUEST_TIMEOUT_MS);
+
+  if (externalSignal) {
+    const handleAbort = () => controller.abort();
+
+    if (externalSignal.aborted) {
+      controller.abort();
+    } else {
+      externalSignal.addEventListener('abort', handleAbort, { once: true });
+      removeExternalAbort = () => externalSignal.removeEventListener('abort', handleAbort);
+    }
+  }
+
+  return {
+    signal: controller.signal,
+    didTimeout: () => timedOut,
+    cleanup: () => {
+      clearTimeout(timeoutId);
+      removeExternalAbort?.();
+    },
+  };
 }
 
 function formatValidationLocation(loc: unknown) {
@@ -89,10 +143,14 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  const { signal: externalSignal, ...fetchOptions } = options;
+  const timeoutSignal = createTimeoutSignal(externalSignal);
+
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
-      ...options,
+      ...fetchOptions,
       headers,
+      signal: timeoutSignal.signal,
     });
 
     if (!response.ok) {
@@ -110,6 +168,10 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     const text = await response.text();
     return text ? JSON.parse(text) : null;
   } catch (error) {
+    if (timeoutSignal.didTimeout()) {
+      throw new ApiTimeoutError(endpoint, API_REQUEST_TIMEOUT_MS);
+    }
+
     // If it's already an ApiError, rethrow it so the caller can handle it
     if (error instanceof ApiError) {
       throw error;
@@ -117,6 +179,8 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     // Otherwise, it's a network error (e.g., CORS, backend down)
     console.error(`[API Error] Network error or API unavailable for ${endpoint}:`, error);
     throw error;
+  } finally {
+    timeoutSignal.cleanup();
   }
 }
 

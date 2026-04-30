@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useState, Suspense, lazy } from 'react';
+import React, { useCallback, useEffect, useRef, useState, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ViewState } from './types';
 import Home from './components/Home';
@@ -19,8 +19,9 @@ const FAQ = lazy(() => import('./components/FAQ'));
 const Support = lazy(() => import('./components/Support'));
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 
-import { DataProvider } from './context/DataContext';
-import { AuthProvider } from './context/AuthContext';
+import { DataProvider, useData } from './context/DataContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { APP_IDLE_SESSION_MS, isLongAppPause } from './lib/appLifecycle';
 
 const INITIAL_CAR_MODELS: Record<string, unknown[]> = {
   "Audi": ["A3", "A4", "A6", "Q3", "Q5", "Q7"],
@@ -42,12 +43,37 @@ const INITIAL_CAR_MODELS: Record<string, unknown[]> = {
   "Другая марка": ["Другая модель"]
 };
 
-export default function App() {
+function SessionExpiredNotice({ onAccept }: { onAccept: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl">
+        <h2 className="text-lg font-bold text-gray-900">Сессия устарела</h2>
+        <p className="mt-2 text-sm leading-relaxed text-gray-600">
+          Приложение долго было открыто без действий. Обновим данные и вернёмся на главную страницу.
+        </p>
+        <button
+          type="button"
+          onClick={onAccept}
+          className="mt-5 w-full rounded-lg bg-blue-600 px-4 py-3 text-base font-bold text-white transition active:scale-[0.98]"
+        >
+          Принять
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AppShell() {
   const [currentView, setCurrentView] = useState<ViewState>('home');
   const [previousView, setPreviousView] = useState<ViewState | null>(null);
   const [carModels, setCarModels] = useState<Record<string, unknown[]>>(INITIAL_CAR_MODELS);
   const [hasCatalogAccess, setHasCatalogAccess] = useState(false);
   const [catalogSource, setCatalogSource] = useState<'customer' | 'admin'>('customer');
+  const [isSessionNoticeVisible, setIsSessionNoticeVisible] = useState(false);
+  const hiddenAtRef = useRef<number | null>(null);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { refreshUser } = useAuth();
+  const { refreshPublicData, refreshAdminData } = useData();
 
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
@@ -93,6 +119,86 @@ export default function App() {
     setCurrentView(view);
   };
 
+  const showSessionNotice = useCallback(() => {
+    setIsSessionNoticeVisible(true);
+  }, []);
+
+  const resetIdleTimer = useCallback(() => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+    }
+
+    if (isSessionNoticeVisible || document.visibilityState !== 'visible') {
+      return;
+    }
+
+    idleTimerRef.current = setTimeout(showSessionNotice, APP_IDLE_SESSION_MS);
+  }, [isSessionNoticeVisible, showSessionNotice]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAtRef.current = Date.now();
+        if (idleTimerRef.current) {
+          clearTimeout(idleTimerRef.current);
+        }
+        return;
+      }
+
+      if (isLongAppPause(Date.now(), hiddenAtRef.current)) {
+        showSessionNotice();
+        return;
+      }
+
+      hiddenAtRef.current = null;
+      resetIdleTimer();
+    };
+
+    const handleActivity = () => {
+      resetIdleTimer();
+    };
+
+    const handlePageShow = () => {
+      if (isLongAppPause(Date.now(), hiddenAtRef.current)) {
+        showSessionNotice();
+        return;
+      }
+
+      hiddenAtRef.current = null;
+      resetIdleTimer();
+    };
+
+    const activityEvents: Array<keyof WindowEventMap> = ['pointerdown', 'keydown', 'touchstart', 'scroll'];
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handlePageShow);
+    activityEvents.forEach((eventName) => window.addEventListener(eventName, handleActivity, { passive: true }));
+    resetIdleTimer();
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
+      activityEvents.forEach((eventName) => window.removeEventListener(eventName, handleActivity));
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+      }
+    };
+  }, [resetIdleTimer, showSessionNotice]);
+
+  const handleSessionAccept = useCallback(() => {
+    setIsSessionNoticeVisible(false);
+    hiddenAtRef.current = null;
+    setPreviousView(null);
+    setCurrentView('home');
+    void Promise.allSettled([
+      refreshUser(),
+      refreshPublicData(false),
+      refreshAdminData(),
+    ]).finally(() => {
+      resetIdleTimer();
+    });
+  }, [refreshAdminData, refreshPublicData, refreshUser, resetIdleTimer]);
+
   const renderView = () => {
     switch (currentView) {
       case 'home':
@@ -123,26 +229,33 @@ export default function App() {
   };
 
   return (
+    <div className="min-h-screen min-h-[100dvh] bg-gray-100 text-black font-sans flex justify-center">
+      <div className="w-full max-w-md bg-white min-h-screen min-h-[100dvh] relative shadow-2xl overflow-hidden">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentView}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+            className="w-full min-h-screen min-h-[100dvh] bg-white relative"
+          >
+            <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div></div>}>
+              {renderView()}
+            </Suspense>
+          </motion.div>
+        </AnimatePresence>
+        {isSessionNoticeVisible && <SessionExpiredNotice onAccept={handleSessionAccept} />}
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
     <AuthProvider>
       <DataProvider>
-        <div className="min-h-screen min-h-[100dvh] bg-gray-100 text-black font-sans flex justify-center">
-          <div className="w-full max-w-md bg-white min-h-screen min-h-[100dvh] relative shadow-2xl overflow-hidden">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentView}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.2 }}
-                className="w-full min-h-screen min-h-[100dvh] bg-white relative"
-              >
-                <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div></div>}>
-                  {renderView()}
-                </Suspense>
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </div>
+        <AppShell />
       </DataProvider>
     </AuthProvider>
   );

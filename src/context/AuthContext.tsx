@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { authApi } from '../lib/api';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
+import { authApi, isAuthExpiredError, isTransientApiError } from '../lib/api';
+import { shouldRefreshAfterAppResume } from '../lib/appLifecycle';
 
 interface UserProfile {
   id: string;
@@ -30,6 +31,8 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const hiddenAtRef = useRef<number | null>(null);
+  const lastResumeRefreshAtRef = useRef(0);
 
   const refreshUser = useCallback(async () => {
     try {
@@ -37,8 +40,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser(userData);
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
-      localStorage.removeItem('access_token');
-      setUser(null);
+
+      if (isAuthExpiredError(error)) {
+        localStorage.removeItem('access_token');
+        setUser(null);
+        return;
+      }
+
+      if (!isTransientApiError(error)) {
+        console.warn('Keeping current session after profile refresh error:', error);
+      }
     }
   }, []);
 
@@ -70,6 +81,45 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    const refreshAfterResume = () => {
+      const token = localStorage.getItem('access_token');
+      if (!token) return;
+
+      const now = Date.now();
+      if (!shouldRefreshAfterAppResume({
+        now,
+        hiddenAt: hiddenAtRef.current,
+        lastRefreshAt: lastResumeRefreshAtRef.current,
+      })) {
+        return;
+      }
+
+      lastResumeRefreshAtRef.current = now;
+      hiddenAtRef.current = null;
+      void refreshUser();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAtRef.current = Date.now();
+        return;
+      }
+
+      refreshAfterResume();
+    };
+
+    window.addEventListener('focus', refreshAfterResume);
+    window.addEventListener('pageshow', refreshAfterResume);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', refreshAfterResume);
+      window.removeEventListener('pageshow', refreshAfterResume);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refreshUser]);
 
   return (
     <AuthContext.Provider value={{ user, isLoading, login, logout, refreshUser }}>

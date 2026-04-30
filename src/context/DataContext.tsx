@@ -4,6 +4,7 @@ import { dictsApi, miscApi, adminApi } from '../lib/api';
 import { mapAdminCustomerFromApi } from '../lib/adminCustomerOrders';
 import { mapOrderFromApi } from '../lib/orderMapping';
 import { useAuth } from './AuthContext';
+import { shouldRefreshAfterAppResume } from '../lib/appLifecycle';
 
 // Define the types for our context state
 interface Customer {
@@ -114,6 +115,7 @@ interface DataContextType {
   carModels: Record<string, any[]>;
   setCarModels: React.Dispatch<React.SetStateAction<Record<string, any[]>>>;
   isLoading: boolean;
+  refreshPublicData: (showLoading?: boolean) => Promise<void>;
   refreshAdminData: () => Promise<void>;
 }
 
@@ -300,10 +302,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [user?.role]);
 
-  useEffect(() => {
-    const fetchInitialData = async () => {
+  const refreshPublicData = useCallback(async (showLoading = false) => {
+    if (showLoading) {
       setIsLoading(true);
-      try {
+    }
+    try {
         const [faqData, bannersData, regionsApiData, categoriesData, brandsData] = await Promise.all([
           miscApi.getFaq().catch((e) => { console.error('API Error:', e); return []; }),
           miscApi.getBanners().catch((e) => { console.error('API Error:', e); return []; }),
@@ -354,47 +357,69 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setCarBrands(brandsData);
         }
 
-      } catch (error) {
-        console.error('Failed to fetch initial data:', error);
-      } finally {
+    } catch (error) {
+      console.error('Failed to fetch public data:', error);
+    } finally {
+      if (showLoading) {
         setIsLoading(false);
       }
-    };
-
-    fetchInitialData();
+    }
   }, []);
+
+  useEffect(() => {
+    refreshPublicData(true);
+  }, [refreshPublicData]);
 
   useEffect(() => {
     refreshAdminData();
   }, [refreshAdminData]);
 
   useEffect(() => {
-    if (user?.role !== 'ADMIN') return;
+    let hiddenAt: number | null = null;
+    let lastResumeRefreshAt = Date.now();
 
-    let intervalId: ReturnType<typeof setTimeout> | null = null;
+    const refreshAfterResume = () => {
+      const now = Date.now();
+      if (!shouldRefreshAfterAppResume({ now, hiddenAt, lastRefreshAt: lastResumeRefreshAt })) {
+        return;
+      }
 
-    const handleFocus = () => {
-      refreshAdminData();
+      lastResumeRefreshAt = now;
+      hiddenAt = null;
+      void refreshPublicData(false);
+      void refreshAdminData();
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        refreshAdminData();
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now();
+        return;
       }
+
+      refreshAfterResume();
     };
 
-    window.addEventListener('focus', handleFocus);
+    window.addEventListener('focus', refreshAfterResume);
+    window.addEventListener('pageshow', refreshAfterResume);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    intervalId = setInterval(() => {
+
+    return () => {
+      window.removeEventListener('focus', refreshAfterResume);
+      window.removeEventListener('pageshow', refreshAfterResume);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refreshPublicData, refreshAdminData]);
+
+  useEffect(() => {
+    if (user?.role !== 'ADMIN') return;
+
+    const intervalId = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
       refreshAdminData();
     }, 20000);
 
     return () => {
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (intervalId) {
-        clearTimeout(intervalId);
-      }
+      clearInterval(intervalId);
     };
   }, [user?.role, refreshAdminData]);
 
@@ -413,6 +438,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       carBrands, setCarBrands,
       carModels, setCarModels,
       isLoading,
+      refreshPublicData,
       refreshAdminData
     }}>
       {children}
