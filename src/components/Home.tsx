@@ -56,7 +56,7 @@ export default function Home({ onNavigate }: Props) {
         <img src="/logo.png" alt="SDS Logo" className="w-16 h-16 flex-shrink-0 object-cover rounded-full bg-white" />
         <div>
           <h1 className="text-xl font-bold mb-1">SDS | Simple Drive Solution</h1>
-          <p className="text-orange-100 text-xs">Заказ услуг автосервиса в Беларуси</p>
+          <p className="text-orange-100 text-base leading-snug">Заказ услуг автосервиса в Беларуси</p>
         </div>
       </div>
 
@@ -163,7 +163,7 @@ function MenuButton({ icon, title, subtitle, onClick, large = false, iconBgClass
   return (
     <button 
       onClick={onClick}
-      className={`flex items-center w-full bg-white ${large ? 'p-5 rounded-3xl border-2 border-gray-200' : 'p-4 rounded-2xl border border-gray-100'} shadow-md active:scale-[0.98] transition-transform text-left`}
+      className={`flex items-center w-full bg-white ${large ? 'h-[104px] p-5 rounded-3xl border-2 border-gray-200' : 'p-4 rounded-2xl border border-gray-100'} shadow-md active:scale-[0.98] transition-transform text-left`}
     >
       <div className={`${large ? 'w-14 h-14' : 'w-12 h-12'} ${iconBgClass} rounded-full flex items-center justify-center mr-4 flex-shrink-0`}>
         {icon}
