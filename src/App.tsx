@@ -43,6 +43,42 @@ const INITIAL_CAR_MODELS: Record<string, unknown[]> = {
   "Другая марка": ["Другая модель"]
 };
 
+function AppFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen min-h-[100dvh] bg-gray-100 text-black font-sans flex justify-center">
+      <div className="w-full max-w-md bg-white min-h-screen min-h-[100dvh] relative shadow-2xl overflow-hidden">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function LoadingScreen() {
+  return (
+    <AppFrame>
+      <div className="flex min-h-screen min-h-[100dvh] items-center justify-center bg-white">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    </AppFrame>
+  );
+}
+
+function BlockedAccountScreen() {
+  return (
+    <AppFrame>
+      <div className="flex min-h-screen min-h-[100dvh] flex-col items-center justify-center bg-white px-6 text-center">
+        <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-600">
+          <span className="text-3xl font-bold">!</span>
+        </div>
+        <h1 className="text-xl font-bold text-gray-900">Аккаунт заблокирован</h1>
+        <p className="mt-3 max-w-xs text-sm leading-relaxed text-gray-600">
+          Ваш аккаунт заблокирован администратором. Доступ к приложению ограничен.
+        </p>
+      </div>
+    </AppFrame>
+  );
+}
+
 function SessionExpiredNotice({ onAccept }: { onAccept: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -229,34 +265,48 @@ function AppShell() {
   };
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-gray-100 text-black font-sans flex justify-center">
-      <div className="w-full max-w-md bg-white min-h-screen min-h-[100dvh] relative shadow-2xl overflow-hidden">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentView}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.2 }}
-            className="w-full min-h-screen min-h-[100dvh] bg-white relative"
-          >
-            <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div></div>}>
-              {renderView()}
-            </Suspense>
-          </motion.div>
-        </AnimatePresence>
-        {isSessionNoticeVisible && <SessionExpiredNotice onAccept={handleSessionAccept} />}
-      </div>
-    </div>
+    <AppFrame>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentView}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.2 }}
+          className="w-full min-h-screen min-h-[100dvh] bg-white relative"
+        >
+          <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div></div>}>
+            {renderView()}
+          </Suspense>
+        </motion.div>
+      </AnimatePresence>
+      {isSessionNoticeVisible && <SessionExpiredNotice onAccept={handleSessionAccept} />}
+    </AppFrame>
+  );
+}
+
+function AppGate() {
+  const { user, isBlocked, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (isBlocked || user?.isBlocked) {
+    return <BlockedAccountScreen />;
+  }
+
+  return (
+    <DataProvider>
+      <AppShell />
+    </DataProvider>
   );
 }
 
 export default function App() {
   return (
     <AuthProvider>
-      <DataProvider>
-        <AppShell />
-      </DataProvider>
+      <AppGate />
     </AuthProvider>
   );
 }

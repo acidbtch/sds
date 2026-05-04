@@ -5,6 +5,7 @@ import { mapAdminCustomerFromApi } from '../lib/adminCustomerOrders';
 import { mapOrderFromApi } from '../lib/orderMapping';
 import { useAuth } from './AuthContext';
 import { shouldRefreshAfterAppResume } from '../lib/appLifecycle';
+import { getFulfilledAdminData } from '../lib/adminRefresh';
 
 // Define the types for our context state
 interface Customer {
@@ -176,26 +177,42 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (user?.role !== 'ADMIN') return;
 
     try {
-        const [usersData, executorsData, ordersData, paymentsData, bannersData, faqData, contentData, brandsData, categoriesData, supportData] = await Promise.all([
-          adminApi.getUsers().catch((e) => { console.error('API Error:', e); return []; }),
-          adminApi.getExecutors().catch((e) => { console.error('API Error:', e); return []; }),
-          adminApi.getOrders().catch((e) => { console.error('API Error:', e); return []; }),
-        adminApi.getPayments().catch((e) => { console.error('API Error:', e); return []; }),
-        adminApi.getBanners().catch((e) => { console.error('API Error:', e); return []; }),
-        adminApi.getFaq().catch((e) => { console.error('API Error:', e); return []; }),
-        adminApi.getContent().catch((e) => { console.error('API Error:', e); return []; }),
-        adminApi.getCarBrands().catch((e) => { console.error('API Error:', e); return []; }),
-        adminApi.getServiceCategories().catch((e) => { console.error('API Error:', e); return []; }),
-        adminApi.getSupportTickets().catch((e) => { console.error('API Error:', e); return []; }),
+      const [usersResult, executorsResult, ordersResult, paymentsResult, bannersResult, faqResult, contentResult, brandsResult, categoriesResult, supportResult] = await Promise.allSettled([
+        adminApi.getUsers(),
+        adminApi.getExecutors(),
+        adminApi.getOrders(),
+        adminApi.getPayments(),
+        adminApi.getBanners(),
+        adminApi.getFaq(),
+        adminApi.getContent(),
+        adminApi.getCarBrands(),
+        adminApi.getServiceCategories(),
+        adminApi.getSupportTickets(),
       ]);
 
-      const mappedOrders = (ordersData || []).map(mapOrderFromApi);
+      const usersData = getFulfilledAdminData(usersResult, 'users');
+      const executorsData = getFulfilledAdminData(executorsResult, 'executors');
+      const ordersData = getFulfilledAdminData(ordersResult, 'orders');
+      const paymentsData = getFulfilledAdminData(paymentsResult, 'payments');
+      const bannersData = getFulfilledAdminData(bannersResult, 'banners');
+      const faqData = getFulfilledAdminData(faqResult, 'faq');
+      const contentData = getFulfilledAdminData(contentResult, 'content');
+      const brandsData = getFulfilledAdminData(brandsResult, 'car brands');
+      const categoriesData = getFulfilledAdminData(categoriesResult, 'service categories');
+      const supportData = getFulfilledAdminData(supportResult, 'support tickets');
 
-      setCustomers((usersData || [])
-        .filter((u: any) => ['CUSTOMER', 'ADMIN'].includes(String(u.role || '').toUpperCase()))
-        .map((u: any) => mapAdminCustomerFromApi(u, mappedOrders)));
+      const mappedOrders = ordersData !== undefined
+        ? (ordersData || []).map(mapOrderFromApi)
+        : undefined;
 
-      setContractors((executorsData || []).map((c: any) => ({
+      if (usersData !== undefined && mappedOrders !== undefined) {
+        setCustomers((usersData || [])
+          .filter((u: any) => ['CUSTOMER', 'ADMIN'].includes(String(u.role || '').toUpperCase()))
+          .map((u: any) => mapAdminCustomerFromApi(u, mappedOrders)));
+      }
+
+      if (executorsData !== undefined) {
+        setContractors((executorsData || []).map((c: any) => ({
         id: c.id,
         userId: c.user_id,
         name: c.legal_name || c.short_name || '',
@@ -220,11 +237,41 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         unp: c.unp || '',
         legalStatus: c.legal_status || '',
         subEnd: c.subscription_until ? new Date(c.subscription_until).toLocaleDateString('ru-RU') : '',
-      })));
+        })));
 
-      setOrders(mappedOrders);
+        setModeration((executorsData || [])
+          .filter((c: any) => c.moderation_status === 'PENDING')
+          .map((c: any, index: number) => ({
+            id: index + 1,
+            type: 'new' as const,
+            name: c.short_name || c.legal_name || '',
+            profile: (c.tier === 'LEADER' ? 'leader' : c.tier === 'PROFI' ? 'pro' : 'partner') as 'leader' | 'pro' | 'partner',
+            date: c.created_at ? new Date(c.created_at).toLocaleDateString('ru-RU') : '',
+            status: 'new' as const,
+            data: {
+              id: c.id,
+              legalStatus: c.legal_status,
+              name: c.legal_name,
+              unp: c.unp,
+              shortName: c.short_name,
+              description: c.description,
+              services: (c.services || []).map((s: any) => s.name),
+              regions: (c.regions || []).map((r: any) => r.name),
+              phone: c.phone,
+              instagram: c.instagram_url,
+              website: c.website_url,
+              logo: c.logo_url,
+            },
+            oldData: undefined,
+          })));
+      }
 
-      setPayments((paymentsData || []).map((p: any) => ({
+      if (mappedOrders !== undefined) {
+        setOrders(mappedOrders);
+      }
+
+      if (paymentsData !== undefined) {
+        setPayments((paymentsData || []).map((p: any) => ({
         id: p.id,
         user: p.user_name || p.user_id || '',
         purpose: p.purpose || '',
@@ -232,9 +279,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         status: p.status === 'SUCCESS' ? 'Успешно' : 'Ошибка',
         date: p.created_at ? new Date(p.created_at).toLocaleString('ru-RU') : '',
         error: p.error || undefined,
-      })));
+        })));
+      }
 
-      setBanners((bannersData || []).map((b: any) => ({
+      if (bannersData !== undefined) {
+        setBanners((bannersData || []).map((b: any) => ({
         id: b.id,
         contractorId: b.executor_id,
         contractorUserId: b.executor_id,
@@ -245,42 +294,28 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         clicks: b.clicks || 0,
         imageKey: b.image_key || '',
         logo: b.image_url || '',
-      })));
-
-      setContent({
-        faq: (faqData || []).map((f: any) => ({ id: f.id, question: f.question, answer: f.answer })),
-        rules: (contentData || []).find((c: any) => c.key === 'rules')?.value || '',
-        privacy: (contentData || []).find((c: any) => c.key === 'privacy')?.value || '',
-        templates: (contentData || []).find((c: any) => c.key === 'templates')?.value || '',
-      });
-
-      setModeration((executorsData || [])
-        .filter((c: any) => c.moderation_status === 'PENDING')
-        .map((c: any, index: number) => ({
-          id: index + 1,
-          type: 'new' as const,
-          name: c.short_name || c.legal_name || '',
-          profile: (c.tier === 'LEADER' ? 'leader' : c.tier === 'PROFI' ? 'pro' : 'partner') as 'leader' | 'pro' | 'partner',
-          date: c.created_at ? new Date(c.created_at).toLocaleDateString('ru-RU') : '',
-          status: 'new' as const,
-          data: {
-            id: c.id,
-            legalStatus: c.legal_status,
-            name: c.legal_name,
-            unp: c.unp,
-            shortName: c.short_name,
-            description: c.description,
-            services: (c.services || []).map((s: any) => s.name),
-            regions: (c.regions || []).map((r: any) => r.name),
-            phone: c.phone,
-            instagram: c.instagram_url,
-            website: c.website_url,
-            logo: c.logo_url,
-          },
-          oldData: undefined,
         })));
+      }
 
-      setSupport(extractSupportTickets(supportData).map((t: any) => ({
+      if (faqData !== undefined || contentData !== undefined) {
+        setContent(prev => ({
+          faq: faqData !== undefined
+            ? (faqData || []).map((f: any) => ({ id: f.id, question: f.question, answer: f.answer }))
+            : prev.faq,
+          rules: contentData !== undefined
+            ? (contentData || []).find((c: any) => c.key === 'rules')?.value || ''
+            : prev.rules,
+          privacy: contentData !== undefined
+            ? (contentData || []).find((c: any) => c.key === 'privacy')?.value || ''
+            : prev.privacy,
+          templates: contentData !== undefined
+            ? (contentData || []).find((c: any) => c.key === 'templates')?.value || ''
+            : prev.templates,
+        }));
+      }
+
+      if (supportData !== undefined) {
+        setSupport(extractSupportTickets(supportData).map((t: any) => ({
         id: String(t.id),
         user: `Пользователь ${t.user_id}`,
         subject: t.subject || '',
@@ -289,15 +324,21 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         time: t.created_at ? new Date(t.created_at).toLocaleString('ru-RU') : '',
         replies: [],
         updatedAt: t.last_message_at ? new Date(t.last_message_at).getTime() : Date.now(),
-      }))); 
+        })));
+      }
 
+      if (brandsData !== undefined) {
         setCarBrands(brandsData || []);
+      }
+
+      if (categoriesData !== undefined) {
         setServiceCategories((categoriesData || []).map((cat: any) => ({ 
           id: cat.id, 
           name: cat.name, 
           services: (cat.services || []).map((s: any) => s.name) 
         })));
-      } catch (error) {
+      }
+    } catch (error) {
       console.error('Failed to fetch admin data:', error);
     }
   }, [user?.role]);

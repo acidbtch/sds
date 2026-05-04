@@ -52,11 +52,11 @@ export default function Home({ onNavigate }: Props) {
   return (
     <div className="flex flex-col min-h-screen bg-white pb-10">
       {/* Header Banner */}
-      <div className="bg-orange-500 text-white p-6 rounded-b-3xl shadow-lg w-full flex items-center gap-4">
-        <img src="/logo.png" alt="SDS Logo" className="w-16 h-16 flex-shrink-0 object-cover rounded-full bg-white" />
-        <div>
-          <h1 className="text-xl font-bold mb-1">SDS | Simple Drive Solution</h1>
-          <p className="text-orange-100 text-base leading-snug">Заказ услуг автосервиса в Беларуси</p>
+      <div className="bg-orange-500 text-white p-4 sm:p-6 rounded-b-3xl shadow-lg w-full flex items-center gap-3 sm:gap-4">
+        <img src="/logo.png" alt="SDS Logo" className="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0 object-cover rounded-full bg-white" />
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-bold mb-1" style={{ whiteSpace: 'nowrap' }}>SDS | Simple Drive Solution</h1>
+          <p className="text-orange-100" style={{ fontSize: '13px', lineHeight: '16px', whiteSpace: 'nowrap' }}>Заказ услуг автосервиса в Беларуси</p>
         </div>
       </div>
 

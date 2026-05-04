@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "test:api-errors": "tsx src/lib/apiErrors.test.ts",
     "test:api-recovery": "tsx src/lib/apiRecovery.test.ts",
+    "test:auth-user": "tsx src/lib/authUser.test.ts",
+    "test:admin-refresh": "tsx src/lib/adminRefresh.test.ts",
     "test:app-lifecycle": "tsx src/lib/appLifecycle.test.ts",
     "test:admin-role-errors": "tsx src/lib/adminRoleErrors.test.ts",
     "test:admin-cars": "tsx src/lib/adminCars.test.ts",

@@ -1,17 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
-import { authApi, isAuthExpiredError, isTransientApiError } from '../lib/api';
+import { authApi, isAuthExpiredError, isTransientApiError, isUserBlockedError, USER_BLOCKED_EVENT } from '../lib/api';
 import { shouldRefreshAfterAppResume } from '../lib/appLifecycle';
-
-interface UserProfile {
-  id: string;
-  username: string;
-  role: 'CUSTOMER' | 'EXECUTOR' | 'ADMIN';
-  customer_profile: any | null;
-  executor_profile: any | null;
-}
+import { mapUserProfileFromApi, UserProfile } from '../lib/authUser';
 
 interface AuthContextType {
   user: UserProfile | null;
+  isBlocked: boolean;
   isLoading: boolean;
   login: (initData: string) => Promise<void>;
   logout: () => void;
@@ -30,6 +24,7 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [isBlocked, setIsBlocked] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const hiddenAtRef = useRef<number | null>(null);
   const lastResumeRefreshAtRef = useRef(0);
@@ -37,13 +32,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const refreshUser = useCallback(async () => {
     try {
       const userData = await authApi.getMe();
-      setUser(userData);
+      const mappedUser = mapUserProfileFromApi(userData);
+      setUser(mappedUser);
+      setIsBlocked(mappedUser.isBlocked);
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
+
+      if (isUserBlockedError(error)) {
+        setIsBlocked(true);
+        setUser(prev => prev ? { ...prev, isBlocked: true } : prev);
+        return;
+      }
 
       if (isAuthExpiredError(error)) {
         localStorage.removeItem('access_token');
         setUser(null);
+        setIsBlocked(false);
         return;
       }
 
@@ -61,6 +65,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await refreshUser();
     } catch (error) {
       console.error('Login failed:', error);
+      if (isUserBlockedError(error)) {
+        setIsBlocked(true);
+        return;
+      }
       localStorage.removeItem('access_token');
       throw error;
     } finally {
@@ -71,6 +79,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = useCallback(() => {
     localStorage.removeItem('access_token');
     setUser(null);
+    setIsBlocked(false);
   }, []);
 
   useEffect(() => {
@@ -78,8 +87,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (token) {
       refreshUser().finally(() => setIsLoading(false));
     } else {
+      setIsBlocked(false);
       setIsLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    const handleUserBlocked = () => {
+      setIsBlocked(true);
+      setUser(prev => prev ? { ...prev, isBlocked: true } : prev);
+    };
+
+    window.addEventListener(USER_BLOCKED_EVENT, handleUserBlocked);
+
+    return () => {
+      window.removeEventListener(USER_BLOCKED_EVENT, handleUserBlocked);
+    };
   }, []);
 
   useEffect(() => {
@@ -122,7 +145,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [refreshUser]);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, isBlocked, isLoading, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

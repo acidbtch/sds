@@ -3,11 +3,21 @@ import { hasAdminRoleUpdateEndpoint } from './adminRoleErrors';
 
 export const API_URL = resolveApiUrl((import.meta as any).env?.VITE_API_URL);
 export const API_REQUEST_TIMEOUT_MS = 20 * 1000;
+export const USER_BLOCKED_EVENT = 'sds:user-blocked';
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
     this.name = 'ApiError';
+  }
+}
+
+export class ApiBlockedError extends ApiError {
+  code = 'USER_BLOCKED';
+
+  constructor(message = 'User is blocked') {
+    super(403, message);
+    this.name = 'ApiBlockedError';
   }
 }
 
@@ -19,7 +29,11 @@ export class ApiTimeoutError extends Error {
 }
 
 export function isAuthExpiredError(error: unknown) {
-  return error instanceof ApiError && (error.status === 401 || error.status === 403);
+  return error instanceof ApiError && !(error instanceof ApiBlockedError) && (error.status === 401 || error.status === 403);
+}
+
+export function isUserBlockedError(error: unknown) {
+  return error instanceof ApiBlockedError;
 }
 
 function isAbortError(error: unknown) {
@@ -111,6 +125,45 @@ function formatApiErrorDetail(detail: unknown): string | null {
   return null;
 }
 
+function findApiErrorCode(value: unknown): string | null {
+  if (!value) return null;
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const code = findApiErrorCode(item);
+      if (code) return code;
+    }
+    return null;
+  }
+
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const code = record.code ?? record.error_code ?? record.errorCode ?? record.reason;
+    if (typeof code === 'string') return code;
+
+    return findApiErrorCode(record.detail) || findApiErrorCode(record.error) || findApiErrorCode(record.errors);
+  }
+
+  return null;
+}
+
+function isBlockedErrorData(errorData: unknown) {
+  const code = findApiErrorCode(errorData);
+  if (code === 'USER_BLOCKED') return true;
+
+  const message = formatApiErrorMessage(errorData, '').toLowerCase();
+  return message.includes('user is blocked') || message.includes('account is blocked') || message.includes('заблок');
+}
+
+function notifyUserBlocked() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(USER_BLOCKED_EVENT));
+}
+
 export function formatApiErrorMessage(errorData: unknown, fallback = 'API Error') {
   if (!errorData) return fallback;
 
@@ -155,11 +208,16 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 
     if (!response.ok) {
       let errorMessage = 'API Error';
+      let errorData: unknown = null;
       try {
-        const errorData = await response.json();
+        errorData = await response.json();
         errorMessage = formatApiErrorMessage(errorData, response.statusText || errorMessage);
       } catch (e) {
         errorMessage = response.statusText;
+      }
+      if (response.status === 403 && isBlockedErrorData(errorData)) {
+        notifyUserBlocked();
+        throw new ApiBlockedError(errorMessage);
       }
       throw new ApiError(response.status, errorMessage);
     }
