@@ -3,6 +3,7 @@ import {
   ALL_BELARUS_LABEL,
   expandSelectedRegionsForApi,
   finalizeRegionSelection,
+  getAllBelarusSelectionHint,
   formatRegionValue,
   stripFormattedRegionValue,
 } from './regionSelection';
@@ -25,6 +26,14 @@ assert.deepEqual(
 assert.equal(formatRegionValue('Октябрьский', regionsData), 'Минск / Октябрьский');
 assert.equal(stripFormattedRegionValue('Минск / Октябрьский'), 'Октябрьский');
 assert.equal(stripFormattedRegionValue('Вся Беларусь'), ALL_BELARUS_LABEL);
+assert.equal(
+  getAllBelarusSelectionHint(false),
+  'Выбрана Беларусь. Вы будете получать заказы из всех регионов.'
+);
+assert.equal(
+  getAllBelarusSelectionHint(true),
+  'Выбрана Беларусь. Заказы будут видны исполнителям из всех регионов.'
+);
 
 assert.deepEqual(
   finalizeRegionSelection({

@@ -6,6 +6,7 @@ import {
   ALL_BELARUS_LABEL,
   finalizeRegionSelection,
   formatRegionValue,
+  getAllBelarusSelectionHint,
   isAllBelarusValue,
   LEGACY_ALL_BELARUS_LABEL,
   MINSK_LABEL,
@@ -279,7 +280,7 @@ export default function RegionSelector({
           </>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-gray-500 text-center px-4">
-            <p>Выбрана Беларусь. Заказы будут видны исполнителям из всех регионов.</p>
+            <p>{getAllBelarusSelectionHint(isCustomer)}</p>
           </div>
         )}
       </div>

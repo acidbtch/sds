@@ -24,6 +24,12 @@ export function formatRegionValue(value: string, regionsData: Record<string, str
   return minskDistricts.includes(value) ? `${MINSK_REGION_PREFIX}${value}` : value;
 }
 
+export function getAllBelarusSelectionHint(isCustomer: boolean) {
+  return isCustomer
+    ? 'Выбрана Беларусь. Заказы будут видны исполнителям из всех регионов.'
+    : 'Выбрана Беларусь. Вы будете получать заказы из всех регионов.';
+}
+
 export function finalizeRegionSelection({
   localSelected,
   multiSelect,
