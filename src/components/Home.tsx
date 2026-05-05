@@ -7,6 +7,7 @@ import { BANNER_ROTATION_INTERVAL_MS, getNextBannerIndex, getVisibleBannerIndex 
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import { formatContentMarkdown } from '../lib/faqEditor';
+import { shouldAttemptTelegramLogin } from '../lib/telegramAuthStartup';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -27,7 +28,7 @@ export default function Home({ onNavigate }: Props) {
     tg.ready();
     const initData = tg.initData;
 
-    if (initData) {
+    if (shouldAttemptTelegramLogin(initData, localStorage.getItem('access_token'))) {
       login(initData)
         .catch(err => console.error('Telegram login failed:', err));
     }
