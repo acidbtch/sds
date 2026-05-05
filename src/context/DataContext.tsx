@@ -381,7 +381,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               .filter((r: any) => r.parent_id === parent.id)
               .map((r: any) => r.name);
           });
-          newRegionsData['Вся Беларусь'] = [];
+          newRegionsData['Беларусь'] = [];
           setRegionsData(newRegionsData);
         }
 

@@ -63,11 +63,11 @@ export default function Home({ onNavigate }: Props) {
       {/* Leader Ads Banner */}
       {currentBanner && (
         <div className="px-4 mt-6 max-w-md mx-auto w-full space-y-4">
-          <div key={currentBanner.id} className="bg-white rounded-md p-4 shadow-lg border-l-4 border-orange-500 flex items-center gap-4 relative overflow-hidden">
+          <div key={currentBanner.id} className="bg-amber-50 rounded-md p-4 shadow-lg border border-amber-200 flex items-center gap-4 relative overflow-hidden">
             <div className="absolute top-0 right-0 whitespace-nowrap bg-orange-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-md uppercase tracking-wider">
               Лидер
             </div>
-            <div className="w-16 h-16 bg-[#E8EDF2] rounded-md flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <div className="w-16 h-16 bg-white rounded-md flex items-center justify-center flex-shrink-0 overflow-hidden border border-amber-100">
               {currentBanner.logo ? (
                 <img src={currentBanner.logo} alt={currentBanner.contractor} className="w-full h-full object-cover" />
               ) : (
@@ -124,14 +124,16 @@ export default function Home({ onNavigate }: Props) {
       </div>
 
       {/* Legal Links */}
-      <div className="mt-auto pt-8 pb-4 px-4 text-center text-xs text-gray-400 space-y-2">
+      <div className="mt-auto pt-8 pb-4 px-4 text-center text-xs text-red-500 space-y-2">
         <p>
-          При использовании приложения Вы соглашаетесь с{' '}
-          <button onClick={() => setLegalModal('rules')} className="text-gray-500 underline hover:text-gray-700">Правилами работы приложения</button>.
+          При использовании приложения Вы соглашаетесь
+          <br />
+          с <button onClick={() => setLegalModal('rules')} className="text-red-500 underline hover:text-red-600">Правилами работы приложения</button>.
         </p>
         <p>
-          При использовании приложения Вы соглашаетесь с{' '}
-          <button onClick={() => setLegalModal('privacy')} className="text-gray-500 underline hover:text-gray-700">Политикой обработки персональных данных</button>.
+          При использовании приложения Вы соглашаетесь
+          <br />
+          с <button onClick={() => setLegalModal('privacy')} className="text-red-500 underline hover:text-red-600">Политикой обработки персональных данных</button>.
         </p>
       </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { ViewState } from '../types';
 import { ChevronLeft, Camera, Video, CheckCircle, Loader2, X, AlertCircle } from 'lucide-react';
 import RegionSelector from './RegionSelector';
@@ -9,6 +9,8 @@ import { useAuth } from '../context/AuthContext';
 import { dictsApi, customerApi } from '../lib/api';
 import { uploadMediaFile } from '../lib/media';
 import { getServicesForCategory, resetServicesForCategoryChange } from '../lib/orderServiceSelection';
+import { formatBelarusPhoneInput, isBelarusPhoneComplete } from '../lib/phoneInput';
+import { stripFormattedRegionValue } from '../lib/regionSelection';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -30,7 +32,7 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
   const [engineVolume, setEngineVolume] = useState('');
   const [vin, setVin] = useState('');
   const [selectedDrive, setSelectedDrive] = useState('');
-  const [phone, setPhone] = useState('+375 ');
+  const [phone, setPhone] = useState(() => formatBelarusPhoneInput(''));
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [deadline, setDeadline] = useState('');
@@ -44,17 +46,21 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
   // Media states
   const [attachments, setAttachments] = useState<{ key: string; previewUrl: string; type: 'image' | 'video' }[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatusText, setUploadStatusText] = useState<string | null>(null);
   
   // API Data States
   const [apiCategories, setApiCategories] = useState<any[]>([]);
   const [apiBrands, setApiBrands] = useState<any[]>([]);
   const [apiModels, setApiModels] = useState<any[]>([]);
+  const hasEditedNameRef = useRef(false);
+  const hasEditedPhoneRef = useRef(false);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     setIsUploading(true);
+    setUploadStatusText(`Загружаем ${files.length} ${type === 'image' ? 'фото' : 'видео'}...`);
     try {
       const newAttachments = [...attachments];
       for (let i = 0; i < files.length; i++) {
@@ -64,8 +70,10 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
         newAttachments.push({ key: uploaded.key, previewUrl: uploaded.previewUrl, type });
       }
       setAttachments(newAttachments);
+      setUploadStatusText(files.length === 1 ? 'Файл загружен' : 'Файлы загружены');
     } catch (error) {
       console.error('Upload failed:', error);
+      setUploadStatusText('Не удалось загрузить файлы');
       alert('Ошибка при загрузке файла');
     } finally {
       setIsUploading(false);
@@ -126,23 +134,20 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
     const customerProfile = user?.customer_profile;
     if (!customerProfile) return;
 
-    if (!name && customerProfile.name) {
+    if (!hasEditedNameRef.current && !name.trim() && customerProfile.name) {
       setName(customerProfile.name);
     }
 
-    if ((phone === '+375 ' || !phone.trim()) && customerProfile.phone) {
-      setPhone(customerProfile.phone);
+    if (!hasEditedPhoneRef.current && !phone.replace(/\D/g, '').slice(3) && customerProfile.phone) {
+      setPhone(formatBelarusPhoneInput(customerProfile.phone));
     }
-  }, [user?.customer_profile, name, phone]);
+  }, [user?.customer_profile]);
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: currentYear - 1966 + 1 }, (_, i) => currentYear - i);
   const getRegionId = (regionName: string) => {
-    const minskDistrict = regionName.startsWith('Минск / ')
-      ? regionName.replace('Минск / ', '')
-      : null;
-
-    return regionIdByName[regionName] || (minskDistrict ? regionIdByName[minskDistrict] : undefined);
+    const minskDistrict = stripFormattedRegionValue(regionName);
+    return regionIdByName[regionName] || regionIdByName[minskDistrict];
   };
 
   const isFormValid = 
@@ -159,21 +164,13 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
     selectedEngine !== '' &&
     selectedDrive !== '' &&
     name.trim() !== '' &&
-    phone.length >= 17 &&
+    isBelarusPhoneComplete(phone) &&
     description.trim() !== '' &&
     deadline !== '';
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let input = e.target.value;
-    if (input.length < 4) input = '+375';
-    let val = input.replace(/[^\d]/g, '');
-    if (val.startsWith('375')) val = val.substring(3);
-    let formatted = '+375';
-    if (val.length > 0) formatted += ' ' + val.substring(0, 2);
-    if (val.length > 2) formatted += ' ' + val.substring(2, 5);
-    if (val.length > 5) formatted += ' ' + val.substring(5, 7);
-    if (val.length > 7) formatted += ' ' + val.substring(7, 9);
-    setPhone(formatted);
+    hasEditedPhoneRef.current = true;
+    setPhone(formatBelarusPhoneInput(e.target.value));
   };
 
   const handleMakeChange = (value: string) => {
@@ -452,7 +449,10 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
           <input 
             type="text" 
             value={name} 
-            onChange={e => setName(e.target.value)} 
+            onChange={e => {
+              hasEditedNameRef.current = true;
+              setName(e.target.value);
+            }}
             placeholder="Иван Иванов" 
             className={`w-full rounded-lg p-3 bg-gray-50 outline-none mb-4 transition-colors ${showErrors && !name.trim() ? 'border-2 border-red-500' : 'border border-gray-300 focus:ring-orange-500 focus:border-orange-500'}`}
           />
@@ -463,7 +463,7 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
             value={phone} 
             onChange={handlePhoneChange} 
             placeholder="+375 (29) 000-00-00" 
-            className={`w-full rounded-lg p-3 bg-gray-50 outline-none transition-colors ${showErrors && phone.length < 17 ? 'border-2 border-red-500' : 'border border-gray-300 focus:ring-orange-500 focus:border-orange-500'}`}
+            className={`w-full rounded-lg p-3 bg-gray-50 outline-none transition-colors ${showErrors && !isBelarusPhoneComplete(phone) ? 'border-2 border-red-500' : 'border border-gray-300 focus:ring-orange-500 focus:border-orange-500'}`}
           />
         </div>
 
@@ -538,6 +538,11 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
               <span className="text-xs">Видео (1)</span>
             </label>
           </div>
+          {uploadStatusText && (
+            <p className={`mt-3 text-xs ${uploadStatusText.startsWith('Не удалось') ? 'text-red-500' : 'text-gray-500'}`}>
+              {uploadStatusText}
+            </p>
+          )}
         </div>
 
         <div className="text-xs text-gray-500 px-2">

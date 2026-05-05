@@ -9,6 +9,10 @@ import { useAuth } from '../context/AuthContext';
 import { executorApi, dictsApi } from '../lib/api';
 import { uploadMediaFile } from '../lib/media';
 import { mapOrderFromApi } from '../lib/orderMapping';
+import { REGIONS_DATA as FALLBACK_REGIONS } from '../data/regions';
+import { formatBelarusPhoneInput, isBelarusPhoneComplete } from '../lib/phoneInput';
+import { expandSelectedRegionsForApi, formatRegionValue } from '../lib/regionSelection';
+import { normalizeNamedList } from '../lib/profileDisplay';
 
 // --- Helpers ---
 
@@ -88,7 +92,7 @@ const mapProfileToForm = (p: any): ProfileFormData => ({
   regions: Array.isArray(p.regions) ? p.regions.map((r: any) => r.name || r) : [],
   address: p.address || '',
   schedule: p.schedule || defaultSchedule,
-  phone: p.phone || '',
+  phone: p.phone ? formatBelarusPhoneInput(p.phone) : '',
   instagram: p.instagram || '',
   tiktok: p.tiktok || '',
   website: p.website || '',
@@ -108,7 +112,7 @@ const mapFormToApi = (f: ProfileFormData, serviceIds: string[], regionIds: strin
   region_ids: regionIds,
   address: f.address,
   schedule: f.schedule,
-  phone: f.phone,
+  phone: f.phone.replace(/\s/g, ''),
   instagram: f.instagram,
   tiktok: f.tiktok,
   website: f.website,
@@ -124,7 +128,7 @@ interface Props {
 }
 
 export default function ContractorCabinet({ onNavigate }: Props) {
-  const { serviceCategories } = useData();
+  const { serviceCategories, regionsData } = useData();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'incoming' | 'active' | 'profile'>('incoming');
 
@@ -157,6 +161,29 @@ export default function ContractorCabinet({ onNavigate }: Props) {
 
   // Derived
   const profileTier = profile ? normalizeTier(profile.tier) : 'partner';
+  const regionDictionary = Object.keys(regionsData).length > 0 ? regionsData : FALLBACK_REGIONS;
+  const profileServices = normalizeNamedList(profile?.services);
+  const profileRegions = normalizeNamedList(profile?.regions).map((region) => formatRegionValue(region, regionDictionary));
+  const profileTierCardClasses = {
+    leader: 'bg-orange-50 border-orange-100',
+    pro: 'bg-blue-50 border-blue-100',
+    partner: 'bg-gray-50 border-gray-200',
+  } as const;
+  const profileTierTitleClasses = {
+    leader: 'text-orange-800',
+    pro: 'text-blue-800',
+    partner: 'text-gray-900',
+  } as const;
+  const profileTierTextClasses = {
+    leader: 'text-orange-700',
+    pro: 'text-blue-700',
+    partner: 'text-gray-600',
+  } as const;
+  const profileTierButtonClasses = {
+    leader: 'bg-orange-500 text-white',
+    pro: 'bg-blue-500 text-white',
+    partner: 'bg-[#0F2846] text-white',
+  } as const;
 
   // --- Load profile on mount ---
   useEffect(() => {
@@ -291,16 +318,7 @@ export default function ContractorCabinet({ onNavigate }: Props) {
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let input = e.target.value;
-    if (input.length < 4) input = '+375';
-    let val = input.replace(/[^\d]/g, '');
-    if (val.startsWith('375')) val = val.substring(3);
-    let formatted = '+375';
-    if (val.length > 0) formatted += ' ' + val.substring(0, 2);
-    if (val.length > 2) formatted += ' ' + val.substring(2, 5);
-    if (val.length > 5) formatted += ' ' + val.substring(5, 7);
-    if (val.length > 7) formatted += ' ' + val.substring(7, 9);
-    setEditForm({ ...editForm, phone: formatted });
+    setEditForm({ ...editForm, phone: formatBelarusPhoneInput(e.target.value) });
   };
 
   const isFormValid =
@@ -312,7 +330,7 @@ export default function ContractorCabinet({ onNavigate }: Props) {
     (editForm.profileType !== 'leader' || (editForm.bannerText && editForm.bannerText.trim() !== '')) &&
     editForm.services.length > 0 &&
     editForm.regions.length > 0 &&
-    editForm.phone.length >= 17;
+    isBelarusPhoneComplete(editForm.phone);
 
   const hasChanges = profile
     ? JSON.stringify(editForm) !== JSON.stringify(mapProfileToForm(profile))
@@ -334,8 +352,15 @@ export default function ContractorCabinet({ onNavigate }: Props) {
       const serviceIds = (allServices || [])
         .filter((service: any) => editForm.services.includes(service.name))
         .map((service: any) => service.id);
+      const topLevelRegionNames = (allRegions || [])
+        .filter((region: any) => !region.parent_id)
+        .map((region: any) => region.name);
+      const regionLookupNames = expandSelectedRegionsForApi({
+        selectedRegions: editForm.regions,
+        topLevelRegionNames,
+      });
       const regionIds = (allRegions || [])
-        .filter((region: any) => editForm.regions.includes(region.name))
+        .filter((region: any) => regionLookupNames.includes(region.name))
         .map((region: any) => region.id);
 
       const apiData = mapFormToApi(editForm, serviceIds, regionIds);
@@ -835,7 +860,7 @@ export default function ContractorCabinet({ onNavigate }: Props) {
                       type="text"
                       value={editForm.phone}
                       onChange={handlePhoneChange}
-                      className={`w-full rounded-lg p-2 text-sm outline-none transition-colors ${showErrors && editForm.phone.length < 17 ? 'border-2 border-red-500' : 'border border-gray-300 focus:ring-blue-500 focus:border-blue-500'}`}
+                      className={`w-full rounded-lg p-2 text-sm outline-none transition-colors ${showErrors && !isBelarusPhoneComplete(editForm.phone) ? 'border-2 border-red-500' : 'border border-gray-300 focus:ring-blue-500 focus:border-blue-500'}`}
                     />
                   </div>
                   {(editForm.profileType === 'pro' || editForm.profileType === 'leader') && (
@@ -953,11 +978,11 @@ export default function ContractorCabinet({ onNavigate }: Props) {
                   )}
                   <div>
                     <span className="text-gray-500 block text-xs">Услуги</span>
-                    <span className="font-medium text-gray-900">{(Array.isArray(profile.services) ? profile.services : []).join(', ')}</span>
+                    <span className="font-medium text-gray-900">{profileServices.join(', ')}</span>
                   </div>
                   <div>
                     <span className="text-gray-500 block text-xs">Регион</span>
-                    <span className="font-medium text-gray-900">{(Array.isArray(profile.regions) ? profile.regions : []).join(', ')}</span>
+                    <span className="font-medium text-gray-900">{profileRegions.join(', ')}</span>
                   </div>
                   {profile.address && (
                     <div>
@@ -1001,17 +1026,17 @@ export default function ContractorCabinet({ onNavigate }: Props) {
               )}
             </div>
 
-            <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100">
-              <h3 className="font-bold text-orange-800 mb-2">Профиль "{tierLabel(profileTier)}"</h3>
-              <p className="text-sm text-orange-700 mb-3">
+            <div className={`p-4 rounded-2xl border ${profileTierCardClasses[profileTier]}`}>
+              <h3 className={`font-bold mb-2 ${profileTierTitleClasses[profileTier]}`}>Профиль "{tierLabel(profileTier)}"</h3>
+              <p className={`text-sm mb-3 ${profileTierTextClasses[profileTier]}`}>
                 Оплачена до {profile.subscription_until ? new Date(profile.subscription_until).toLocaleDateString('ru-RU') : '—'}
               </p>
-              <button className="w-full bg-orange-500 text-white text-sm font-bold py-2 rounded-xl active:scale-[0.98] transition-transform">
+              <button className={`w-full text-sm font-bold py-2 rounded-xl active:scale-[0.98] transition-transform ${profileTierButtonClasses[profileTier]}`}>
                 Продлить подписку
               </button>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200 mt-4">
+            <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200">
               <h3 className="font-bold text-gray-900 mb-2">Хочу изменить профиль исполнителя</h3>
               <button
                 onClick={() => onNavigate('contractor_register')}

@@ -7,6 +7,8 @@ import { ScheduleSelector, defaultSchedule, WeeklySchedule } from './ScheduleSel
 import { useData } from '../context/DataContext';
 import { executorApi, dictsApi } from '../lib/api';
 import { uploadMediaFile } from '../lib/media';
+import { ALL_BELARUS_LABEL, expandSelectedRegionsForApi } from '../lib/regionSelection';
+import { formatBelarusPhoneInput, isBelarusPhoneComplete } from '../lib/phoneInput';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -23,11 +25,11 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
   const [error, setError] = useState<string | null>(null);
   
   // Form state
-  const [phone, setPhone] = useState('+375 ');
+  const [phone, setPhone] = useState(() => formatBelarusPhoneInput(''));
   const [schedule, setSchedule] = useState<WeeklySchedule | string>(defaultSchedule);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [isRegionModalOpen, setIsRegionModalOpen] = useState(false);
-  const [selectedRegions, setSelectedRegions] = useState<string[]>(['Вся Беларусь']);
+  const [selectedRegions, setSelectedRegions] = useState<string[]>([ALL_BELARUS_LABEL]);
   const [legalStatus, setLegalStatus] = useState('');
   const [legalName, setLegalName] = useState('');
   const [unp, setUnp] = useState('');
@@ -43,22 +45,48 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
   const [documentFiles, setDocumentFiles] = useState<{ name: string; key: string }[]>([]);
   const [workPhotos, setWorkPhotos] = useState<{ name: string; key: string }[]>([]);
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
+  const [uploading, setUploading] = useState({
+    documents: false,
+    logo: false,
+    photos: false,
+  });
+  const [uploadFeedback, setUploadFeedback] = useState<{
+    documents: string | null;
+    logo: string | null;
+    photos: string | null;
+  }>({
+    documents: null,
+    logo: null,
+    photos: null,
+  });
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const updateUploadState = (
+    field: 'documents' | 'logo' | 'photos',
+    isActive: boolean,
+    message?: string | null
+  ) => {
+    setUploading((current) => ({ ...current, [field]: isActive }));
+    if (message !== undefined) {
+      setUploadFeedback((current) => ({ ...current, [field]: message }));
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      uploadMediaFile(file)
-        .then(uploaded => {
-          setLogoPreview(uploaded.previewUrl);
-          setLogoKey(uploaded.key);
-        })
-        .catch(err => {
-          console.error('Failed to upload logo:', err);
-          setError('Не удалось загрузить логотип');
-        })
-        .finally(() => {
-          e.target.value = '';
-        });
+    if (!file) return;
+
+    updateUploadState('logo', true, 'Загружаем логотип...');
+    try {
+      const uploaded = await uploadMediaFile(file);
+      setLogoPreview(uploaded.previewUrl);
+      setLogoKey(uploaded.key);
+      updateUploadState('logo', false, 'Логотип загружен');
+    } catch (err) {
+      console.error('Failed to upload logo:', err);
+      setError('Не удалось загрузить логотип');
+      updateUploadState('logo', false, 'Не удалось загрузить логотип');
+    } finally {
+      e.target.value = '';
     }
   };
 
@@ -66,12 +94,15 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
+    updateUploadState('documents', true, `Загружаем ${files.length} файл(а) документов...`);
     try {
       const uploaded = await Promise.all(files.map(file => uploadMediaFile(file)));
       setDocumentFiles(prev => [...prev, ...uploaded.map(file => ({ name: file.name, key: file.key }))]);
+      updateUploadState('documents', false, files.length === 1 ? 'Документ загружен' : 'Документы загружены');
     } catch (err) {
       console.error('Failed to upload documents:', err);
       setError('Не удалось загрузить документы');
+      updateUploadState('documents', false, 'Не удалось загрузить документы');
     } finally {
       e.target.value = '';
     }
@@ -81,12 +112,15 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
     const files = Array.from(e.target.files || []).slice(0, selectedProfile === 'partner' ? 3 : 10);
     if (!files.length) return;
 
+    updateUploadState('photos', true, `Загружаем ${files.length} фото...`);
     try {
       const uploaded = await Promise.all(files.map(file => uploadMediaFile(file)));
       setWorkPhotos(prev => [...prev, ...uploaded.map(file => ({ name: file.name, key: file.key }))]);
+      updateUploadState('photos', false, files.length === 1 ? 'Фото загружено' : 'Фотографии загружены');
     } catch (err) {
       console.error('Failed to upload work photos:', err);
       setError('Не удалось загрузить фото работ');
+      updateUploadState('photos', false, 'Не удалось загрузить фотографии');
     } finally {
       e.target.value = '';
     }
@@ -122,16 +156,7 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let input = e.target.value;
-    if (input.length < 4) input = '+375';
-    let val = input.replace(/[^\d]/g, '');
-    if (val.startsWith('375')) val = val.substring(3);
-    let formatted = '+375';
-    if (val.length > 0) formatted += ' ' + val.substring(0, 2);
-    if (val.length > 2) formatted += ' ' + val.substring(2, 5);
-    if (val.length > 5) formatted += ' ' + val.substring(5, 7);
-    if (val.length > 7) formatted += ' ' + val.substring(7, 9);
-    setPhone(formatted);
+    setPhone(formatBelarusPhoneInput(e.target.value));
   };
 
   const toggleService = (service: string) => {
@@ -157,8 +182,15 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
         .filter((s: any) => selectedServices.includes(s.name))
         .map((s: any) => s.id);
       
+      const topLevelRegionNames = (allRegions || [])
+        .filter((region: any) => !region.parent_id)
+        .map((region: any) => region.name);
+      const regionLookupNames = expandSelectedRegionsForApi({
+        selectedRegions,
+        topLevelRegionNames,
+      });
       const regionIds = allRegions
-        .filter((r: any) => selectedRegions.includes(r.name))
+        .filter((r: any) => regionLookupNames.includes(r.name))
         .map((r: any) => r.id);
       
       const tierMap: Record<string, string> = {
@@ -336,16 +368,22 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
 
           <label className="block text-sm font-medium text-gray-700 mb-2">Фото документов юридического лица <span className="text-red-500">*</span></label>
           <label className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors cursor-pointer mb-4">
-            <Upload className="w-6 h-6 mb-1" />
-            <span className="text-xs">Загрузить скан/фото</span>
+            {uploading.documents ? <Loader2 className="w-6 h-6 mb-1 animate-spin text-blue-500" /> : <Upload className="w-6 h-6 mb-1" />}
+            <span className="text-xs">{uploading.documents ? 'Загружаем...' : 'Загрузить скан/фото'}</span>
             <input
               type="file"
               accept="image/*,.pdf"
               multiple
               onChange={handleDocumentUpload}
+              disabled={uploading.documents}
               className="hidden"
             />
           </label>
+          {uploadFeedback.documents && (
+            <p className={`text-xs mb-4 ${uploadFeedback.documents.startsWith('Не удалось') ? 'text-red-500' : 'text-gray-500'}`}>
+              {uploadFeedback.documents}
+            </p>
+          )}
           {documentFiles.length > 0 && (
             <div className="text-xs text-gray-500 mb-4 space-y-1">
               {documentFiles.map(file => (
@@ -367,12 +405,17 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
                   <img src={logoPreview} alt="Логотип" className="absolute inset-0 w-full h-full object-contain p-2" />
                 ) : (
                   <>
-                    <Upload className="w-6 h-6 mb-1" />
-                    <span className="text-xs">Загрузить логотип</span>
+                    {uploading.logo ? <Loader2 className="w-6 h-6 mb-1 animate-spin text-blue-500" /> : <Upload className="w-6 h-6 mb-1" />}
+                    <span className="text-xs">{uploading.logo ? 'Загружаем...' : 'Загрузить логотип'}</span>
                   </>
                 )}
-                <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploading.logo} className="hidden" />
               </label>
+              {uploadFeedback.logo && (
+                <p className={`text-xs mb-4 ${uploadFeedback.logo.startsWith('Не удалось') ? 'text-red-500' : 'text-gray-500'}`}>
+                  {uploadFeedback.logo}
+                </p>
+              )}
             </>
           )}
 
@@ -381,16 +424,22 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
 
           <label className="block text-sm font-medium text-gray-700 mb-2">Фото работ (до {selectedProfile === 'partner' ? '3' : '10'} шт)</label>
           <label className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors mb-4 cursor-pointer">
-            <Upload className="w-6 h-6 mb-1" />
-            <span className="text-xs">Загрузить фото</span>
+            {uploading.photos ? <Loader2 className="w-6 h-6 mb-1 animate-spin text-blue-500" /> : <Upload className="w-6 h-6 mb-1" />}
+            <span className="text-xs">{uploading.photos ? 'Загружаем...' : 'Загрузить фото'}</span>
             <input
               type="file"
               accept="image/*"
               multiple
               onChange={handleWorkPhotosUpload}
+              disabled={uploading.photos}
               className="hidden"
             />
           </label>
+          {uploadFeedback.photos && (
+            <p className={`text-xs mb-4 ${uploadFeedback.photos.startsWith('Не удалось') ? 'text-red-500' : 'text-gray-500'}`}>
+              {uploadFeedback.photos}
+            </p>
+          )}
           {workPhotos.length > 0 && (
             <div className="text-xs text-gray-500 mb-4 space-y-1">
               {workPhotos.map(file => (
@@ -473,7 +522,7 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
 
         <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-100">
           <label className="block text-sm font-medium text-gray-700 mb-1">Контактный телефон (Telegram) <span className="text-red-500">*</span></label>
-          <input required type="tel" value={phone} onChange={handlePhoneChange} placeholder="+375 (29) 000-00-00" className="w-full border-gray-300 rounded-lg p-3 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none mb-4" />
+          <input required type="tel" value={phone} onChange={handlePhoneChange} placeholder="+375 (29) 000-00-00" className={`w-full rounded-lg p-3 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none mb-4 ${isBelarusPhoneComplete(phone) ? 'border border-gray-300' : 'border-2 border-red-300'}`} />
 
           {(selectedProfile === 'pro' || selectedProfile === 'leader') && (
             <>
@@ -497,7 +546,7 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
           >
             <ChevronLeft className="w-5 h-5" /> Назад
           </button>
-          <button type="submit" disabled={selectedServices.length === 0 || selectedRegions.length === 0} className="flex-[2] bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg active:scale-[0.98] transition-transform disabled:opacity-50 disabled:active:scale-100">
+          <button type="submit" disabled={selectedServices.length === 0 || selectedRegions.length === 0 || !isBelarusPhoneComplete(phone)} className="flex-[2] bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg active:scale-[0.98] transition-transform disabled:opacity-50 disabled:active:scale-100">
             Отправить на модерацию
           </button>
         </div>
