@@ -89,10 +89,10 @@ assert.deepEqual(
 assert.deepEqual(
   getCustomerContactRows({ telegramId: '1783624604', username: 'vladislav_auto', phone: '+375292222222' }),
   [
-    { label: 'Telegram nickname', value: '@vladislav_auto' },
+    { label: 'Telegram', value: '@vladislav_auto' },
     { label: 'Телефон', value: '+375292222222' },
   ],
-  'customer card should render Telegram nickname instead of Telegram ID',
+  'customer card should render Telegram contact instead of Telegram ID',
 );
 
 assert.deepEqual(
@@ -103,7 +103,7 @@ assert.deepEqual(
 
 assert.deepEqual(
   getCustomerContactRows({ telegramNickname: 'string.vl 🐄', telegramId: '700820625' } as any),
-  [{ label: 'Telegram nickname', value: 'string.vl 🐄' }],
+  [{ label: 'Telegram', value: 'string.vl 🐄' }],
   'customer card should show Telegram display name when there is no public @username',
 );
 
@@ -163,10 +163,10 @@ assert.equal(
 assert.deepEqual(
   getCustomerContactRows(mappedCustomerWithOrderName),
   [
-    { label: 'Telegram nickname', value: 'Telegram Ivan' },
+    { label: 'Telegram', value: 'Telegram Ivan' },
     { label: 'Телефон', value: '+375293826345' },
   ],
-  'customer details should keep Telegram nickname even when the title uses order name',
+  'customer details should keep Telegram contact even when the title uses order name',
 );
 
 assert.equal(

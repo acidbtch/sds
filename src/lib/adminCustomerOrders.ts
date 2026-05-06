@@ -120,7 +120,7 @@ export function getCustomerContactRows(customer: CustomerOrderOwner): CustomerCo
   const telegramNickname = officialUsername || formatTelegramContact(customer.telegramNickname);
 
   return [
-    { label: 'Telegram nickname', value: telegramNickname },
+    { label: 'Telegram', value: telegramNickname },
     { label: 'Телефон', value: displayValue(customer.phone) },
   ].filter(row => row.value);
 }
