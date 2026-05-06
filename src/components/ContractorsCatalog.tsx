@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { ViewState, Contractor } from '../types';
-import { ChevronLeft, ChevronDown, Search, Filter, Star, MapPin, CheckCircle, Award, Briefcase, X, Clock, Globe, Instagram, Video, ArrowUpDown, Phone, Image as ImageIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Search, Filter, Star, MapPin, CheckCircle, Award, Briefcase, X, Clock, Globe, Instagram, Video, ArrowUpDown, Phone, Image as ImageIcon, Check } from 'lucide-react';
 import RegionSelector from './RegionSelector';
 import { useData } from '../context/DataContext';
 import { customerApi } from '../lib/api';
 import { getContractorServiceGroups } from '../lib/contractorServices';
+import { getFilteredContractors, ContractorCatalogFilters } from '../lib/contractorCatalog';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -12,13 +13,35 @@ interface Props {
   previousView?: ViewState | null;
 }
 
-interface FilterState {
-  serviceCategory: string | null;
-  serviceType: string | null;
-  regions: string[];
-  ratingSort: 'high' | 'low' | null;
-  profileType: 'leader' | 'pro' | 'partner' | null;
-  ordersSort: 'more' | 'less' | null;
+type FilterState = ContractorCatalogFilters;
+
+function SortOptionButton({
+  selected,
+  children,
+  onClick,
+}: {
+  selected: boolean;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative flex min-h-[46px] items-center justify-center rounded-xl border px-3 py-3 text-[13px] font-semibold transition active:scale-[0.98] ${
+        selected
+          ? 'border-orange-500 bg-white text-[#0F2846] shadow-[0_0_0_1px_rgba(249,115,22,0.22)]'
+          : 'border-gray-200 bg-white text-[#0F2846] hover:bg-gray-50'
+      }`}
+    >
+      {selected && (
+        <span className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-orange-500 text-white">
+          <Check className="h-3.5 w-3.5 stroke-[3]" />
+        </span>
+      )}
+      <span className={selected ? 'pr-5' : ''}>{children}</span>
+    </button>
+  );
 }
 
 export default function ContractorsCatalog({ onNavigate, isCustomer = false, previousView }: Props) {
@@ -137,66 +160,32 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
     );
   };
 
-  const filteredContractors = useMemo(() => {
-    let result = [...contractors];
-
-    // Search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(c => 
-        c.name.toLowerCase().includes(query) || 
-        c.shortName.toLowerCase().includes(query) ||
-        c.description.toLowerCase().includes(query)
-      );
-    }
-
-    // Service type filter
-    if (filters.serviceType) {
-      result = result.filter(c => c.services.includes(filters.serviceType!));
-    }
-
-    // Region filter
-    if (filters.regions.length > 0) {
-      result = result.filter(c => c.regions.some(r => filters.regions.includes(r)));
-    }
-
-    // Profile type filter
-    if (filters.profileType) {
-      result = result.filter(c => c.profileType === filters.profileType);
-    }
-
-    // Sorting
-    result.sort((a, b) => {
-      // 1. Explicit Rating sort
-      if (filters.ratingSort) {
-        if (a.rating !== b.rating) {
-          return filters.ratingSort === 'high' ? b.rating - a.rating : a.rating - b.rating;
-        }
-      }
-
-      // 2. Explicit Orders sort
-      if (filters.ordersSort) {
-        if (a.completedOrders !== b.completedOrders) {
-          return filters.ordersSort === 'more' ? b.completedOrders - a.completedOrders : a.completedOrders - b.completedOrders;
-        }
-      }
-
-      // 3. Profile type priority (default)
-      if (!filters.profileType) {
-        const profileWeight = { leader: 3, pro: 2, partner: 1 };
-        const weightA = profileWeight[a.profileType] || 0;
-        const weightB = profileWeight[b.profileType] || 0;
-        if (weightA !== weightB) {
-          return weightB - weightA;
-        }
-      }
-
-      // 4. Registration date (older first)
-      return new Date(a.registrationDate).getTime() - new Date(b.registrationDate).getTime();
+  const handleRatingSortChange = (ratingSort: FilterState['ratingSort']) => {
+    setTempFilters({
+      ...tempFilters,
+      ratingSort: tempFilters.ratingSort === ratingSort ? null : ratingSort,
+      ordersSort: null,
     });
+  };
 
-    return result;
-  }, [contractors, searchQuery, filters]);
+  const handleOrdersSortChange = (ordersSort: FilterState['ordersSort']) => {
+    setTempFilters({
+      ...tempFilters,
+      ratingSort: null,
+      ordersSort: tempFilters.ordersSort === ordersSort ? null : ordersSort,
+    });
+  };
+
+  const isFilterActive =
+    filters.serviceCategory !== null ||
+    filters.serviceType !== null ||
+    filters.regions.length > 0 ||
+    filters.profileType !== null;
+  const isSortActive = filters.ratingSort !== null || filters.ordersSort !== null;
+
+  const filteredContractors = useMemo(() => {
+    return getFilteredContractors(contractors, filters, serviceCategories, searchQuery);
+  }, [contractors, filters, searchQuery, serviceCategories]);
 
   const getProfileBadge = (type: string) => {
     switch (type) {
@@ -249,7 +238,7 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
           <button 
             onClick={handleOpenFilters}
             className={`p-2.5 rounded-xl border flex items-center justify-center transition-colors ${
-              (filters.serviceType !== null || filters.regions.length > 0 || filters.profileType !== null)
+              isFilterActive
                 ? 'bg-blue-50 border-blue-200 text-blue-600'
                 : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
             }`}
@@ -259,7 +248,7 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
           <button 
             onClick={handleOpenSort}
             className={`p-2.5 rounded-xl border flex items-center justify-center transition-colors ${
-              (filters.ratingSort !== null || filters.ordersSort !== null)
+              isSortActive
                 ? 'bg-blue-50 border-blue-200 text-blue-600'
                 : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
             }`}
@@ -269,8 +258,14 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
         </div>
         
         {/* Active Filters Display */}
-        {(filters.serviceType !== null || filters.regions.length > 0 || filters.profileType !== null) && (
+        {isFilterActive && (
           <div className="flex flex-wrap gap-2">
+            {filters.serviceCategory && (
+              <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                Категория: {serviceCategories.find((category) => category.id === filters.serviceCategory)?.name || 'Выбрана'}
+                <button onClick={() => setFilters({...filters, serviceCategory: null, serviceType: null})}><X className="w-3 h-3" /></button>
+              </span>
+            )}
             {filters.serviceType && (
               <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full flex items-center gap-1">
                 Услуга: {filters.serviceType.split('.')[0]}
@@ -477,29 +472,35 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
             {/* Service Type */}
             <div>
               <label className="block text-sm font-bold text-gray-900 mb-2">Категория услуг</label>
-              <select 
-                value={tempFilters.serviceCategory || ''}
-                onChange={(e) => setTempFilters({...tempFilters, serviceCategory: e.target.value || null, serviceType: null})}
-                className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none bg-white mb-4"
-              >
-                <option value="">Все категории</option>
-                {serviceCategories.map(category => (
-                  <option key={category.id} value={category.id}>{category.name}</option>
-                ))}
-              </select>
+              <div className="relative mb-4">
+                <select
+                  value={tempFilters.serviceCategory || ''}
+                  onChange={(e) => setTempFilters({...tempFilters, serviceCategory: e.target.value || null, serviceType: null})}
+                  className="w-full appearance-none border border-gray-300 rounded-xl py-3 pl-3 pr-10 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+                >
+                  <option value="">Все категории</option>
+                  {serviceCategories.map(category => (
+                    <option key={category.id} value={category.id}>{category.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              </div>
 
               <label className="block text-sm font-bold text-gray-900 mb-2">Вид услуги</label>
-              <select 
-                value={tempFilters.serviceType || ''}
-                onChange={(e) => setTempFilters({...tempFilters, serviceType: e.target.value || null})}
-                disabled={!tempFilters.serviceCategory}
-                className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none bg-white disabled:bg-gray-100 disabled:text-gray-400"
-              >
-                <option value="">Все услуги</option>
-                {tempFilters.serviceCategory && serviceCategories.find(c => c.id === tempFilters.serviceCategory)?.services.map(type => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  value={tempFilters.serviceType || ''}
+                  onChange={(e) => setTempFilters({...tempFilters, serviceType: e.target.value || null})}
+                  disabled={!tempFilters.serviceCategory}
+                  className="w-full appearance-none border border-gray-300 rounded-xl py-3 pl-3 pr-10 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none bg-white disabled:bg-gray-100 disabled:text-gray-400"
+                >
+                  <option value="">Все услуги</option>
+                  {tempFilters.serviceCategory && serviceCategories.find(c => c.id === tempFilters.serviceCategory)?.services.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+                <ChevronDown className={`pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 ${tempFilters.serviceCategory ? 'text-gray-400' : 'text-gray-300'}`} />
+              </div>
             </div>
 
             {/* Region */}
@@ -512,7 +513,7 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
                 <span className={tempFilters.regions.length > 0 ? 'text-gray-900' : 'text-gray-500'}>
                   {tempFilters.regions.length > 0 ? tempFilters.regions.join(', ') : 'Все регионы'}
                 </span>
-                <ChevronLeft className="w-4 h-4 text-gray-400 rotate-180" />
+                <ChevronRight className="w-4 h-4 text-gray-400" />
               </button>
             </div>
 
@@ -575,18 +576,18 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
             <div>
               <label className="block text-sm font-bold text-[#0F2846] mb-2">Рейтинг</label>
               <div className="grid grid-cols-2 gap-2">
-                <button 
-                  onClick={() => setTempFilters({...tempFilters, ratingSort: tempFilters.ratingSort === 'high' ? null : 'high'})}
-                  className={`p-3 rounded-xl border text-[13px] font-semibold transition-colors ${tempFilters.ratingSort === 'high' ? 'bg-[#F3F4F6] border-[#F3F4F6] text-[#0F2846]' : 'bg-white border-gray-200 text-[#0F2846]'}`}
+                <SortOptionButton
+                  selected={tempFilters.ratingSort === 'high'}
+                  onClick={() => handleRatingSortChange('high')}
                 >
                   Сначала высокий
-                </button>
-                <button 
-                  onClick={() => setTempFilters({...tempFilters, ratingSort: tempFilters.ratingSort === 'low' ? null : 'low'})}
-                  className={`p-3 rounded-xl border text-[13px] font-semibold transition-colors ${tempFilters.ratingSort === 'low' ? 'bg-[#F3F4F6] border-[#F3F4F6] text-[#0F2846]' : 'bg-white border-gray-200 text-[#0F2846]'}`}
+                </SortOptionButton>
+                <SortOptionButton
+                  selected={tempFilters.ratingSort === 'low'}
+                  onClick={() => handleRatingSortChange('low')}
                 >
                   Сначала низкий
-                </button>
+                </SortOptionButton>
               </div>
             </div>
 
@@ -594,18 +595,18 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
             <div>
               <label className="block text-sm font-bold text-[#0F2846] mb-2">Выполненные заказы</label>
               <div className="grid grid-cols-2 gap-2">
-                <button 
-                  onClick={() => setTempFilters({...tempFilters, ordersSort: tempFilters.ordersSort === 'more' ? null : 'more'})}
-                  className={`p-3 rounded-xl border text-[13px] font-semibold transition-colors ${tempFilters.ordersSort === 'more' ? 'bg-[#F3F4F6] border-[#F3F4F6] text-[#0F2846]' : 'bg-white border-gray-200 text-[#0F2846]'}`}
+                <SortOptionButton
+                  selected={tempFilters.ordersSort === 'more'}
+                  onClick={() => handleOrdersSortChange('more')}
                 >
                   Сначала больше
-                </button>
-                <button 
-                  onClick={() => setTempFilters({...tempFilters, ordersSort: tempFilters.ordersSort === 'less' ? null : 'less'})}
-                  className={`p-3 rounded-xl border text-[13px] font-semibold transition-colors ${tempFilters.ordersSort === 'less' ? 'bg-[#F3F4F6] border-[#F3F4F6] text-[#0F2846]' : 'bg-white border-gray-200 text-[#0F2846]'}`}
+                </SortOptionButton>
+                <SortOptionButton
+                  selected={tempFilters.ordersSort === 'less'}
+                  onClick={() => handleOrdersSortChange('less')}
                 >
                   Сначала меньше
-                </button>
+                </SortOptionButton>
               </div>
             </div>
           </div>
