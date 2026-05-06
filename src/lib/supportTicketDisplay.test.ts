@@ -9,6 +9,39 @@ assert.equal(
 );
 
 assert.equal(
+  getSupportTicketUserLabel(
+    {
+      user_id: 'user-1',
+    },
+    [
+      {
+        id: 'user-1',
+        first_name: 'Артем',
+        username: 'artem_auto',
+      },
+    ]
+  ),
+  'Артем (@artem_auto)'
+);
+
+assert.equal(
+  getSupportTicketUserLabel(
+    {
+      user_id: 'user-2',
+    },
+    [
+      {
+        user_id: 'user-2',
+        first_name: 'Ольга',
+        last_name: 'Петрова',
+        telegram_username: '@olga_auto',
+      },
+    ]
+  ),
+  'Ольга Петрова (@olga_auto)'
+);
+
+assert.equal(
   getSupportTicketUserLabel({
     user_name: 'Александр',
     telegram_username: 'alex_auto',

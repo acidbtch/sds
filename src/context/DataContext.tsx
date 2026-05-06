@@ -318,7 +318,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (supportData !== undefined) {
         setSupport(extractSupportTickets(supportData).map((t: any) => ({
         id: String(t.id),
-        user: getSupportTicketUserLabel(t),
+        user: getSupportTicketUserLabel(t, usersData || []),
         subject: t.subject || '',
         text: t.last_message || t.subject || '',
         status: normalizeSupportStatus(t.status),

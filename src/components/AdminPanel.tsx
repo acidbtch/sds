@@ -1531,7 +1531,12 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
     setChatError(null);
     try {
       const data = await adminApi.getSupportTicket(id);
-      setActiveChat({ ...data, user: getSupportTicketUserLabel(data) });
+      const listTicketUser = support.find((ticket) => ticket.id === id)?.user;
+      const detailTicketUser = getSupportTicketUserLabel(data);
+      setActiveChat({
+        ...data,
+        user: detailTicketUser === 'Пользователь' && listTicketUser ? listTicketUser : detailTicketUser,
+      });
     } catch (error) {
       console.error('Failed to load support ticket:', error);
       setChatError('Не удалось загрузить обращение');
