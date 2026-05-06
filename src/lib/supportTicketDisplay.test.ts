@@ -12,33 +12,33 @@ assert.equal(
   getSupportTicketUserLabel(
     {
       user_id: 'user-1',
+      user_name: 'Telegram Profile',
     },
     [
       {
         id: 'user-1',
-        first_name: 'Артем',
-        username: 'artem_auto',
+        name: 'Имя из заказа',
+        username: 'order_customer',
       },
     ]
   ),
-  'Артем (@artem_auto)'
+  'Имя из заказа (@order_customer)'
 );
 
 assert.equal(
   getSupportTicketUserLabel(
     {
-      user_id: 'user-2',
+      user_id: '700820625',
     },
     [
       {
-        user_id: 'user-2',
-        first_name: 'Ольга',
-        last_name: 'Петрова',
-        telegram_username: '@olga_auto',
+        telegramId: '700820625',
+        name: 'Vladislav',
+        username: '700820625',
       },
     ]
   ),
-  'Ольга Петрова (@olga_auto)'
+  'Vladislav'
 );
 
 assert.equal(

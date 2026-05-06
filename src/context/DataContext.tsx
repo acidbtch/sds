@@ -205,11 +205,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const mappedOrders = ordersData !== undefined
         ? (ordersData || []).map(mapOrderFromApi)
         : undefined;
-
-      if (usersData !== undefined && mappedOrders !== undefined) {
-        setCustomers((usersData || [])
+      const mappedCustomers = usersData !== undefined && mappedOrders !== undefined
+        ? (usersData || [])
           .filter((u: any) => ['CUSTOMER', 'ADMIN'].includes(String(u.role || '').toUpperCase()))
-          .map((u: any) => mapAdminCustomerFromApi(u, mappedOrders)));
+          .map((u: any) => mapAdminCustomerFromApi(u, mappedOrders))
+        : undefined;
+
+      if (mappedCustomers !== undefined) {
+        setCustomers(mappedCustomers);
       }
 
       if (executorsData !== undefined) {
@@ -316,9 +319,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       if (supportData !== undefined) {
+        const supportUsers = mappedCustomers || usersData || [];
         setSupport(extractSupportTickets(supportData).map((t: any) => ({
         id: String(t.id),
-        user: getSupportTicketUserLabel(t, usersData || []),
+        user: getSupportTicketUserLabel(t, supportUsers),
         subject: t.subject || '',
         text: t.last_message || t.subject || '',
         status: normalizeSupportStatus(t.status),

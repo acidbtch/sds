@@ -14,6 +14,10 @@ function collectIds(record: Record<string, any>) {
     record.userId,
     record.customer_id,
     record.customerId,
+    record.telegram_id,
+    record.telegramId,
+    record.tg_id,
+    record.tgId,
   ].map(cleanDisplayValue).filter(Boolean);
 }
 
@@ -22,8 +26,9 @@ function joinName(firstName: unknown, lastName: unknown) {
 }
 
 function formatTelegramUsername(username: string) {
-  if (!username) return '';
-  return username.startsWith('@') ? username : `@${username}`;
+  const normalized = username.replace(/^@/, '').trim();
+  if (!normalized || /^\d+$/.test(normalized)) return '';
+  return `@${normalized}`;
 }
 
 function looksLikeTechnicalUserLabel(value: string) {
@@ -37,6 +42,10 @@ function findSupportTicketUser(ticket: Record<string, any>, users: Array<Record<
     userId: ticket.userId,
     customer_id: ticket.customer_id,
     customerId: ticket.customerId,
+    telegram_id: ticket.telegram_id,
+    telegramId: ticket.telegramId,
+    tg_id: ticket.tg_id,
+    tgId: ticket.tgId,
   }));
 
   if (ticketUserIds.size === 0) return {};
@@ -50,6 +59,16 @@ export function getSupportTicketUserLabel(ticket: Record<string, any>, users: Ar
   const stringUser = typeof ticket.user === 'string' ? ticket.user : '';
 
   const name = firstDisplayValue(
+    matchedUser.name,
+    matchedUser.customerName,
+    matchedUser.customer_name,
+    matchedUser.full_name,
+    matchedUser.fullName,
+    matchedUser.display_name,
+    matchedUser.displayName,
+    matchedUser.user_name,
+    matchedUser.userName,
+    joinName(matchedUser.first_name, matchedUser.last_name),
     ticket.user_name,
     ticket.userName,
     ticket.customer_name,
@@ -68,18 +87,15 @@ export function getSupportTicketUserLabel(ticket: Record<string, any>, users: Ar
     nestedUser.displayName,
     nestedUser.name,
     joinName(nestedUser.first_name, nestedUser.last_name),
-    matchedUser.user_name,
-    matchedUser.userName,
-    matchedUser.full_name,
-    matchedUser.fullName,
-    matchedUser.display_name,
-    matchedUser.displayName,
-    matchedUser.name,
-    joinName(matchedUser.first_name, matchedUser.last_name),
     looksLikeTechnicalUserLabel(stringUser) ? '' : stringUser
   );
 
   const username = firstDisplayValue(
+    matchedUser.username,
+    matchedUser.telegram_username,
+    matchedUser.telegramUsername,
+    matchedUser.tg_username,
+    matchedUser.tgUsername,
     ticket.telegram_username,
     ticket.telegramUsername,
     ticket.tg_username,
@@ -91,12 +107,7 @@ export function getSupportTicketUserLabel(ticket: Record<string, any>, users: Ar
     nestedUser.telegramUsername,
     nestedUser.tg_username,
     nestedUser.tgUsername,
-    nestedUser.username,
-    matchedUser.telegram_username,
-    matchedUser.telegramUsername,
-    matchedUser.tg_username,
-    matchedUser.tgUsername,
-    matchedUser.username
+    nestedUser.username
   );
 
   const formattedUsername = formatTelegramUsername(username);

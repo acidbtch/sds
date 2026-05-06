@@ -46,6 +46,12 @@ function displayValue(value: unknown) {
   return value === null || value === undefined ? '' : String(value).trim();
 }
 
+function formatTelegramNickname(value: unknown) {
+  const nickname = displayValue(value).replace(/^@/, '');
+  if (!nickname || /^\d+$/.test(nickname)) return '';
+  return `@${nickname}`;
+}
+
 function normalizeRole(value: unknown): AdminUserRole | '' {
   const role = displayValue(value).toUpperCase();
   return role === 'ADMIN' || role === 'EXECUTOR' || role === 'CUSTOMER' ? role : '';
@@ -95,12 +101,13 @@ export function getCustomerDisplayContact(orders: Order[], customer: CustomerOrd
   return {
     name: displayValue(latestOrder?.customerName) || displayValue(customer.name),
     phone: displayValue(latestOrder?.phone) || displayValue(customer.phone),
+    username: displayValue(latestOrder?.customerUsername) || displayValue(customer.username),
   };
 }
 
 export function getCustomerContactRows(customer: CustomerOrderOwner): CustomerContactRow[] {
   return [
-    { label: 'Telegram ID', value: displayValue(customer.telegramId || customer.tgId || customer.username) },
+    { label: 'Telegram nickname', value: formatTelegramNickname(customer.username) },
     { label: 'Телефон', value: displayValue(customer.phone) },
   ].filter(row => row.value);
 }
@@ -162,7 +169,15 @@ export function mapAdminCustomerFromApi(user: any, orders: Order[]): AdminCustom
     user.profile?.telegram_id ??
     user.telegram?.id
   );
-  const username = displayValue(user.username);
+  const username = displayValue(
+    user.username ??
+    user.telegram_username ??
+    user.telegramUsername ??
+    user.tg_username ??
+    user.tgUsername ??
+    user.profile?.username ??
+    user.telegram?.username
+  );
 
   const baseCustomer: AdminCustomer = {
     id: userId,
@@ -184,6 +199,7 @@ export function mapAdminCustomerFromApi(user: any, orders: Order[]): AdminCustom
     ...baseCustomer,
     name: displayContact.name || baseCustomer.name,
     phone: displayContact.phone || baseCustomer.phone,
+    username: displayContact.username || baseCustomer.username,
   };
 
   return {

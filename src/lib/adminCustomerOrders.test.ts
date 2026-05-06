@@ -57,6 +57,7 @@ const newerContactOrder = mapOrderFromApi({
   customer_user_id: 'user-1',
   owner_name: 'New Name',
   owner_phone: '+375292222222',
+  owner_username: 'new_owner',
   created_at: '2026-04-28T10:00:00.000Z',
   service_name: 'New contact',
   status: 'NEW',
@@ -81,23 +82,23 @@ assert.deepEqual(
 
 assert.deepEqual(
   getCustomerDisplayContact([olderContactOrder, newerContactOrder], customer),
-  { name: 'New Name', phone: '+375292222222' },
+  { name: 'New Name', phone: '+375292222222', username: 'new_owner' },
   'customer contact should use the newest order owner values when the customer changed them in the order',
 );
 
 assert.deepEqual(
-  getCustomerContactRows({ telegramId: '1783624604', phone: '+375292222222' }),
+  getCustomerContactRows({ telegramId: '1783624604', username: 'vladislav_auto', phone: '+375292222222' }),
   [
-    { label: 'Telegram ID', value: '1783624604' },
+    { label: 'Telegram nickname', value: '@vladislav_auto' },
     { label: 'Телефон', value: '+375292222222' },
   ],
-  'customer card should render Telegram ID and phone as separate rows without a dot separator',
+  'customer card should render Telegram nickname instead of Telegram ID',
 );
 
 assert.deepEqual(
-  getCustomerContactRows({ telegramId: '', phone: '+375292222222' }),
+  getCustomerContactRows({ telegramId: '1783624604', username: '1783624604', phone: '+375292222222' }),
   [{ label: 'Телефон', value: '+375292222222' }],
-  'empty contact values should be hidden',
+  'numeric Telegram IDs should not be shown as Telegram nicknames',
 );
 
 const adminCustomerOrders = [
