@@ -18,6 +18,7 @@ import { getAdminCarBrandOptions, getAdminCarEntityId, getAdminCarModelOptions }
 import { canManageCustomerAdminRole, canManageCustomerBlockStatus, getCustomerContactRows, getCustomerStateBadge, getCustomerStateDotClass, getNextCustomerAdminRole, getOrdersForCustomer } from '../lib/adminCustomerOrders';
 import { uploadMediaFile } from '../lib/media';
 import { getFaqItemsForEditor, insertEditorBullet, insertFaqBullet, saveFaqEditorItem } from '../lib/faqEditor';
+import { SUPPORT_CHAT_BUBBLE_BASE_CLASS, SUPPORT_CHAT_MESSAGE_TEXT_CLASS } from '../lib/supportChatLayout';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -1646,12 +1647,12 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
           ) : messages.length > 0 ? (
             messages.map((message: any) => (
               <div key={message.id} className={`flex ${message.is_from_support ? 'justify-end' : 'justify-start'}`}>
-                <div className={`p-3 rounded-2xl max-w-[80%] shadow-sm ${
+                <div className={`${SUPPORT_CHAT_BUBBLE_BASE_CLASS} ${
                   message.is_from_support
                     ? 'bg-blue-500 text-white rounded-tr-sm'
                     : 'bg-white text-gray-800 rounded-tl-sm border border-gray-100'
                 }`}>
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  <p className={SUPPORT_CHAT_MESSAGE_TEXT_CLASS}>{message.content}</p>
                   <p className={`text-[10px] text-right mt-1 ${message.is_from_support ? 'text-blue-100' : 'text-gray-400'}`}>
                     {new Date(message.created_at).toLocaleString('ru-RU')}
                   </p>

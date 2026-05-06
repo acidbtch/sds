@@ -3,6 +3,7 @@ import { ViewState } from '../types';
 import { ChevronLeft, MessageCircle, PhoneCall, Mail, Send, Plus } from 'lucide-react';
 import { supportApi, miscApi } from '../lib/api';
 import { parseSupportTicketApiError, validateSupportTicketForm, type SupportFieldErrors } from '../lib/supportValidation';
+import { SUPPORT_CHAT_BUBBLE_BASE_CLASS, SUPPORT_CHAT_MESSAGE_TEXT_CLASS } from '../lib/supportChatLayout';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -284,12 +285,12 @@ export default function Support({ onNavigate }: Props) {
             <div className="flex-1 p-4 overflow-y-auto pb-24 space-y-4">
               {activeTicket.messages?.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.is_from_support ? 'justify-start' : 'justify-end'}`}>
-                  <div className={`p-3 rounded-2xl max-w-[80%] shadow-sm ${
+                  <div className={`${SUPPORT_CHAT_BUBBLE_BASE_CLASS} ${
                     msg.is_from_support
                       ? 'bg-white text-gray-800 rounded-tl-sm border border-gray-100'
                       : 'bg-blue-500 text-white rounded-tr-sm'
                   }`}>
-                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                    <p className={SUPPORT_CHAT_MESSAGE_TEXT_CLASS}>{msg.content}</p>
                     <p className={`text-[10px] text-right mt-1 ${msg.is_from_support ? 'text-gray-400' : 'text-blue-100'}`}>
                       {formatTime(msg.created_at)}
                     </p>
