@@ -56,3 +56,15 @@ export function buildExecutorProfileUpdatePayload(
     logo_key: form.logoKey || null,
   };
 }
+
+export type ExecutorProfileModerationResult = 'success' | 'failure';
+
+export function getExecutorProfileModerationResult(response: any): ExecutorProfileModerationResult {
+  const status =
+    response?.moderation_status ||
+    response?.moderationStatus ||
+    response?.profile?.moderation_status ||
+    response?.profile?.moderationStatus;
+
+  return String(status || '').toUpperCase() === 'PENDING' ? 'success' : 'failure';
+}

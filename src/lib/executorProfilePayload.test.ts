@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
-import { buildExecutorProfileUpdatePayload } from './executorProfilePayload';
+import {
+  buildExecutorProfileUpdatePayload,
+  getExecutorProfileModerationResult,
+} from './executorProfilePayload';
 
 const payload = buildExecutorProfileUpdatePayload(
   {
@@ -37,5 +40,26 @@ assert.equal(payload.instagram_url, 'https://instagram.com/test');
 assert.equal(payload.website_url, 'https://example.com');
 assert.deepEqual(payload.service_ids, ['service-1']);
 assert.deepEqual(payload.region_ids, ['region-1']);
+
+assert.equal(
+  getExecutorProfileModerationResult({ moderation_status: 'PENDING' }),
+  'success',
+  'PENDING backend status should confirm moderation submission',
+);
+assert.equal(
+  getExecutorProfileModerationResult({ moderationStatus: 'PENDING' }),
+  'success',
+  'camelCase PENDING backend status should also confirm moderation submission',
+);
+assert.equal(
+  getExecutorProfileModerationResult({ moderation_status: 'APPROVED' }),
+  'failure',
+  'APPROVED status means edit was not sent to moderation',
+);
+assert.equal(
+  getExecutorProfileModerationResult(null),
+  'failure',
+  'empty backend response should not be shown as successful moderation',
+);
 
 console.log('executor profile moderation payload passed');

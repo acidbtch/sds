@@ -13,7 +13,11 @@ import { REGIONS_DATA as FALLBACK_REGIONS } from '../data/regions';
 import { formatBelarusPhoneInput, isBelarusPhoneComplete } from '../lib/phoneInput';
 import { expandSelectedRegionsForApi, formatRegionValue } from '../lib/regionSelection';
 import { normalizeNamedList } from '../lib/profileDisplay';
-import { buildExecutorProfileUpdatePayload, type ExecutorProfileFormData } from '../lib/executorProfilePayload';
+import {
+  buildExecutorProfileUpdatePayload,
+  getExecutorProfileModerationResult,
+  type ExecutorProfileFormData,
+} from '../lib/executorProfilePayload';
 
 // --- Helpers ---
 
@@ -112,7 +116,8 @@ export default function ContractorCabinet({ onNavigate }: Props) {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editForm, setEditForm] = useState<ExecutorProfileFormData>(defaultFormData);
   const [profileSaving, setProfileSaving] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [submissionResult, setSubmissionResult] = useState<'success' | 'failure' | null>(null);
+  const [submissionError, setSubmissionError] = useState('');
   const [showErrors, setShowErrors] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
 
@@ -201,6 +206,19 @@ export default function ContractorCabinet({ onNavigate }: Props) {
       loadActiveOrders();
     }
   }, [activeTab, profileLoading, loadFeed, loadActiveOrders]);
+
+  useEffect(() => {
+    if (submissionResult !== 'success') return;
+
+    const timeoutId = setTimeout(() => {
+      setSubmissionResult(null);
+      setSubmissionError('');
+      setIsEditingProfile(false);
+      setActiveTab('profile');
+    }, 5000);
+
+    return () => clearTimeout(timeoutId);
+  }, [submissionResult]);
 
   // --- Order actions ---
 
@@ -327,15 +345,35 @@ export default function ContractorCabinet({ onNavigate }: Props) {
 
       const apiData = buildExecutorProfileUpdatePayload(editForm, serviceIds, regionIds);
       const updatedProfile = await executorApi.updateProfile(apiData);
-      if (updatedProfile) {
-        setProfile(updatedProfile);
-      } else {
-        const freshProfile = await executorApi.getProfile();
-        setProfile(freshProfile);
+      let freshProfile = null;
+      try {
+        freshProfile = await executorApi.getProfile();
+      } catch (refreshError) {
+        console.error('Failed to refresh executor profile after update:', refreshError);
       }
-      setSubmitted(true);
-    } catch (error) {
+
+      if (freshProfile) {
+        setProfile(freshProfile);
+      } else if (updatedProfile?.profile) {
+        setProfile(updatedProfile.profile);
+      } else if (updatedProfile) {
+        setProfile(updatedProfile);
+      }
+
+      const result =
+        getExecutorProfileModerationResult(updatedProfile) === 'success' ||
+        getExecutorProfileModerationResult(freshProfile) === 'success'
+          ? 'success'
+          : 'failure';
+      setSubmissionResult(result);
+      setSubmissionError(result === 'failure' ? 'Сервер не подтвердил отправку изменений на модерацию.' : '');
+      if (result === 'success') {
+        setIsEditingProfile(false);
+      }
+    } catch (error: any) {
       console.error('Failed to update profile:', error);
+      setSubmissionResult('failure');
+      setSubmissionError(error?.message || 'Не удалось отправить изменения. Попробуйте позже.');
     } finally {
       setProfileSaving(false);
     }
@@ -368,22 +406,37 @@ export default function ContractorCabinet({ onNavigate }: Props) {
     );
   }
 
-  if (submitted) {
+  if (submissionResult === 'success') {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-white p-6 text-center">
-        <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mb-6">
-          <CheckCircle className="w-12 h-12 text-blue-500" />
+        <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mb-6">
+          <CheckCircle className="w-12 h-12 text-green-500" />
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Данные отправлены на модерацию</h2>
-        <p className="text-gray-500 mb-6">После проверки администратором они будут обновлены в вашем профиле.</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Изменения отправлены на модерацию!</h2>
+        <p className="text-gray-500">После проверки администратором они будут обновлены в вашем профиле.</p>
+      </div>
+    );
+  }
+
+  if (submissionResult === 'failure') {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-white p-6 text-center">
+        <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mb-6">
+          <AlertCircle className="w-12 h-12 text-red-500" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Не удалось отправить на модерацию</h2>
+        <p className="text-gray-500 mb-6">
+          {submissionError || 'Изменения не попали на проверку администратора. Попробуйте ещё раз.'}
+        </p>
         <button
           onClick={() => {
-            setSubmitted(false);
-            setIsEditingProfile(false);
+            setSubmissionResult(null);
+            setSubmissionError('');
+            setIsEditingProfile(true);
           }}
           className="w-full bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg active:scale-[0.98] transition-transform"
         >
-          Вернуться в профиль
+          Вернуться к редактированию
         </button>
       </div>
     );
