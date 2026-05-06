@@ -31,8 +31,25 @@ function formatTelegramUsername(username: string) {
   return `@${normalized}`;
 }
 
+function formatTelegramNickname(nickname: string) {
+  const normalized = nickname.trim();
+  if (!normalized || /^\d+$/.test(normalized)) return '';
+  return normalized;
+}
+
 function looksLikeTechnicalUserLabel(value: string) {
   return /^Пользователь\s+[0-9a-f-]{12,}$/i.test(value) || /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(value);
+}
+
+function normalizeCompare(value: string) {
+  return value.trim().replace(/^@/, '').toLowerCase();
+}
+
+function firstDifferentDisplayValue(compareTo: string, ...values: unknown[]) {
+  const compareValue = normalizeCompare(compareTo);
+  return values
+    .map(cleanDisplayValue)
+    .find((value) => value && normalizeCompare(value) !== compareValue) || '';
 }
 
 function findSupportTicketUser(ticket: Record<string, any>, users: Array<Record<string, any>>) {
@@ -109,10 +126,30 @@ export function getSupportTicketUserLabel(ticket: Record<string, any>, users: Ar
     nestedUser.tgUsername,
     nestedUser.username
   );
+  const displayNickname = firstDifferentDisplayValue(
+    name,
+    matchedUser.telegramNickname,
+    matchedUser.telegram_nickname,
+    matchedUser.telegramDisplayName,
+    matchedUser.telegram_display_name,
+    ticket.user_name,
+    ticket.userName,
+    ticket.telegram_name,
+    ticket.telegramName,
+    ticket.display_name,
+    ticket.displayName,
+    nestedUser.user_name,
+    nestedUser.userName,
+    nestedUser.telegramNickname,
+    nestedUser.telegram_nickname
+  );
 
   const formattedUsername = formatTelegramUsername(username);
   if (name && formattedUsername) return `${name} (${formattedUsername})`;
+  const formattedDisplayNickname = formatTelegramNickname(displayNickname);
+  if (name && formattedDisplayNickname) return `${name} (${formattedDisplayNickname})`;
   if (name) return name;
   if (formattedUsername) return formattedUsername;
+  if (formattedDisplayNickname) return formattedDisplayNickname;
   return 'Пользователь';
 }

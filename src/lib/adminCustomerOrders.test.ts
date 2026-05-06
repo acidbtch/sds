@@ -101,6 +101,12 @@ assert.deepEqual(
   'numeric Telegram IDs should not be shown as Telegram nicknames',
 );
 
+assert.deepEqual(
+  getCustomerContactRows({ telegramNickname: 'string.vl 🐄', telegramId: '700820625' } as any),
+  [{ label: 'Telegram nickname', value: 'string.vl 🐄' }],
+  'customer card should show Telegram display name when there is no public @username',
+);
+
 const adminCustomerOrders = [
   mapOrderFromApi({
     id: 'linked-order-old-phone',
@@ -129,6 +135,39 @@ const mappedAdminCustomer = mapAdminCustomerFromApi({
   profile: { phone: '+375291000000' },
   created_at: '2026-04-13T10:00:00.000Z',
 }, adminCustomerOrders);
+
+const mappedCustomerWithOrderName = mapAdminCustomerFromApi({
+  id: 'ivan-user',
+  role: 'CUSTOMER',
+  first_name: 'Telegram Ivan',
+  telegram_id: '520230384',
+  created_at: '2026-04-28T10:00:00.000Z',
+}, [
+  mapOrderFromApi({
+    id: 'ivan-order',
+    customer_user_id: 'ivan-user',
+    owner_name: 'Иван Иванович',
+    owner_phone: '+375293826345',
+    created_at: '2026-04-28T12:00:00.000Z',
+    service_name: 'Order name',
+    status: 'NEW',
+  }),
+]);
+
+assert.equal(
+  mappedCustomerWithOrderName.name,
+  'Иван Иванович',
+  'customer title should use the name entered in the order',
+);
+
+assert.deepEqual(
+  getCustomerContactRows(mappedCustomerWithOrderName),
+  [
+    { label: 'Telegram nickname', value: 'Telegram Ivan' },
+    { label: 'Телефон', value: '+375293826345' },
+  ],
+  'customer details should keep Telegram nickname even when the title uses order name',
+);
 
 assert.equal(
   mappedAdminCustomer.phone,

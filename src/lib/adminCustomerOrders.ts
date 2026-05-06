@@ -5,6 +5,7 @@ type CustomerOrderOwner = {
   userId?: string | number | null;
   telegramId?: string | number | null;
   tgId?: string | number | null;
+  telegramNickname?: string | null;
   username?: string | null;
   name?: string | null;
   phone?: string | null;
@@ -30,6 +31,7 @@ export type AdminCustomer = CustomerOrderOwner & {
   phone: string;
   tgId: string;
   telegramId: string;
+  telegramNickname: string;
   username: string;
   regDate: string;
   orders: number;
@@ -49,7 +51,13 @@ function displayValue(value: unknown) {
 function formatTelegramNickname(value: unknown) {
   const nickname = displayValue(value).replace(/^@/, '');
   if (!nickname || /^\d+$/.test(nickname)) return '';
-  return `@${nickname}`;
+  return nickname;
+}
+
+function formatTelegramContact(value: unknown, isOfficialUsername = false) {
+  const nickname = formatTelegramNickname(value);
+  if (!nickname) return '';
+  return isOfficialUsername ? `@${nickname}` : nickname;
 }
 
 function normalizeRole(value: unknown): AdminUserRole | '' {
@@ -97,17 +105,22 @@ function orderTimestamp(order: Order) {
 export function getCustomerDisplayContact(orders: Order[], customer: CustomerOrderOwner) {
   const latestOrder = [...getOrdersForCustomer(orders, customer)]
     .sort((left, right) => orderTimestamp(right) - orderTimestamp(left))[0];
+  const telegramNickname = displayValue(customer.telegramNickname);
 
   return {
     name: displayValue(latestOrder?.customerName) || displayValue(customer.name),
     phone: displayValue(latestOrder?.phone) || displayValue(customer.phone),
     username: displayValue(latestOrder?.customerUsername) || displayValue(customer.username),
+    ...(telegramNickname ? { telegramNickname } : {}),
   };
 }
 
 export function getCustomerContactRows(customer: CustomerOrderOwner): CustomerContactRow[] {
+  const officialUsername = formatTelegramContact(customer.username, true);
+  const telegramNickname = officialUsername || formatTelegramContact(customer.telegramNickname);
+
   return [
-    { label: 'Telegram nickname', value: formatTelegramNickname(customer.username) },
+    { label: 'Telegram nickname', value: telegramNickname },
     { label: 'Телефон', value: displayValue(customer.phone) },
   ].filter(row => row.value);
 }
@@ -178,6 +191,18 @@ export function mapAdminCustomerFromApi(user: any, orders: Order[]): AdminCustom
     user.profile?.username ??
     user.telegram?.username
   );
+  const telegramFullName = `${displayValue(user.first_name)} ${displayValue(user.last_name)}`.trim();
+  const telegramNickname = displayValue(
+    telegramFullName ||
+    displayValue(user.display_name) ||
+    displayValue(user.displayName) ||
+    displayValue(user.telegram_name) ||
+    displayValue(user.telegramName) ||
+    displayValue(user.profile?.display_name) ||
+    displayValue(user.telegram?.first_name) ||
+    displayValue(user.telegram?.name) ||
+    username
+  );
 
   const baseCustomer: AdminCustomer = {
     id: userId,
@@ -186,6 +211,7 @@ export function mapAdminCustomerFromApi(user: any, orders: Order[]): AdminCustom
     phone: displayValue(user.profile?.phone),
     tgId: telegramId || username,
     telegramId,
+    telegramNickname,
     username,
     regDate: user.created_at ? new Date(user.created_at).toLocaleDateString('ru-RU') : '',
     orders: 0,
@@ -200,6 +226,7 @@ export function mapAdminCustomerFromApi(user: any, orders: Order[]): AdminCustom
     name: displayContact.name || baseCustomer.name,
     phone: displayContact.phone || baseCustomer.phone,
     username: displayContact.username || baseCustomer.username,
+    telegramNickname: displayContact.telegramNickname || baseCustomer.telegramNickname,
   };
 
   return {
