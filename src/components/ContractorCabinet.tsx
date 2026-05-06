@@ -13,6 +13,7 @@ import { REGIONS_DATA as FALLBACK_REGIONS } from '../data/regions';
 import { formatBelarusPhoneInput, isBelarusPhoneComplete } from '../lib/phoneInput';
 import { expandSelectedRegionsForApi, formatRegionValue } from '../lib/regionSelection';
 import { normalizeNamedList } from '../lib/profileDisplay';
+import { buildExecutorProfileUpdatePayload, type ExecutorProfileFormData } from '../lib/executorProfilePayload';
 
 // --- Helpers ---
 
@@ -42,27 +43,7 @@ const tierBadgeClass = (tier: 'partner' | 'pro' | 'leader'): string => {
 
 // --- Profile form types ---
 
-interface ProfileFormData {
-  legalStatus: string;
-  name: string;
-  unp: string;
-  shortName: string;
-  description: string;
-  services: string[];
-  regions: string[];
-  address: string;
-  schedule: any;
-  phone: string;
-  instagram: string;
-  tiktok: string;
-  website: string;
-  profileType: 'partner' | 'pro' | 'leader';
-  bannerText: string;
-  logo: string;
-  logoKey: string;
-}
-
-const defaultFormData: ProfileFormData = {
+const defaultFormData: ExecutorProfileFormData = {
   legalStatus: '',
   name: '',
   unp: '',
@@ -82,9 +63,9 @@ const defaultFormData: ProfileFormData = {
   logoKey: '',
 };
 
-const mapProfileToForm = (p: any): ProfileFormData => ({
+const mapProfileToForm = (p: any): ExecutorProfileFormData => ({
   legalStatus: p.legal_status || '',
-  name: p.name || '',
+  name: p.legal_name || p.name || '',
   unp: p.unp || '',
   shortName: p.short_name || '',
   description: p.description || '',
@@ -93,32 +74,13 @@ const mapProfileToForm = (p: any): ProfileFormData => ({
   address: p.address || '',
   schedule: p.schedule || defaultSchedule,
   phone: p.phone ? formatBelarusPhoneInput(p.phone) : '',
-  instagram: p.instagram || '',
-  tiktok: p.tiktok || '',
-  website: p.website || '',
+  instagram: p.instagram_url || p.instagram || '',
+  tiktok: p.tiktok_url || p.tiktok || '',
+  website: p.website_url || p.website || '',
   profileType: normalizeTier(p.tier),
   bannerText: p.banner_text || '',
   logo: p.logo_url || '',
   logoKey: p.logo_key || '',
-});
-
-const mapFormToApi = (f: ProfileFormData, serviceIds: string[], regionIds: string[]) => ({
-  legal_status: f.legalStatus,
-  name: f.name,
-  unp: f.unp,
-  short_name: f.shortName,
-  description: f.description,
-  service_ids: serviceIds,
-  region_ids: regionIds,
-  address: f.address,
-  schedule: f.schedule,
-  phone: f.phone.replace(/\s/g, ''),
-  instagram: f.instagram,
-  tiktok: f.tiktok,
-  website: f.website,
-  tier: f.profileType.toUpperCase(),
-  banner_text: f.bannerText,
-  logo_key: f.logoKey,
 });
 
 // --- Component ---
@@ -148,7 +110,7 @@ export default function ContractorCabinet({ onNavigate }: Props) {
 
   // Profile edit
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [editForm, setEditForm] = useState<ProfileFormData>(defaultFormData);
+  const [editForm, setEditForm] = useState<ExecutorProfileFormData>(defaultFormData);
   const [profileSaving, setProfileSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
@@ -363,8 +325,14 @@ export default function ContractorCabinet({ onNavigate }: Props) {
         .filter((region: any) => regionLookupNames.includes(region.name))
         .map((region: any) => region.id);
 
-      const apiData = mapFormToApi(editForm, serviceIds, regionIds);
-      await executorApi.updateProfile(apiData);
+      const apiData = buildExecutorProfileUpdatePayload(editForm, serviceIds, regionIds);
+      const updatedProfile = await executorApi.updateProfile(apiData);
+      if (updatedProfile) {
+        setProfile(updatedProfile);
+      } else {
+        const freshProfile = await executorApi.getProfile();
+        setProfile(freshProfile);
+      }
       setSubmitted(true);
     } catch (error) {
       console.error('Failed to update profile:', error);

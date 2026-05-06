@@ -2,12 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { ViewState } from '../types';
 import { ChevronRight, Wrench, User, HelpCircle, MessageCircle, Star, Settings, ChevronDown, X } from 'lucide-react';
 import { useData } from '../context/DataContext';
-import { useAuth } from '../context/AuthContext';
 import { BANNER_ROTATION_INTERVAL_MS, getNextBannerIndex, getVisibleBannerIndex } from '../lib/bannerRotation';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import { formatContentMarkdown } from '../lib/faqEditor';
-import { shouldAttemptTelegramLogin } from '../lib/telegramAuthStartup';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -15,7 +13,6 @@ interface Props {
 
 export default function Home({ onNavigate }: Props) {
   const { content, banners } = useData();
-  const { login } = useAuth();
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [legalModal, setLegalModal] = useState<'rules' | 'privacy' | null>(null);
 
@@ -26,13 +23,7 @@ export default function Home({ onNavigate }: Props) {
     }
 
     tg.ready();
-    const initData = tg.initData;
-
-    if (shouldAttemptTelegramLogin(initData, localStorage.getItem('access_token'))) {
-      login(initData)
-        .catch(err => console.error('Telegram login failed:', err));
-    }
-  }, [login]);
+  }, []);
 
   const activeBanners = banners.filter(b => b.status === 'active');
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);

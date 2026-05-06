@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { authApi, isAuthExpiredError, isTransientApiError, isUserBlockedError, USER_BLOCKED_EVENT } from '../lib/api';
 import { shouldRefreshAfterAppResume } from '../lib/appLifecycle';
 import { mapUserProfileFromApi, UserProfile } from '../lib/authUser';
+import { getTelegramStartupAuthAction } from '../lib/telegramAuthStartup';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -93,13 +94,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
-    if (token) {
+    const initData = (window as any).Telegram?.WebApp?.initData;
+    const startupAction = getTelegramStartupAuthAction({ initData, accessToken: token });
+
+    if (startupAction === 'refresh') {
       refreshUser().finally(() => setIsLoading(false));
-    } else {
-      setIsBlocked(false);
-      setIsLoading(false);
+      return;
     }
-  }, []);
+
+    if (startupAction === 'login' && initData) {
+      login(initData)
+        .catch((error) => {
+          console.error('Telegram startup login failed:', error);
+        })
+        .finally(() => setIsLoading(false));
+      return;
+    }
+
+    setIsBlocked(false);
+    setIsLoading(false);
+  }, [login, refreshUser]);
 
   useEffect(() => {
     const handleUserBlocked = () => {
