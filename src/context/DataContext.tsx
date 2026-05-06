@@ -6,6 +6,7 @@ import { mapOrderFromApi } from '../lib/orderMapping';
 import { useAuth } from './AuthContext';
 import { shouldRefreshAfterAppResume } from '../lib/appLifecycle';
 import { getFulfilledAdminData } from '../lib/adminRefresh';
+import { getSupportTicketUserLabel } from '../lib/supportTicketDisplay';
 
 // Define the types for our context state
 interface Customer {
@@ -317,7 +318,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (supportData !== undefined) {
         setSupport(extractSupportTickets(supportData).map((t: any) => ({
         id: String(t.id),
-        user: `Пользователь ${t.user_id}`,
+        user: getSupportTicketUserLabel(t),
         subject: t.subject || '',
         text: t.last_message || t.subject || '',
         status: normalizeSupportStatus(t.status),

@@ -19,6 +19,7 @@ import { canManageCustomerAdminRole, canManageCustomerBlockStatus, getCustomerCo
 import { uploadMediaFile } from '../lib/media';
 import { getFaqItemsForEditor, insertEditorBullet, insertFaqBullet, saveFaqEditorItem } from '../lib/faqEditor';
 import { SUPPORT_CHAT_BUBBLE_BASE_CLASS, SUPPORT_CHAT_MESSAGE_TEXT_CLASS } from '../lib/supportChatLayout';
+import { getSupportTicketUserLabel } from '../lib/supportTicketDisplay';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -1530,7 +1531,7 @@ function SupportView({ support, setSupport }: { support: any[], setSupport: any 
     setChatError(null);
     try {
       const data = await adminApi.getSupportTicket(id);
-      setActiveChat(data);
+      setActiveChat({ ...data, user: getSupportTicketUserLabel(data) });
     } catch (error) {
       console.error('Failed to load support ticket:', error);
       setChatError('Не удалось загрузить обращение');
