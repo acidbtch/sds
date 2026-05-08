@@ -118,7 +118,7 @@ interface DataContextType {
   setCarModels: React.Dispatch<React.SetStateAction<Record<string, any[]>>>;
   isLoading: boolean;
   refreshPublicData: (showLoading?: boolean) => Promise<void>;
-  refreshAdminData: () => Promise<void>;
+  refreshAdminData: (options?: { force?: boolean }) => Promise<void>;
 }
 
 function extractSupportTickets(response: any): any[] {
@@ -174,8 +174,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [carModels, setCarModels] = useState<Record<string, any[]>>({});
   const [isLoading, setIsLoading] = useState(true);
 
-  const refreshAdminData = useCallback(async () => {
-    if (user?.role !== 'ADMIN') return;
+  const refreshAdminData = useCallback(async (options: { force?: boolean } = {}) => {
+    if (!options.force && user?.role !== 'ADMIN') return;
 
     try {
       const [usersResult, executorsResult, ordersResult, paymentsResult, bannersResult, faqResult, contentResult, brandsResult, categoriesResult, supportResult] = await Promise.allSettled([

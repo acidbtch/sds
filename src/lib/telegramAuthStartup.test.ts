@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
-import { getTelegramStartupAuthAction, shouldAttemptTelegramLogin } from './telegramAuthStartup';
+import {
+  getAuthExpiredRecoveryAction,
+  getTelegramStartupAuthAction,
+  shouldAttemptTelegramLogin,
+} from './telegramAuthStartup';
 
 assert.equal(shouldAttemptTelegramLogin('', null), false);
 assert.equal(shouldAttemptTelegramLogin(undefined, null), false);
@@ -21,6 +25,22 @@ assert.equal(
   getTelegramStartupAuthAction({ initData: '', accessToken: null }),
   'anonymous',
   'Browser startup without Telegram initData can continue anonymously',
+);
+
+assert.equal(
+  getAuthExpiredRecoveryAction('telegram-init-data'),
+  'telegram-login',
+  'expired auth inside Telegram should recover through Telegram login instead of clearing the user',
+);
+assert.equal(
+  getAuthExpiredRecoveryAction(''),
+  'clear-session',
+  'expired auth without Telegram initData should clear the session',
+);
+assert.equal(
+  getAuthExpiredRecoveryAction(undefined),
+  'clear-session',
+  'missing Telegram initData cannot recover an expired session',
 );
 
 console.log('telegram auth startup helpers passed');

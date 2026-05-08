@@ -226,11 +226,11 @@ function AppShell() {
     hiddenAtRef.current = null;
     setPreviousView(null);
     setCurrentView('home');
-    void Promise.allSettled([
-      refreshUser(),
-      refreshPublicData(false),
-      refreshAdminData(),
-    ]).finally(() => {
+    void (async () => {
+      const refreshedUser = await refreshUser();
+      await refreshPublicData(false);
+      await refreshAdminData({ force: refreshedUser?.role === 'ADMIN' });
+    })().finally(() => {
       resetIdleTimer();
     });
   }, [refreshAdminData, refreshPublicData, refreshUser, resetIdleTimer]);
