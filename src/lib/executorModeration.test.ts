@@ -15,15 +15,28 @@ const editRequest = mapExecutorModerationFromApi({
     phone: '+375291111111',
     services: [{ id: 'service-1', name: 'Old service' }],
     regions: [{ id: 'region-1', name: 'Old region' }],
+    legal_document_keys: ['old-doc.pdf'],
+    legal_documents: [{ url: 'https://cdn.example.com/old-doc.pdf', name: 'Старый документ.pdf' }],
+    portfolio_photo_keys: ['old-photo.jpg'],
+    portfolio_photos: [{ url: 'https://cdn.example.com/old-photo.jpg', name: 'Старое фото.jpg' }],
+    logo_key: 'old-logo.png',
+    logo_url: 'https://cdn.example.com/old-logo.png',
   },
   pending_changes: {
     legal_name: 'New Legal Name',
     short_name: 'New Short Name',
     description: 'New description',
     phone: '+375292222222',
-    services: [{ id: 'service-2', name: 'New service' }],
+    service_ids: ['service-2'],
+    region_ids: ['region-2'],
+    legal_document_keys: ['new-doc.pdf'],
+    portfolio_photo_keys: ['new-video.mp4'],
+    logo_key: 'new-logo.png',
   },
-}, 0);
+}, 0, {
+  services: [{ id: 'service-2', name: 'New service' }],
+  regions: [{ id: 'region-2', name: 'New region' }],
+});
 
 assert.equal(
   editRequest.type,
@@ -38,9 +51,15 @@ assert.deepEqual(editRequest.oldData?.services, ['Old service']);
 assert.deepEqual(editRequest.data.services, ['New service']);
 assert.deepEqual(
   editRequest.data.regions,
-  ['Old region'],
-  'unchanged fields should stay visible in the new version',
+  ['New region'],
+  'region ids from pending changes should be displayed as region names',
 );
+assert.equal(editRequest.oldData?.legalDocumentFiles?.[0].name, 'Старый документ.pdf');
+assert.equal(editRequest.oldData?.portfolioPhotoFiles?.[0].kind, 'image');
+assert.equal(editRequest.oldData?.logoFiles?.[0].previewUrl, 'https://cdn.example.com/old-logo.png');
+assert.equal(editRequest.data.legalDocumentFiles?.[0].key, 'new-doc.pdf');
+assert.equal(editRequest.data.portfolioPhotoFiles?.[0].kind, 'video');
+assert.equal(editRequest.data.logoFiles?.[0].key, 'new-logo.png');
 
 const newRequest = mapExecutorModerationFromApi({
   id: 'profile-2',

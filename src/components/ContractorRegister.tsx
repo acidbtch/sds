@@ -9,11 +9,14 @@ import { executorApi, dictsApi } from '../lib/api';
 import { uploadMediaFile } from '../lib/media';
 import { ALL_BELARUS_LABEL, expandSelectedRegionsForApi } from '../lib/regionSelection';
 import { formatBelarusPhoneInput } from '../lib/phoneInput';
+import UploadedFilesGrid from './UploadedFilesGrid';
 import {
   ContractorRegistrationFieldErrors,
   removeUploadedRegistrationFile,
+  type UploadedRegistrationFile,
   validateContractorRegistrationForm,
 } from '../lib/contractorRegistration';
+import { getUploadedFilePreviewSource, inferUploadedFileKind, type UploadedFileItem } from '../lib/uploadedFiles';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -48,8 +51,9 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
   const [website, setWebsite] = useState('');
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoKey, setLogoKey] = useState('');
-  const [documentFiles, setDocumentFiles] = useState<{ name: string; key: string }[]>([]);
-  const [workPhotos, setWorkPhotos] = useState<{ name: string; key: string }[]>([]);
+  const [documentFiles, setDocumentFiles] = useState<UploadedRegistrationFile[]>([]);
+  const [workPhotos, setWorkPhotos] = useState<UploadedRegistrationFile[]>([]);
+  const [selectedMedia, setSelectedMedia] = useState<{ src: string; kind: 'image' | 'video' } | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
   const [uploading, setUploading] = useState({
     documents: false,
@@ -103,7 +107,12 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
     updateUploadState('documents', true, `Загружаем ${files.length} файл(а) документов...`);
     try {
       const uploaded = await Promise.all(files.map(file => uploadMediaFile(file)));
-      setDocumentFiles(prev => [...prev, ...uploaded.map(file => ({ name: file.name, key: file.key }))]);
+      setDocumentFiles(prev => [...prev, ...uploaded.map(file => ({
+        name: file.name,
+        key: file.key,
+        kind: file.kind,
+        previewUrl: file.previewUrl,
+      }))]);
       updateUploadState('documents', false, files.length === 1 ? 'Документ загружен' : 'Документы загружены');
     } catch (err) {
       console.error('Failed to upload documents:', err);
@@ -115,13 +124,23 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
   };
 
   const handleWorkPhotosUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []).slice(0, selectedProfile === 'partner' ? 3 : 10);
-    if (!files.length) return;
+    const limit = selectedProfile === 'partner' ? 3 : 10;
+    const availableSlots = Math.max(limit - workPhotos.length, 0);
+    const files = Array.from(e.target.files || []).slice(0, availableSlots);
+    if (!files.length) {
+      e.target.value = '';
+      return;
+    }
 
     updateUploadState('photos', true, `Загружаем ${files.length} фото...`);
     try {
       const uploaded = await Promise.all(files.map(file => uploadMediaFile(file)));
-      setWorkPhotos(prev => [...prev, ...uploaded.map(file => ({ name: file.name, key: file.key }))]);
+      setWorkPhotos(prev => [...prev, ...uploaded.map(file => ({
+        name: file.name,
+        key: file.key,
+        kind: file.kind,
+        previewUrl: file.previewUrl,
+      }))]);
       updateUploadState('photos', false, files.length === 1 ? 'Фото загружено' : 'Фотографии загружены');
     } catch (err) {
       console.error('Failed to upload work photos:', err);
@@ -179,6 +198,19 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
     setLogoPreview(null);
     setLogoKey('');
     setUploadFeedback(current => ({ ...current, logo: null }));
+  };
+
+  const logoFiles: UploadedFileItem[] = logoPreview && logoKey
+    ? [{ name: 'Логотип', key: logoKey, kind: 'image', previewUrl: logoPreview }]
+    : [];
+
+  const openUploadedFile = (file: UploadedFileItem) => {
+    const src = getUploadedFilePreviewSource(file);
+    if (!src) return;
+    const kind = inferUploadedFileKind(src || file.name || file.key);
+    if (kind === 'image' || kind === 'video') {
+      setSelectedMedia({ src, kind });
+    }
   };
 
   const toggleService = (service: string) => {
@@ -430,39 +462,28 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
           {fieldErrors.unp && <p className="text-xs text-red-500 mb-4">{fieldErrors.unp}</p>}
 
           <label className="block text-sm font-medium text-gray-700 mb-2">Фото документов юридического лица <span className="text-red-500">*</span></label>
-          <label className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors cursor-pointer mb-4">
+          <label className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors cursor-pointer mb-3">
             {uploading.documents ? <Loader2 className="w-6 h-6 mb-1 animate-spin text-blue-500" /> : <Upload className="w-6 h-6 mb-1" />}
             <span className="text-xs">{uploading.documents ? 'Загружаем...' : 'Загрузить скан/фото'}</span>
             <input
               type="file"
-              accept="image/*,.pdf"
+              accept="image/*,video/*,.pdf"
               multiple
               onChange={handleDocumentUpload}
               disabled={uploading.documents}
               className="hidden"
             />
           </label>
+          <UploadedFilesGrid
+            files={documentFiles}
+            onRemove={removeDocumentFile}
+            onPreview={openUploadedFile}
+            className="mb-4"
+          />
           {uploadFeedback.documents && (
             <p className={`text-xs mb-4 ${uploadFeedback.documents.startsWith('Не удалось') ? 'text-red-500' : 'text-gray-500'}`}>
               {uploadFeedback.documents}
             </p>
-          )}
-          {documentFiles.length > 0 && (
-            <div className="text-xs text-gray-500 mb-4 space-y-1">
-              {documentFiles.map(file => (
-                <div key={file.key} className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2">
-                  <span className="min-w-0 truncate">{file.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeDocumentFile(file.key)}
-                    aria-label={`Удалить ${file.name}`}
-                    className="shrink-0 rounded-full p-1 text-red-500 hover:bg-red-50 active:scale-95 transition"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
           )}
           {fieldErrors.documents && <p className="text-xs text-red-500 mb-4">{fieldErrors.documents}</p>}
         </div>
@@ -475,31 +496,17 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
           {(selectedProfile === 'pro' || selectedProfile === 'leader') && (
             <>
               <label className="block text-sm font-medium text-gray-700 mb-2">Логотип</label>
-              <label className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors mb-4 cursor-pointer relative overflow-hidden">
-                {logoPreview ? (
-                  <>
-                    <img src={logoPreview} alt="Логотип" className="absolute inset-0 w-full h-full object-contain p-2" />
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        removeLogo();
-                      }}
-                      aria-label="Удалить логотип"
-                      className="absolute right-2 top-2 z-10 rounded-full bg-white p-1 text-red-500 shadow-sm hover:bg-red-50 active:scale-95 transition"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    {uploading.logo ? <Loader2 className="w-6 h-6 mb-1 animate-spin text-blue-500" /> : <Upload className="w-6 h-6 mb-1" />}
-                    <span className="text-xs">{uploading.logo ? 'Загружаем...' : 'Загрузить логотип'}</span>
-                  </>
-                )}
+              <label className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors mb-3 cursor-pointer">
+                {uploading.logo ? <Loader2 className="w-6 h-6 mb-1 animate-spin text-blue-500" /> : <Upload className="w-6 h-6 mb-1" />}
+                <span className="text-xs">{uploading.logo ? 'Загружаем...' : 'Загрузить логотип'}</span>
                 <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploading.logo} className="hidden" />
               </label>
+              <UploadedFilesGrid
+                files={logoFiles}
+                onRemove={removeLogo}
+                onPreview={openUploadedFile}
+                className="mb-4"
+              />
               {uploadFeedback.logo && (
                 <p className={`text-xs mb-4 ${uploadFeedback.logo.startsWith('Не удалось') ? 'text-red-500' : 'text-gray-500'}`}>
                   {uploadFeedback.logo}
@@ -512,40 +519,29 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
           <textarea rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="Кратко опишите оказываемые услуги и ваши преимущества" className={`w-full rounded-lg p-3 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none ${fieldErrors.description ? 'border-2 border-red-300 mb-1' : 'border border-gray-300 mb-4'}`}></textarea>
           {fieldErrors.description && <p className="text-xs text-red-500 mb-4">{fieldErrors.description}</p>}
 
-          <label className="block text-sm font-medium text-gray-700 mb-2">Фото работ (до {selectedProfile === 'partner' ? '3' : '10'} шт)</label>
-          <label className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors mb-4 cursor-pointer">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Фото и видео работ (до {selectedProfile === 'partner' ? '3' : '10'} шт)</label>
+          <label className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors mb-3 cursor-pointer">
             {uploading.photos ? <Loader2 className="w-6 h-6 mb-1 animate-spin text-blue-500" /> : <Upload className="w-6 h-6 mb-1" />}
             <span className="text-xs">{uploading.photos ? 'Загружаем...' : 'Загрузить фото'}</span>
             <input
               type="file"
-              accept="image/*"
+              accept="image/*,video/*"
               multiple
               onChange={handleWorkPhotosUpload}
               disabled={uploading.photos}
               className="hidden"
             />
           </label>
+          <UploadedFilesGrid
+            files={workPhotos}
+            onRemove={removeWorkPhoto}
+            onPreview={openUploadedFile}
+            className="mb-4"
+          />
           {uploadFeedback.photos && (
             <p className={`text-xs mb-4 ${uploadFeedback.photos.startsWith('Не удалось') ? 'text-red-500' : 'text-gray-500'}`}>
               {uploadFeedback.photos}
             </p>
-          )}
-          {workPhotos.length > 0 && (
-            <div className="text-xs text-gray-500 mb-4 space-y-1">
-              {workPhotos.map(file => (
-                <div key={file.key} className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2">
-                  <span className="min-w-0 truncate">{file.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeWorkPhoto(file.key)}
-                    aria-label={`Удалить ${file.name}`}
-                    className="shrink-0 rounded-full p-1 text-red-500 hover:bg-red-50 active:scale-95 transition"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
           )}
 
           {selectedProfile === 'leader' && (
@@ -670,6 +666,39 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
         onSelect={setSelectedRegions}
         multiSelect={true}
       />
+
+      {selectedMedia && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 max-w-md mx-auto w-full"
+          onClick={() => setSelectedMedia(null)}
+        >
+          <button
+            type="button"
+            className="absolute top-4 right-4 z-10 text-white hover:text-gray-300 p-2 bg-black/50 rounded-full transition-colors"
+            onClick={() => setSelectedMedia(null)}
+            aria-label="Закрыть просмотр"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <div className="relative w-full h-full flex items-center justify-center">
+            {selectedMedia.kind === 'video' ? (
+              <video
+                src={selectedMedia.src}
+                controls
+                className="max-w-full max-h-full rounded-lg shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+              />
+            ) : (
+              <img
+                src={selectedMedia.src}
+                alt="Просмотр файла"
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

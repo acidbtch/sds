@@ -20,6 +20,13 @@ import { uploadMediaFile } from '../lib/media';
 import { getFaqItemsForEditor, insertEditorBullet, insertFaqBullet, saveFaqEditorItem } from '../lib/faqEditor';
 import { SUPPORT_CHAT_BUBBLE_BASE_CLASS, SUPPORT_CHAT_MESSAGE_TEXT_CLASS } from '../lib/supportChatLayout';
 import { getSupportTicketUserLabel } from '../lib/supportTicketDisplay';
+import UploadedFilesGrid from './UploadedFilesGrid';
+import {
+  areUploadedFilesEqual,
+  getUploadedFilePreviewSource,
+  inferUploadedFileKind,
+  type UploadedFileItem,
+} from '../lib/uploadedFiles';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -1353,6 +1360,7 @@ function BannersView({ banners, setBanners, contractors, setContractors }: { ban
 function ModerationView({ moderation, setModeration, contractors, setContractors, banners, setBanners }: { moderation: any[], setModeration: any, contractors: any[], setContractors: any, banners: any[], setBanners: any }) {
   const { refreshAdminData } = useData();
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<{ src: string; kind: 'image' | 'video' } | null>(null);
 
   const handleAction = async (id: number, action: 'approve' | 'reject') => {
     const request = moderation.find(m => m.id === id);
@@ -1373,6 +1381,15 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
     const isEdit = selectedRequest.type === 'edit';
     const data = selectedRequest.data;
     const oldData = selectedRequest.oldData || {};
+
+    const openUploadedFile = (file: UploadedFileItem) => {
+      const src = getUploadedFilePreviewSource(file);
+      if (!src) return;
+      const kind = inferUploadedFileKind(src || file.name || file.key);
+      if (kind === 'image' || kind === 'video') {
+        setSelectedMedia({ src, kind });
+      }
+    };
 
     const renderField = (label: string, key: string, isArray: boolean = false) => {
       const newValue = isArray ? data[key]?.join(', ') : data[key];
@@ -1395,6 +1412,48 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
             </div>
           ) : (
             <div className="text-sm text-gray-900 bg-gray-50 p-2 rounded-lg border border-gray-100">{newValue || '—'}</div>
+          )}
+        </div>
+      );
+    };
+
+    const renderFileList = (files: UploadedFileItem[] = [], tone: 'default' | 'old' | 'new' = 'default') => {
+      if (files.length === 0) {
+        return <div className="text-sm text-gray-500">—</div>;
+      }
+
+      return (
+        <UploadedFilesGrid
+          files={files}
+          onPreview={openUploadedFile}
+          className={tone === 'old' ? 'opacity-75' : ''}
+        />
+      );
+    };
+
+    const renderFileField = (label: string, key: string) => {
+      const newFiles = Array.isArray(data[key]) ? data[key] : [];
+      const oldFiles = Array.isArray(oldData[key]) ? oldData[key] : [];
+      const isChanged = isEdit && !areUploadedFilesEqual(oldFiles, newFiles);
+
+      return (
+        <div className="mb-4">
+          <label className="block text-xs text-gray-500 mb-1">{label}</label>
+          {isChanged ? (
+            <div className="space-y-1">
+              <div className="bg-red-50 p-2 rounded-lg border border-red-100">
+                <div className="text-[11px] font-bold text-red-500 mb-2">Было</div>
+                {renderFileList(oldFiles, 'old')}
+              </div>
+              <div className="bg-green-50 p-2 rounded-lg border border-green-200">
+                <div className="text-[11px] font-bold text-green-600 mb-2">Стало</div>
+                {renderFileList(newFiles, 'new')}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+              {renderFileList(newFiles)}
+            </div>
           )}
         </div>
       );
@@ -1450,33 +1509,9 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
           </div>
 
           <h3 className="font-bold text-gray-900 mt-6 mb-4 border-b pb-2">Медиафайлы</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
-            <div className="border border-gray-200 rounded-lg p-3 flex flex-col items-center justify-center text-center">
-              <div className="w-12 h-12 bg-[#E8EDF2] rounded-lg flex items-center justify-center mb-2">
-                <FileText className="w-6 h-6 text-gray-500" />
-              </div>
-              <span className="text-xs text-gray-700 font-medium">Документы юр. лица</span>
-              <button className="text-blue-500 text-xs mt-1 hover:underline">Просмотреть</button>
-            </div>
-            
-            {(selectedRequest.profile === 'leader' || selectedRequest.profile === 'pro' || selectedRequest.profile === 'Лидер' || selectedRequest.profile === 'Профи') && (
-              <div className="border border-gray-200 rounded-lg p-3 flex flex-col items-center justify-center text-center">
-                <div className="w-12 h-12 bg-[#E8EDF2] rounded-lg flex items-center justify-center mb-2">
-                  <ImageIcon className="w-6 h-6 text-gray-500" />
-                </div>
-                <span className="text-xs text-gray-700 font-medium">Логотип</span>
-                <button className="text-blue-500 text-xs mt-1 hover:underline">Просмотреть</button>
-              </div>
-            )}
-
-            <div className="border border-gray-200 rounded-lg p-3 flex flex-col items-center justify-center text-center">
-              <div className="w-12 h-12 bg-[#E8EDF2] rounded-lg flex items-center justify-center mb-2">
-                <ImageIcon className="w-6 h-6 text-gray-500" />
-              </div>
-              <span className="text-xs text-gray-700 font-medium">Фото работ (5)</span>
-              <button className="text-blue-500 text-xs mt-1 hover:underline">Просмотреть</button>
-            </div>
-          </div>
+          {renderFileField('Документы юридического лица', 'legalDocumentFiles')}
+          {renderFileField('Логотип', 'logoFiles')}
+          {renderFileField('Фото и видео работ', 'portfolioPhotoFiles')}
 
           <div className="flex gap-3 mt-6">
             <button onClick={() => handleAction(selectedRequest.id, 'reject')} className="flex-1 bg-red-100 text-red-600 text-sm font-bold py-3 rounded-xl hover:bg-red-200 transition-colors">
@@ -1487,6 +1522,39 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
             </button>
           </div>
         </div>
+
+        {selectedMedia && (
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 max-w-md mx-auto w-full"
+            onClick={() => setSelectedMedia(null)}
+          >
+            <button
+              type="button"
+              className="absolute top-4 right-4 z-10 text-white hover:text-gray-300 p-2 bg-black/50 rounded-full transition-colors"
+              onClick={() => setSelectedMedia(null)}
+              aria-label="Закрыть просмотр"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <div className="relative w-full h-full flex items-center justify-center">
+              {selectedMedia.kind === 'video' ? (
+                <video
+                  src={selectedMedia.src}
+                  controls
+                  className="max-w-full max-h-full rounded-lg shadow-2xl"
+                  onClick={(event) => event.stopPropagation()}
+                />
+              ) : (
+                <img
+                  src={selectedMedia.src}
+                  alt="Просмотр файла"
+                  className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                  onClick={(event) => event.stopPropagation()}
+                />
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

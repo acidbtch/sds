@@ -179,7 +179,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!options.force && user?.role !== 'ADMIN') return;
 
     try {
-      const [usersResult, executorsResult, ordersResult, paymentsResult, bannersResult, faqResult, contentResult, brandsResult, categoriesResult, supportResult] = await Promise.allSettled([
+      const [usersResult, executorsResult, ordersResult, paymentsResult, bannersResult, faqResult, contentResult, brandsResult, categoriesResult, supportResult, regionsResult] = await Promise.allSettled([
         adminApi.getUsers(),
         adminApi.getExecutors(),
         adminApi.getOrders(),
@@ -190,6 +190,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         adminApi.getCarBrands(),
         adminApi.getServiceCategories(),
         adminApi.getSupportTickets(),
+        dictsApi.getRegions(),
       ]);
 
       const usersData = getFulfilledAdminData(usersResult, 'users');
@@ -202,6 +203,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const brandsData = getFulfilledAdminData(brandsResult, 'car brands');
       const categoriesData = getFulfilledAdminData(categoriesResult, 'service categories');
       const supportData = getFulfilledAdminData(supportResult, 'support tickets');
+      const moderationRegionsData = getFulfilledAdminData(regionsResult, 'regions');
 
       const mappedOrders = ordersData !== undefined
         ? (ordersData || []).map(mapOrderFromApi)
@@ -246,7 +248,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         setModeration((executorsData || [])
           .filter((c: any) => c.moderation_status === 'PENDING')
-          .map(mapExecutorModerationFromApi));
+          .map((c: any, index: number) => mapExecutorModerationFromApi(c, index, {
+            services: categoriesData || [],
+            regions: moderationRegionsData || [],
+          })));
       }
 
       if (mappedOrders !== undefined) {

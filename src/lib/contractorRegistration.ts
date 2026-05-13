@@ -33,6 +33,8 @@ export interface ContractorRegistrationFormForValidation {
 export interface UploadedRegistrationFile {
   name: string;
   key: string;
+  kind?: 'image' | 'video' | 'file';
+  previewUrl?: string;
 }
 
 export function removeUploadedRegistrationFile(files: UploadedRegistrationFile[], key: string) {

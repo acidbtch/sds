@@ -13,6 +13,13 @@ import { REGIONS_DATA as FALLBACK_REGIONS } from '../data/regions';
 import { formatBelarusPhoneInput, isBelarusPhoneComplete } from '../lib/phoneInput';
 import { expandSelectedRegionsForApi, formatRegionValue } from '../lib/regionSelection';
 import { normalizeNamedList } from '../lib/profileDisplay';
+import UploadedFilesGrid from './UploadedFilesGrid';
+import {
+  getUploadedFilePreviewSource,
+  inferUploadedFileKind,
+  normalizeUploadedFiles,
+  type UploadedFileItem,
+} from '../lib/uploadedFiles';
 import {
   buildExecutorProfileUpdatePayload,
   getExecutorProfileModerationResult,
@@ -69,42 +76,8 @@ const defaultFormData: ExecutorProfileFormData = {
   portfolioPhotoFiles: [],
 };
 
-function getFileName(value: unknown, fallback: string) {
-  if (!value) return fallback;
-  const text = String(value);
-  const clean = text.split('?')[0].split('#')[0];
-  return clean.split('/').filter(Boolean).pop() || fallback;
-}
-
 function normalizeProfileFiles(keys: any, resolvedFiles: any, fallbackPrefix: string) {
-  const keyList = Array.isArray(keys) ? keys : [];
-  const resolvedList = Array.isArray(resolvedFiles) ? resolvedFiles : [];
-
-  if (keyList.length > 0) {
-    return keyList.map((key: any, index: number) => {
-      const resolved = resolvedList[index];
-      const resolvedName = typeof resolved === 'object' ? resolved?.name || resolved?.filename : null;
-
-      return {
-        key: String(key),
-        name: resolvedName || getFileName(key, `${fallbackPrefix} ${index + 1}`),
-      };
-    });
-  }
-
-  return resolvedList.map((file: any, index: number) => {
-    const key = typeof file === 'object'
-      ? file?.key || file?.file_key || file?.url || file?.href
-      : file;
-    const name = typeof file === 'object'
-      ? file?.name || file?.filename || getFileName(key, `${fallbackPrefix} ${index + 1}`)
-      : getFileName(file, `${fallbackPrefix} ${index + 1}`);
-
-    return {
-      key: String(key || ''),
-      name,
-    };
-  }).filter(file => file.key);
+  return normalizeUploadedFiles({ keys, resolvedFiles, fallbackPrefix });
 }
 
 const mapProfileToForm = (p: any): ExecutorProfileFormData => ({
@@ -180,6 +153,7 @@ export default function ContractorCabinet({ onNavigate }: Props) {
   // UI
   const [isRegionModalOpen, setIsRegionModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<{ src: string; kind: 'image' | 'video' } | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>('');
 
   // Derived
@@ -207,6 +181,15 @@ export default function ContractorCabinet({ onNavigate }: Props) {
     pro: 'bg-blue-500 text-white',
     partner: 'bg-[#0F2846] text-white',
   } as const;
+
+  const editLogoFiles: UploadedFileItem[] = editForm.logo
+    ? [{
+        name: 'Логотип',
+        key: editForm.logoKey || editForm.logo,
+        kind: 'image',
+        previewUrl: logoPreview || editForm.logo,
+      }]
+    : [];
 
   // --- Load profile on mount ---
   useEffect(() => {
@@ -376,7 +359,12 @@ export default function ContractorCabinet({ onNavigate }: Props) {
         ...current,
         legalDocumentFiles: [
           ...current.legalDocumentFiles,
-          ...uploaded.map(file => ({ name: file.name, key: file.key })),
+          ...uploaded.map(file => ({
+            name: file.name,
+            key: file.key,
+            kind: file.kind,
+            previewUrl: file.previewUrl,
+          })),
         ],
       }));
       updateUploadState('documents', false, files.length === 1 ? 'Документ загружен' : 'Документы загружены');
@@ -404,7 +392,12 @@ export default function ContractorCabinet({ onNavigate }: Props) {
         ...current,
         portfolioPhotoFiles: [
           ...current.portfolioPhotoFiles,
-          ...uploaded.map(file => ({ name: file.name, key: file.key })),
+          ...uploaded.map(file => ({
+            name: file.name,
+            key: file.key,
+            kind: file.kind,
+            previewUrl: file.previewUrl,
+          })),
         ],
       }));
       updateUploadState('photos', false, files.length === 1 ? 'Фото загружено' : 'Фотографии загружены');
@@ -418,6 +411,37 @@ export default function ContractorCabinet({ onNavigate }: Props) {
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEditForm({ ...editForm, phone: formatBelarusPhoneInput(e.target.value) });
+  };
+
+  const removeDocumentFile = (key: string) => {
+    setEditForm(current => ({
+      ...current,
+      legalDocumentFiles: current.legalDocumentFiles.filter(file => file.key !== key),
+    }));
+    setUploadFeedback(current => ({ ...current, documents: null }));
+  };
+
+  const removeWorkPhoto = (key: string) => {
+    setEditForm(current => ({
+      ...current,
+      portfolioPhotoFiles: current.portfolioPhotoFiles.filter(file => file.key !== key),
+    }));
+    setUploadFeedback(current => ({ ...current, photos: null }));
+  };
+
+  const removeLogo = () => {
+    setLogoPreview('');
+    setEditForm(current => ({ ...current, logo: '', logoKey: '' }));
+    setUploadFeedback(current => ({ ...current, logo: null }));
+  };
+
+  const openUploadedFile = (file: UploadedFileItem) => {
+    const src = getUploadedFilePreviewSource(file);
+    if (!src) return;
+    const kind = inferUploadedFileKind(src || file.name || file.key);
+    if (kind === 'image' || kind === 'video') {
+      setSelectedMedia({ src, kind });
+    }
   };
 
   const isFormValid =
@@ -1037,29 +1061,28 @@ export default function ContractorCabinet({ onNavigate }: Props) {
                   )}
                   <div className="pt-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Фото документов юридического лица <span className="text-red-500">*</span></label>
-                    <label className={`w-full border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors cursor-pointer mb-4 ${showErrors && editForm.legalDocumentFiles.length === 0 ? 'border-red-500' : 'border-gray-300'}`}>
+                    <label className={`w-full border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors cursor-pointer mb-3 ${showErrors && editForm.legalDocumentFiles.length === 0 ? 'border-red-500' : 'border-gray-300'}`}>
                       {uploading.documents ? <Loader2 className="w-6 h-6 mb-1 animate-spin text-blue-500" /> : <Upload className="w-6 h-6 mb-1" />}
                       <span className="text-xs">{uploading.documents ? 'Загружаем...' : 'Загрузить скан/фото'}</span>
                       <input
                         type="file"
-                        accept="image/*,.pdf"
+                        accept="image/*,video/*,.pdf"
                         multiple
                         onChange={handleDocumentUpload}
                         disabled={uploading.documents}
                         className="hidden"
                       />
                     </label>
+                    <UploadedFilesGrid
+                      files={editForm.legalDocumentFiles}
+                      onRemove={removeDocumentFile}
+                      onPreview={openUploadedFile}
+                      className="mb-4"
+                    />
                     {uploadFeedback.documents && (
                       <p className={`text-xs mb-4 ${uploadFeedback.documents.startsWith('Не удалось') ? 'text-red-500' : 'text-gray-500'}`}>
                         {uploadFeedback.documents}
                       </p>
-                    )}
-                    {editForm.legalDocumentFiles.length > 0 && (
-                      <div className="text-xs text-gray-500 mb-4 space-y-1">
-                        {editForm.legalDocumentFiles.map(file => (
-                          <div key={file.key}>{file.name}</div>
-                        ))}
-                      </div>
                     )}
                     {showErrors && editForm.legalDocumentFiles.length === 0 && (
                       <p className="text-xs text-red-500 mb-4">Загрузите документы юридического лица</p>
@@ -1068,17 +1091,17 @@ export default function ContractorCabinet({ onNavigate }: Props) {
                     {(editForm.profileType === 'pro' || editForm.profileType === 'leader') && (
                       <>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Логотип</label>
-                        <label className="w-full min-h-24 border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors mb-4 cursor-pointer relative overflow-hidden">
-                          {(logoPreview || editForm.logo) ? (
-                            <img src={logoPreview || editForm.logo} alt="Логотип" className="absolute inset-0 w-full h-full object-contain p-2" />
-                          ) : (
-                            <>
-                              {uploading.logo ? <Loader2 className="w-6 h-6 mb-1 animate-spin text-blue-500" /> : <Upload className="w-6 h-6 mb-1" />}
-                              <span className="text-xs">{uploading.logo ? 'Загружаем...' : 'Загрузить логотип'}</span>
-                            </>
-                          )}
+                        <label className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors mb-3 cursor-pointer">
+                          {uploading.logo ? <Loader2 className="w-6 h-6 mb-1 animate-spin text-blue-500" /> : <Upload className="w-6 h-6 mb-1" />}
+                          <span className="text-xs">{uploading.logo ? 'Загружаем...' : 'Загрузить логотип'}</span>
                           <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploading.logo} className="hidden" />
                         </label>
+                        <UploadedFilesGrid
+                          files={editLogoFiles}
+                          onRemove={removeLogo}
+                          onPreview={openUploadedFile}
+                          className="mb-4"
+                        />
                         {uploadFeedback.logo && (
                           <p className={`text-xs mb-4 ${uploadFeedback.logo.startsWith('Не удалось') ? 'text-red-500' : 'text-gray-500'}`}>
                             {uploadFeedback.logo}
@@ -1087,30 +1110,29 @@ export default function ContractorCabinet({ onNavigate }: Props) {
                       </>
                     )}
 
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Фото работ (до {editForm.profileType === 'partner' ? '3' : '10'} шт)</label>
-                    <label className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors mb-4 cursor-pointer">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Фото и видео работ (до {editForm.profileType === 'partner' ? '3' : '10'} шт)</label>
+                    <label className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors mb-3 cursor-pointer">
                       {uploading.photos ? <Loader2 className="w-6 h-6 mb-1 animate-spin text-blue-500" /> : <Upload className="w-6 h-6 mb-1" />}
                       <span className="text-xs">{uploading.photos ? 'Загружаем...' : 'Загрузить фото'}</span>
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/*,video/*"
                         multiple
                         onChange={handleWorkPhotosUpload}
                         disabled={uploading.photos}
                         className="hidden"
                       />
                     </label>
+                    <UploadedFilesGrid
+                      files={editForm.portfolioPhotoFiles}
+                      onRemove={removeWorkPhoto}
+                      onPreview={openUploadedFile}
+                      className="mb-4"
+                    />
                     {uploadFeedback.photos && (
                       <p className={`text-xs mb-4 ${uploadFeedback.photos.startsWith('Не удалось') ? 'text-red-500' : 'text-gray-500'}`}>
                         {uploadFeedback.photos}
                       </p>
-                    )}
-                    {editForm.portfolioPhotoFiles.length > 0 && (
-                      <div className="text-xs text-gray-500 mb-4 space-y-1">
-                        {editForm.portfolioPhotoFiles.map(file => (
-                          <div key={file.key}>{file.name}</div>
-                        ))}
-                      </div>
                     )}
                   </div>
 
@@ -1249,6 +1271,40 @@ export default function ContractorCabinet({ onNavigate }: Props) {
         onSelect={(regions) => setEditForm({ ...editForm, regions })}
         multiSelect={true}
       />
+
+      {/* Uploaded Media Modal */}
+      {selectedMedia && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 max-w-md mx-auto w-full"
+          onClick={() => setSelectedMedia(null)}
+        >
+          <button
+            type="button"
+            className="absolute top-4 right-4 z-10 text-white hover:text-gray-300 p-2 bg-black/50 rounded-full transition-colors"
+            onClick={() => setSelectedMedia(null)}
+            aria-label="Закрыть просмотр"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <div className="relative w-full h-full flex items-center justify-center">
+            {selectedMedia.kind === 'video' ? (
+              <video
+                src={selectedMedia.src}
+                controls
+                className="max-w-full max-h-full rounded-lg shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+              />
+            ) : (
+              <img
+                src={selectedMedia.src}
+                alt="Просмотр файла"
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Image Modal */}
       {selectedImage && (

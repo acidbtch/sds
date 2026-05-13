@@ -11,6 +11,8 @@ import { uploadMediaFile } from '../lib/media';
 import { getServicesForCategory, resetServicesForCategoryChange } from '../lib/orderServiceSelection';
 import { formatBelarusPhoneInput, isBelarusPhoneComplete } from '../lib/phoneInput';
 import { stripFormattedRegionValue } from '../lib/regionSelection';
+import UploadedFilesGrid from './UploadedFilesGrid';
+import { getUploadedFilePreviewSource, inferUploadedFileKind, type UploadedFileItem } from '../lib/uploadedFiles';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -44,7 +46,8 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
   const [regionIdByName, setRegionIdByName] = useState<Record<string, string>>({});
   
   // Media states
-  const [attachments, setAttachments] = useState<{ key: string; previewUrl: string; type: 'image' | 'video' }[]>([]);
+  const [attachments, setAttachments] = useState<(UploadedFileItem & { type: 'image' | 'video' })[]>([]);
+  const [selectedMedia, setSelectedMedia] = useState<{ src: string; kind: 'image' | 'video' } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatusText, setUploadStatusText] = useState<string | null>(null);
   
@@ -67,7 +70,13 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
         const file = files[i];
 
         const uploaded = await uploadMediaFile(file);
-        newAttachments.push({ key: uploaded.key, previewUrl: uploaded.previewUrl, type });
+        newAttachments.push({
+          key: uploaded.key,
+          name: uploaded.name,
+          kind: type,
+          previewUrl: uploaded.previewUrl,
+          type,
+        });
       }
       setAttachments(newAttachments);
       setUploadStatusText(files.length === 1 ? 'Файл загружен' : 'Файлы загружены');
@@ -82,8 +91,17 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
     }
   };
 
-  const removeAttachment = (index: number) => {
-    setAttachments(prev => prev.filter((_, i) => i !== index));
+  const removeAttachment = (key: string) => {
+    setAttachments(prev => prev.filter(file => file.key !== key));
+  };
+
+  const openUploadedFile = (file: UploadedFileItem) => {
+    const src = getUploadedFilePreviewSource(file);
+    if (!src) return;
+    const kind = inferUploadedFileKind(src || file.name || file.key);
+    if (kind === 'image' || kind === 'video') {
+      setSelectedMedia({ src, kind });
+    }
   };
 
   useEffect(() => {
@@ -490,29 +508,6 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
           <label className="block text-sm font-medium text-gray-700 mb-1">Медиафайлы</label>
           <p className="text-xs text-gray-500 mb-3">Они помогут лучше оценить ваш заказ</p>
           
-          {attachments.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-3">
-              {attachments.map((file, idx) => (
-                <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
-                  {file.type === 'image' ? (
-                    <img src={file.previewUrl} alt="attachment" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                      <Video className="w-6 h-6 text-gray-400" />
-                    </div>
-                  )}
-                  <button 
-                    type="button" 
-                    onClick={() => removeAttachment(idx)}
-                    className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full p-0.5"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          
           <div className="flex gap-3">
             <label className="flex-1 border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-orange-500 hover:text-orange-500 transition-colors cursor-pointer">
               <input 
@@ -538,6 +533,12 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
               <span className="text-xs">Видео (1)</span>
             </label>
           </div>
+          <UploadedFilesGrid
+            files={attachments}
+            onRemove={removeAttachment}
+            onPreview={openUploadedFile}
+            className="mt-3"
+          />
           {uploadStatusText && (
             <p className={`mt-3 text-xs ${uploadStatusText.startsWith('Не удалось') ? 'text-red-500' : 'text-gray-500'}`}>
               {uploadStatusText}
@@ -569,6 +570,39 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
         onSelect={setSelectedRegions}
         isCustomer={true}
       />
+
+      {selectedMedia && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 max-w-md mx-auto w-full"
+          onClick={() => setSelectedMedia(null)}
+        >
+          <button
+            type="button"
+            className="absolute top-4 right-4 z-10 text-white hover:text-gray-300 p-2 bg-black/50 rounded-full transition-colors"
+            onClick={() => setSelectedMedia(null)}
+            aria-label="Закрыть просмотр"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <div className="relative w-full h-full flex items-center justify-center">
+            {selectedMedia.kind === 'video' ? (
+              <video
+                src={selectedMedia.src}
+                controls
+                className="max-w-full max-h-full rounded-lg shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+              />
+            ) : (
+              <img
+                src={selectedMedia.src}
+                alt="Просмотр файла"
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

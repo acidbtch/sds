@@ -1,6 +1,6 @@
 import { mediaApi } from './api';
 
-export type MediaKind = 'image' | 'video';
+export type MediaKind = 'image' | 'video' | 'file';
 
 export async function uploadMediaFile(file: File): Promise<{
   key: string;
@@ -14,7 +14,11 @@ export async function uploadMediaFile(file: File): Promise<{
   return {
     key: file_key,
     previewUrl: URL.createObjectURL(file),
-    kind: file.type.startsWith('video/') ? 'video' : 'image',
+    kind: file.type.startsWith('image/')
+      ? 'image'
+      : file.type.startsWith('video/')
+        ? 'video'
+        : 'file',
     name: file.name,
   };
 }
