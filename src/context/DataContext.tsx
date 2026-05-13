@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { Contractor, Order, ViewState } from '../types';
 import { dictsApi, miscApi, adminApi } from '../lib/api';
 import { mapAdminCustomerFromApi } from '../lib/adminCustomerOrders';
+import { mapExecutorModerationFromApi } from '../lib/executorModeration';
 import { mapOrderFromApi } from '../lib/orderMapping';
 import { useAuth } from './AuthContext';
 import { shouldRefreshAfterAppResume } from '../lib/appLifecycle';
@@ -245,29 +246,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         setModeration((executorsData || [])
           .filter((c: any) => c.moderation_status === 'PENDING')
-          .map((c: any, index: number) => ({
-            id: index + 1,
-            type: 'new' as const,
-            name: c.short_name || c.legal_name || '',
-            profile: (c.tier === 'LEADER' ? 'leader' : c.tier === 'PROFI' ? 'pro' : 'partner') as 'leader' | 'pro' | 'partner',
-            date: c.created_at ? new Date(c.created_at).toLocaleDateString('ru-RU') : '',
-            status: 'new' as const,
-            data: {
-              id: c.id,
-              legalStatus: c.legal_status,
-              name: c.legal_name,
-              unp: c.unp,
-              shortName: c.short_name,
-              description: c.description,
-              services: (c.services || []).map((s: any) => s.name),
-              regions: (c.regions || []).map((r: any) => r.name),
-              phone: c.phone,
-              instagram: c.instagram_url,
-              website: c.website_url,
-              logo: c.logo_url,
-            },
-            oldData: undefined,
-          })));
+          .map(mapExecutorModerationFromApi));
       }
 
       if (mappedOrders !== undefined) {

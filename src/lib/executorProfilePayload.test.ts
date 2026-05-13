@@ -23,6 +23,12 @@ const payload = buildExecutorProfileUpdatePayload(
     bannerText: '',
     logo: '',
     logoKey: 'logos/test.png',
+    legalDocumentFiles: [
+      { name: 'document.pdf', key: 'documents/document.pdf' },
+    ],
+    portfolioPhotoFiles: [
+      { name: 'work.jpg', key: 'portfolio/work.jpg' },
+    ],
   },
   ['service-1'],
   ['region-1'],
@@ -40,6 +46,8 @@ assert.equal(payload.instagram_url, 'https://instagram.com/test');
 assert.equal(payload.website_url, 'https://example.com');
 assert.deepEqual(payload.service_ids, ['service-1']);
 assert.deepEqual(payload.region_ids, ['region-1']);
+assert.deepEqual(payload.legal_document_keys, ['documents/document.pdf']);
+assert.deepEqual(payload.portfolio_photo_keys, ['portfolio/work.jpg']);
 
 assert.equal(
   getExecutorProfileModerationResult({ moderation_status: 'PENDING' }),

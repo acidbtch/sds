@@ -1,5 +1,10 @@
 export type ExecutorProfileType = 'partner' | 'pro' | 'leader';
 
+export interface ExecutorProfileFile {
+  name: string;
+  key: string;
+}
+
 export interface ExecutorProfileFormData {
   legalStatus: string;
   name: string;
@@ -18,6 +23,8 @@ export interface ExecutorProfileFormData {
   bannerText: string;
   logo: string;
   logoKey: string;
+  legalDocumentFiles: ExecutorProfileFile[];
+  portfolioPhotoFiles: ExecutorProfileFile[];
 }
 
 export function mapExecutorProfileTypeToApiTier(profileType: ExecutorProfileType) {
@@ -54,6 +61,8 @@ export function buildExecutorProfileUpdatePayload(
     tier: mapExecutorProfileTypeToApiTier(form.profileType),
     banner_text: form.bannerText || null,
     logo_key: form.logoKey || null,
+    legal_document_keys: form.legalDocumentFiles.map(file => file.key).filter(Boolean),
+    portfolio_photo_keys: form.portfolioPhotoFiles.map(file => file.key).filter(Boolean),
   };
 }
 

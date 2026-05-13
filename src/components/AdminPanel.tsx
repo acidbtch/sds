@@ -1384,8 +1384,14 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
           <label className="block text-xs text-gray-500 mb-1">{label}</label>
           {isChanged ? (
             <div className="space-y-1">
-              <div className="text-sm text-red-500 line-through bg-red-50 p-2 rounded-lg border border-red-100">{oldValue || '—'}</div>
-              <div className="text-sm text-green-600 font-medium bg-green-50 p-2 rounded-lg border border-green-200">{newValue || '—'}</div>
+              <div className="bg-red-50 p-2 rounded-lg border border-red-100">
+                <div className="text-[11px] font-bold text-red-500 mb-1">Было</div>
+                <div className="text-sm text-red-500 line-through">{oldValue || '—'}</div>
+              </div>
+              <div className="bg-green-50 p-2 rounded-lg border border-green-200">
+                <div className="text-[11px] font-bold text-green-600 mb-1">Стало</div>
+                <div className="text-sm text-green-600 font-medium">{newValue || '—'}</div>
+              </div>
             </div>
           ) : (
             <div className="text-sm text-gray-900 bg-gray-50 p-2 rounded-lg border border-gray-100">{newValue || '—'}</div>
@@ -1429,8 +1435,14 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
             <label className="block text-xs text-gray-500 mb-1">График работы</label>
             {isEdit && data.schedule !== oldData.schedule ? (
               <div className="space-y-1">
-                <div className="text-sm text-red-500 line-through bg-red-50 p-2 rounded-lg border border-red-100">{oldData.schedule ? formatSchedule(oldData.schedule) : '—'}</div>
-                <div className="text-sm text-green-600 font-medium bg-green-50 p-2 rounded-lg border border-green-200">{data.schedule ? formatSchedule(data.schedule) : '—'}</div>
+                <div className="bg-red-50 p-2 rounded-lg border border-red-100">
+                  <div className="text-[11px] font-bold text-red-500 mb-1">Было</div>
+                  <div className="text-sm text-red-500 line-through">{oldData.schedule ? formatSchedule(oldData.schedule) : '—'}</div>
+                </div>
+                <div className="bg-green-50 p-2 rounded-lg border border-green-200">
+                  <div className="text-[11px] font-bold text-green-600 mb-1">Стало</div>
+                  <div className="text-sm text-green-600 font-medium">{data.schedule ? formatSchedule(data.schedule) : '—'}</div>
+                </div>
               </div>
             ) : (
               <div className="text-sm text-gray-900 bg-gray-50 p-2 rounded-lg border border-gray-100">{data.schedule ? formatSchedule(data.schedule) : '—'}</div>

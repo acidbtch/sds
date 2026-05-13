@@ -65,7 +65,47 @@ const defaultFormData: ExecutorProfileFormData = {
   bannerText: '',
   logo: '',
   logoKey: '',
+  legalDocumentFiles: [],
+  portfolioPhotoFiles: [],
 };
+
+function getFileName(value: unknown, fallback: string) {
+  if (!value) return fallback;
+  const text = String(value);
+  const clean = text.split('?')[0].split('#')[0];
+  return clean.split('/').filter(Boolean).pop() || fallback;
+}
+
+function normalizeProfileFiles(keys: any, resolvedFiles: any, fallbackPrefix: string) {
+  const keyList = Array.isArray(keys) ? keys : [];
+  const resolvedList = Array.isArray(resolvedFiles) ? resolvedFiles : [];
+
+  if (keyList.length > 0) {
+    return keyList.map((key: any, index: number) => {
+      const resolved = resolvedList[index];
+      const resolvedName = typeof resolved === 'object' ? resolved?.name || resolved?.filename : null;
+
+      return {
+        key: String(key),
+        name: resolvedName || getFileName(key, `${fallbackPrefix} ${index + 1}`),
+      };
+    });
+  }
+
+  return resolvedList.map((file: any, index: number) => {
+    const key = typeof file === 'object'
+      ? file?.key || file?.file_key || file?.url || file?.href
+      : file;
+    const name = typeof file === 'object'
+      ? file?.name || file?.filename || getFileName(key, `${fallbackPrefix} ${index + 1}`)
+      : getFileName(file, `${fallbackPrefix} ${index + 1}`);
+
+    return {
+      key: String(key || ''),
+      name,
+    };
+  }).filter(file => file.key);
+}
 
 const mapProfileToForm = (p: any): ExecutorProfileFormData => ({
   legalStatus: p.legal_status || '',
@@ -85,6 +125,8 @@ const mapProfileToForm = (p: any): ExecutorProfileFormData => ({
   bannerText: p.banner_text || '',
   logo: p.logo_url || '',
   logoKey: p.logo_key || '',
+  legalDocumentFiles: normalizeProfileFiles(p.legal_document_keys, p.legal_documents, 'Документ'),
+  portfolioPhotoFiles: normalizeProfileFiles(p.portfolio_photo_keys, p.portfolio_photos, 'Фото'),
 });
 
 // --- Component ---
@@ -120,6 +162,20 @@ export default function ContractorCabinet({ onNavigate }: Props) {
   const [submissionError, setSubmissionError] = useState('');
   const [showErrors, setShowErrors] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
+  const [uploading, setUploading] = useState({
+    documents: false,
+    logo: false,
+    photos: false,
+  });
+  const [uploadFeedback, setUploadFeedback] = useState<{
+    documents: string | null;
+    logo: string | null;
+    photos: string | null;
+  }>({
+    documents: null,
+    logo: null,
+    photos: null,
+  });
 
   // UI
   const [isRegionModalOpen, setIsRegionModalOpen] = useState(false);
@@ -272,6 +328,17 @@ export default function ContractorCabinet({ onNavigate }: Props) {
 
   // --- Profile edit helpers ---
 
+  const updateUploadState = (
+    field: 'documents' | 'logo' | 'photos',
+    isActive: boolean,
+    message?: string | null
+  ) => {
+    setUploading((current) => ({ ...current, [field]: isActive }));
+    if (message !== undefined) {
+      setUploadFeedback((current) => ({ ...current, [field]: message }));
+    }
+  };
+
   const toggleCategoryExpand = (categoryId: string) => {
     setExpandedCategories(prev =>
       prev.includes(categoryId)
@@ -280,20 +347,72 @@ export default function ContractorCabinet({ onNavigate }: Props) {
     );
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      uploadMediaFile(file)
-        .then(uploaded => {
-          setLogoPreview(uploaded.previewUrl);
-          setEditForm({ ...editForm, logo: uploaded.previewUrl, logoKey: uploaded.key });
-        })
-        .catch(error => {
-          console.error('Failed to upload logo:', error);
-        })
-        .finally(() => {
-          e.target.value = '';
-        });
+    if (!file) return;
+
+    updateUploadState('logo', true, 'Загружаем логотип...');
+    try {
+      const uploaded = await uploadMediaFile(file);
+      setLogoPreview(uploaded.previewUrl);
+      setEditForm(current => ({ ...current, logo: uploaded.previewUrl, logoKey: uploaded.key }));
+      updateUploadState('logo', false, 'Логотип загружен');
+    } catch (error) {
+      console.error('Failed to upload logo:', error);
+      updateUploadState('logo', false, 'Не удалось загрузить логотип');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    updateUploadState('documents', true, `Загружаем ${files.length} файл(а) документов...`);
+    try {
+      const uploaded = await Promise.all(files.map(file => uploadMediaFile(file)));
+      setEditForm(current => ({
+        ...current,
+        legalDocumentFiles: [
+          ...current.legalDocumentFiles,
+          ...uploaded.map(file => ({ name: file.name, key: file.key })),
+        ],
+      }));
+      updateUploadState('documents', false, files.length === 1 ? 'Документ загружен' : 'Документы загружены');
+    } catch (error) {
+      console.error('Failed to upload documents:', error);
+      updateUploadState('documents', false, 'Не удалось загрузить документы');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const handleWorkPhotosUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const limit = editForm.profileType === 'partner' ? 3 : 10;
+    const availableSlots = Math.max(limit - editForm.portfolioPhotoFiles.length, 0);
+    const files = Array.from(e.target.files || []).slice(0, availableSlots);
+    if (!files.length) {
+      e.target.value = '';
+      return;
+    }
+
+    updateUploadState('photos', true, `Загружаем ${files.length} фото...`);
+    try {
+      const uploaded = await Promise.all(files.map(file => uploadMediaFile(file)));
+      setEditForm(current => ({
+        ...current,
+        portfolioPhotoFiles: [
+          ...current.portfolioPhotoFiles,
+          ...uploaded.map(file => ({ name: file.name, key: file.key })),
+        ],
+      }));
+      updateUploadState('photos', false, files.length === 1 ? 'Фото загружено' : 'Фотографии загружены');
+    } catch (error) {
+      console.error('Failed to upload work photos:', error);
+      updateUploadState('photos', false, 'Не удалось загрузить фотографии');
+    } finally {
+      e.target.value = '';
     }
   };
 
@@ -308,6 +427,7 @@ export default function ContractorCabinet({ onNavigate }: Props) {
     editForm.shortName.trim() !== '' &&
     editForm.description.trim() !== '' &&
     (editForm.profileType !== 'leader' || (editForm.bannerText && editForm.bannerText.trim() !== '')) &&
+    editForm.legalDocumentFiles.length > 0 &&
     editForm.services.length > 0 &&
     editForm.regions.length > 0 &&
     isBelarusPhoneComplete(editForm.phone);
@@ -916,30 +1036,82 @@ export default function ContractorCabinet({ onNavigate }: Props) {
                     </>
                   )}
                   <div className="pt-2">
-                    <label className="block text-xs text-gray-500 mb-2">Медиафайлы</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button type="button" className="border border-dashed border-gray-300 rounded-lg p-3 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors">
-                        <Upload className="w-5 h-5 mb-1" />
-                        <span className="text-[10px] text-center">Документы юр. лица</span>
-                      </button>
-                      {(editForm.profileType === 'pro' || editForm.profileType === 'leader') && (
-                        <label className="border border-dashed border-gray-300 rounded-lg p-3 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors cursor-pointer relative overflow-hidden">
-                                {(logoPreview || editForm.logo) ? (
-                                  <img src={logoPreview || editForm.logo} alt="Логотип" className="absolute inset-0 w-full h-full object-contain p-1" />
-                                ) : (
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Фото документов юридического лица <span className="text-red-500">*</span></label>
+                    <label className={`w-full border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors cursor-pointer mb-4 ${showErrors && editForm.legalDocumentFiles.length === 0 ? 'border-red-500' : 'border-gray-300'}`}>
+                      {uploading.documents ? <Loader2 className="w-6 h-6 mb-1 animate-spin text-blue-500" /> : <Upload className="w-6 h-6 mb-1" />}
+                      <span className="text-xs">{uploading.documents ? 'Загружаем...' : 'Загрузить скан/фото'}</span>
+                      <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        multiple
+                        onChange={handleDocumentUpload}
+                        disabled={uploading.documents}
+                        className="hidden"
+                      />
+                    </label>
+                    {uploadFeedback.documents && (
+                      <p className={`text-xs mb-4 ${uploadFeedback.documents.startsWith('Не удалось') ? 'text-red-500' : 'text-gray-500'}`}>
+                        {uploadFeedback.documents}
+                      </p>
+                    )}
+                    {editForm.legalDocumentFiles.length > 0 && (
+                      <div className="text-xs text-gray-500 mb-4 space-y-1">
+                        {editForm.legalDocumentFiles.map(file => (
+                          <div key={file.key}>{file.name}</div>
+                        ))}
+                      </div>
+                    )}
+                    {showErrors && editForm.legalDocumentFiles.length === 0 && (
+                      <p className="text-xs text-red-500 mb-4">Загрузите документы юридического лица</p>
+                    )}
+
+                    {(editForm.profileType === 'pro' || editForm.profileType === 'leader') && (
+                      <>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Логотип</label>
+                        <label className="w-full min-h-24 border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors mb-4 cursor-pointer relative overflow-hidden">
+                          {(logoPreview || editForm.logo) ? (
+                            <img src={logoPreview || editForm.logo} alt="Логотип" className="absolute inset-0 w-full h-full object-contain p-2" />
+                          ) : (
                             <>
-                              <Upload className="w-5 h-5 mb-1" />
-                              <span className="text-[10px] text-center">Логотип</span>
+                              {uploading.logo ? <Loader2 className="w-6 h-6 mb-1 animate-spin text-blue-500" /> : <Upload className="w-6 h-6 mb-1" />}
+                              <span className="text-xs">{uploading.logo ? 'Загружаем...' : 'Загрузить логотип'}</span>
                             </>
                           )}
-                          <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                          <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploading.logo} className="hidden" />
                         </label>
-                      )}
-                      <button type="button" className="border border-dashed border-gray-300 rounded-lg p-3 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors">
-                        <Upload className="w-5 h-5 mb-1" />
-                        <span className="text-[10px] text-center">Фото работ</span>
-                      </button>
-                    </div>
+                        {uploadFeedback.logo && (
+                          <p className={`text-xs mb-4 ${uploadFeedback.logo.startsWith('Не удалось') ? 'text-red-500' : 'text-gray-500'}`}>
+                            {uploadFeedback.logo}
+                          </p>
+                        )}
+                      </>
+                    )}
+
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Фото работ (до {editForm.profileType === 'partner' ? '3' : '10'} шт)</label>
+                    <label className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors mb-4 cursor-pointer">
+                      {uploading.photos ? <Loader2 className="w-6 h-6 mb-1 animate-spin text-blue-500" /> : <Upload className="w-6 h-6 mb-1" />}
+                      <span className="text-xs">{uploading.photos ? 'Загружаем...' : 'Загрузить фото'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleWorkPhotosUpload}
+                        disabled={uploading.photos}
+                        className="hidden"
+                      />
+                    </label>
+                    {uploadFeedback.photos && (
+                      <p className={`text-xs mb-4 ${uploadFeedback.photos.startsWith('Не удалось') ? 'text-red-500' : 'text-gray-500'}`}>
+                        {uploadFeedback.photos}
+                      </p>
+                    )}
+                    {editForm.portfolioPhotoFiles.length > 0 && (
+                      <div className="text-xs text-gray-500 mb-4 space-y-1">
+                        {editForm.portfolioPhotoFiles.map(file => (
+                          <div key={file.key}>{file.name}</div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {editForm.profileType === 'leader' && (
@@ -965,7 +1137,7 @@ export default function ContractorCabinet({ onNavigate }: Props) {
                     </button>
                     <button
                       type="submit"
-                      disabled={!isFormValid || !hasChanges || profileSaving}
+                      disabled={!hasChanges || profileSaving || uploading.documents || uploading.logo || uploading.photos}
                       className="flex-[2] bg-blue-500 text-white font-bold py-3 rounded-xl text-sm shadow-md active:scale-[0.98] transition-transform disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center gap-2"
                     >
                       {profileSaving && <Loader2 className="w-4 h-4 animate-spin" />}

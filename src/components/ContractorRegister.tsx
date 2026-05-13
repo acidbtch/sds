@@ -8,7 +8,12 @@ import { useData } from '../context/DataContext';
 import { executorApi, dictsApi } from '../lib/api';
 import { uploadMediaFile } from '../lib/media';
 import { ALL_BELARUS_LABEL, expandSelectedRegionsForApi } from '../lib/regionSelection';
-import { formatBelarusPhoneInput, isBelarusPhoneComplete } from '../lib/phoneInput';
+import { formatBelarusPhoneInput } from '../lib/phoneInput';
+import {
+  ContractorRegistrationFieldErrors,
+  removeUploadedRegistrationFile,
+  validateContractorRegistrationForm,
+} from '../lib/contractorRegistration';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -23,6 +28,7 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
   const [submitted, setSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<ContractorRegistrationFieldErrors>({});
   
   // Form state
   const [phone, setPhone] = useState(() => formatBelarusPhoneInput(''));
@@ -159,6 +165,22 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
     setPhone(formatBelarusPhoneInput(e.target.value));
   };
 
+  const removeDocumentFile = (key: string) => {
+    setDocumentFiles(current => removeUploadedRegistrationFile(current, key));
+    setUploadFeedback(current => ({ ...current, documents: null }));
+  };
+
+  const removeWorkPhoto = (key: string) => {
+    setWorkPhotos(current => removeUploadedRegistrationFile(current, key));
+    setUploadFeedback(current => ({ ...current, photos: null }));
+  };
+
+  const removeLogo = () => {
+    setLogoPreview(null);
+    setLogoKey('');
+    setUploadFeedback(current => ({ ...current, logo: null }));
+  };
+
   const toggleService = (service: string) => {
     setSelectedServices(prev => 
       prev.includes(service) 
@@ -169,8 +191,28 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setError(null);
+    const validation = validateContractorRegistrationForm({
+      selectedProfile,
+      legalStatus,
+      legalName,
+      unp,
+      shortName,
+      description,
+      bannerText,
+      selectedServices,
+      selectedRegions,
+      phone,
+      documentFilesCount: documentFiles.length,
+    });
+    setFieldErrors(validation.fields);
+
+    if (!validation.isValid) {
+      setError(validation.message);
+      return;
+    }
+
+    setIsLoading(true);
     
     try {
       const [allServices, allRegions] = await Promise.all([
@@ -192,6 +234,18 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
       const regionIds = allRegions
         .filter((r: any) => regionLookupNames.includes(r.name))
         .map((r: any) => r.id);
+
+      if (serviceIds.length === 0) {
+        setFieldErrors({ services: 'Не удалось определить выбранные услуги. Обновите страницу и выберите услуги заново.' });
+        setError('Не удалось определить выбранные услуги. Обновите страницу и выберите услуги заново.');
+        return;
+      }
+
+      if (regionIds.length === 0) {
+        setFieldErrors({ regions: 'Не удалось определить выбранный регион. Обновите страницу и выберите регион заново.' });
+        setError('Не удалось определить выбранный регион. Обновите страницу и выберите регион заново.');
+        return;
+      }
       
       const tierMap: Record<string, string> = {
         'partner': 'PARTNER',
@@ -217,6 +271,7 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
       };
       
       await executorApi.createProfile(profileData);
+      setFieldErrors({});
       setSubmitted(true);
     } catch (err: any) {
       console.error('Failed to register:', err);
@@ -337,11 +392,16 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
         <h1 className="text-xl font-bold text-gray-900">Регистрация: {selectedProfile === 'leader' ? 'Лидер' : selectedProfile === 'pro' ? 'Профи' : 'Партнер'}</h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-4 pb-64">
+      <form onSubmit={handleSubmit} noValidate className="p-4 flex flex-col gap-4 pb-64">
         <div className="bg-blue-50 p-4 rounded-xl flex items-start gap-3 border border-blue-100">
           <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-blue-800">Все данные проходят ручную модерацию. Убедитесь в корректности заполнения.</p>
         </div>
+        {error && (
+          <div className="bg-red-50 border border-red-100 text-red-600 text-sm font-medium p-3 rounded-xl">
+            {error}
+          </div>
+        )}
 
         <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-100">
           <label className="block text-sm font-medium text-gray-700 mb-1">Статус юридического лица <span className="text-red-500">*</span></label>
@@ -358,13 +418,16 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
               placeholder="Выберите статус"
               theme="blue"
             />
+            {fieldErrors.legalStatus && <p className="text-xs text-red-500 mt-1">{fieldErrors.legalStatus}</p>}
           </div>
 
           <label className="block text-sm font-medium text-gray-700 mb-1">Полное юридическое наименование <span className="text-red-500">*</span></label>
-          <input required type="text" value={legalName} onChange={e => setLegalName(e.target.value)} placeholder='ООО "АвтоСервис"' className="w-full border-gray-300 rounded-lg p-3 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none mb-4" />
+          <input type="text" value={legalName} onChange={e => setLegalName(e.target.value)} placeholder='ООО "АвтоСервис"' className={`w-full rounded-lg p-3 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none ${fieldErrors.legalName ? 'border-2 border-red-300 mb-1' : 'border border-gray-300 mb-4'}`} />
+          {fieldErrors.legalName && <p className="text-xs text-red-500 mb-4">{fieldErrors.legalName}</p>}
 
           <label className="block text-sm font-medium text-gray-700 mb-1">УНП <span className="text-red-500">*</span></label>
-          <input required type="text" value={unp} onChange={e => setUnp(e.target.value)} placeholder="123456789" className="w-full border-gray-300 rounded-lg p-3 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none mb-4" />
+          <input type="text" inputMode="numeric" value={unp} onChange={e => setUnp(e.target.value)} placeholder="123456789" className={`w-full rounded-lg p-3 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none ${fieldErrors.unp ? 'border-2 border-red-300 mb-1' : 'border border-gray-300 mb-4'}`} />
+          {fieldErrors.unp && <p className="text-xs text-red-500 mb-4">{fieldErrors.unp}</p>}
 
           <label className="block text-sm font-medium text-gray-700 mb-2">Фото документов юридического лица <span className="text-red-500">*</span></label>
           <label className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors cursor-pointer mb-4">
@@ -387,22 +450,48 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
           {documentFiles.length > 0 && (
             <div className="text-xs text-gray-500 mb-4 space-y-1">
               {documentFiles.map(file => (
-                <div key={file.key}>{file.name}</div>
+                <div key={file.key} className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2">
+                  <span className="min-w-0 truncate">{file.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeDocumentFile(file.key)}
+                    aria-label={`Удалить ${file.name}`}
+                    className="shrink-0 rounded-full p-1 text-red-500 hover:bg-red-50 active:scale-95 transition"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               ))}
             </div>
           )}
+          {fieldErrors.documents && <p className="text-xs text-red-500 mb-4">{fieldErrors.documents}</p>}
         </div>
 
         <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-100">
           <label className="block text-sm font-medium text-gray-700 mb-1">Краткое название (для приложения) <span className="text-red-500">*</span></label>
-          <input required type="text" value={shortName} onChange={e => setShortName(e.target.value)} placeholder="СТО Лидер" className="w-full border-gray-300 rounded-lg p-3 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none mb-4" />
+          <input type="text" value={shortName} onChange={e => setShortName(e.target.value)} placeholder="СТО Лидер" className={`w-full rounded-lg p-3 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none ${fieldErrors.shortName ? 'border-2 border-red-300 mb-1' : 'border border-gray-300 mb-4'}`} />
+          {fieldErrors.shortName && <p className="text-xs text-red-500 mb-4">{fieldErrors.shortName}</p>}
 
           {(selectedProfile === 'pro' || selectedProfile === 'leader') && (
             <>
               <label className="block text-sm font-medium text-gray-700 mb-2">Логотип</label>
               <label className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors mb-4 cursor-pointer relative overflow-hidden">
                 {logoPreview ? (
-                  <img src={logoPreview} alt="Логотип" className="absolute inset-0 w-full h-full object-contain p-2" />
+                  <>
+                    <img src={logoPreview} alt="Логотип" className="absolute inset-0 w-full h-full object-contain p-2" />
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        removeLogo();
+                      }}
+                      aria-label="Удалить логотип"
+                      className="absolute right-2 top-2 z-10 rounded-full bg-white p-1 text-red-500 shadow-sm hover:bg-red-50 active:scale-95 transition"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </>
                 ) : (
                   <>
                     {uploading.logo ? <Loader2 className="w-6 h-6 mb-1 animate-spin text-blue-500" /> : <Upload className="w-6 h-6 mb-1" />}
@@ -420,7 +509,8 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
           )}
 
           <label className="block text-sm font-medium text-gray-700 mb-1">Описание вашей деятельности <span className="text-red-500">*</span></label>
-          <textarea required rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="Кратко опишите оказываемые услуги и ваши преимущества" className="w-full border-gray-300 rounded-lg p-3 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none mb-4"></textarea>
+          <textarea rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="Кратко опишите оказываемые услуги и ваши преимущества" className={`w-full rounded-lg p-3 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none ${fieldErrors.description ? 'border-2 border-red-300 mb-1' : 'border border-gray-300 mb-4'}`}></textarea>
+          {fieldErrors.description && <p className="text-xs text-red-500 mb-4">{fieldErrors.description}</p>}
 
           <label className="block text-sm font-medium text-gray-700 mb-2">Фото работ (до {selectedProfile === 'partner' ? '3' : '10'} шт)</label>
           <label className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-500 transition-colors mb-4 cursor-pointer">
@@ -443,7 +533,17 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
           {workPhotos.length > 0 && (
             <div className="text-xs text-gray-500 mb-4 space-y-1">
               {workPhotos.map(file => (
-                <div key={file.key}>{file.name}</div>
+                <div key={file.key} className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2">
+                  <span className="min-w-0 truncate">{file.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeWorkPhoto(file.key)}
+                    aria-label={`Удалить ${file.name}`}
+                    className="shrink-0 rounded-full p-1 text-red-500 hover:bg-red-50 active:scale-95 transition"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -451,13 +551,15 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
           {selectedProfile === 'leader' && (
             <>
               <label className="block text-sm font-medium text-gray-700 mb-1">Текст для рекламного баннера <span className="text-red-500">*</span></label>
-              <textarea required rows={2} value={bannerText} onChange={e => setBannerText(e.target.value)} placeholder="Краткий рекламный текст для показа на баннере" className="w-full border-gray-300 rounded-lg p-3 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"></textarea>
+              <textarea rows={2} value={bannerText} onChange={e => setBannerText(e.target.value)} placeholder="Краткий рекламный текст для показа на баннере" className={`w-full rounded-lg p-3 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none ${fieldErrors.bannerText ? 'border-2 border-red-300 mb-1' : 'border border-gray-300'}`}></textarea>
+              {fieldErrors.bannerText && <p className="text-xs text-red-500">{fieldErrors.bannerText}</p>}
             </>
           )}
         </div>
 
         <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-100">
           <label className="block text-sm font-medium text-gray-700 mb-3">Категории и виды оказываемых услуг <span className="text-red-500">*</span></label>
+          {fieldErrors.services && <p className="text-xs text-red-500 mb-3">{fieldErrors.services}</p>}
           
           <div className="space-y-3 mb-6 max-h-80 overflow-y-auto pr-2">
             {serviceCategories.map(category => {
@@ -512,6 +614,7 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
           >
             {selectedRegions.length > 0 ? selectedRegions.join(', ') : 'Выберите регион'}
           </button>
+          {fieldErrors.regions && <p className="text-xs text-red-500 mb-4">{fieldErrors.regions}</p>}
 
           <label className="block text-sm font-medium text-gray-700 mb-1">Адрес оказания услуги</label>
           <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="г. Минск, ул. Пушкина, 10" className="w-full border-gray-300 rounded-lg p-3 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none mb-4" />
@@ -522,7 +625,8 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
 
         <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-100">
           <label className="block text-sm font-medium text-gray-700 mb-1">Контактный телефон (Telegram) <span className="text-red-500">*</span></label>
-          <input required type="tel" value={phone} onChange={handlePhoneChange} placeholder="+375 (29) 000-00-00" className={`w-full rounded-lg p-3 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none mb-4 ${isBelarusPhoneComplete(phone) ? 'border border-gray-300' : 'border-2 border-red-300'}`} />
+          <input type="tel" value={phone} onChange={handlePhoneChange} placeholder="+375 (29) 000-00-00" className={`w-full rounded-lg p-3 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none ${fieldErrors.phone ? 'border-2 border-red-300 mb-1' : 'border border-gray-300 mb-4'}`} />
+          {fieldErrors.phone && <p className="text-xs text-red-500 mb-4">{fieldErrors.phone}</p>}
 
           {(selectedProfile === 'pro' || selectedProfile === 'leader') && (
             <>
@@ -538,7 +642,13 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
           )}
         </div>
 
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 z-20 flex gap-2 max-w-md mx-auto w-full">
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 z-20 max-w-md mx-auto w-full">
+          {error && (
+            <div className="bg-red-50 border border-red-100 text-red-600 text-xs font-medium p-2 rounded-lg mb-2">
+              {error}
+            </div>
+          )}
+          <div className="flex gap-2">
           <button 
             type="button"
             onClick={() => setSelectedProfile(null)}
@@ -546,9 +656,10 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
           >
             <ChevronLeft className="w-5 h-5" /> Назад
           </button>
-          <button type="submit" disabled={selectedServices.length === 0 || selectedRegions.length === 0 || !isBelarusPhoneComplete(phone)} className="flex-[2] bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg active:scale-[0.98] transition-transform disabled:opacity-50 disabled:active:scale-100">
-            Отправить на модерацию
+          <button type="submit" disabled={isLoading || uploading.documents || uploading.logo || uploading.photos} className="flex-[2] bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg active:scale-[0.98] transition-transform disabled:opacity-50 disabled:active:scale-100">
+            {isLoading ? 'Отправляем...' : 'Отправить на модерацию'}
           </button>
+          </div>
         </div>
       </form>
 
