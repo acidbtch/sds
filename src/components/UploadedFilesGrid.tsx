@@ -45,16 +45,24 @@ export default function UploadedFilesGrid({ files, onRemove, onPreview, classNam
         );
 
         return (
-          <div key={file.key} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200 bg-white">
-            <button
-              type="button"
-              disabled={!canPreview}
-              onClick={() => canPreview && onPreview?.(file)}
-              className={`relative block w-full h-full text-left ${canPreview ? 'cursor-pointer active:scale-[0.98]' : 'cursor-default'}`}
-              title={file.name}
-            >
+          <div
+            key={file.key}
+            role={canPreview ? 'button' : undefined}
+            tabIndex={canPreview ? 0 : undefined}
+            onClick={() => canPreview && onPreview?.(file)}
+            onKeyDown={(event) => {
+              if (!canPreview) return;
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onPreview?.(file);
+              }
+            }}
+            className={`relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200 bg-white ${canPreview ? 'cursor-pointer active:scale-[0.98]' : ''}`}
+            title={file.name}
+          >
+            <div className="relative block w-full h-full text-left">
               {previewContent}
-            </button>
+            </div>
             {onRemove && (
               <button
                 type="button"
