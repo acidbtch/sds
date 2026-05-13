@@ -12,7 +12,7 @@ import { getServicesForCategory, resetServicesForCategoryChange } from '../lib/o
 import { formatBelarusPhoneInput, isBelarusPhoneComplete } from '../lib/phoneInput';
 import { stripFormattedRegionValue } from '../lib/regionSelection';
 import UploadedFilesGrid from './UploadedFilesGrid';
-import { getUploadedFilePreviewSource, inferUploadedFileKind, type UploadedFileItem } from '../lib/uploadedFiles';
+import { getUploadedFilePreviewKind, getUploadedFilePreviewSource, type UploadedFileItem } from '../lib/uploadedFiles';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -98,7 +98,7 @@ export default function OrderForm({ onNavigate, carModels, previousView }: Props
   const openUploadedFile = (file: UploadedFileItem) => {
     const src = getUploadedFilePreviewSource(file);
     if (!src) return;
-    const kind = inferUploadedFileKind(src || file.name || file.key);
+    const kind = getUploadedFilePreviewKind(file);
     if (kind === 'image' || kind === 'video') {
       setSelectedMedia({ src, kind });
     }

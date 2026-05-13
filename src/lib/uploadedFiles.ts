@@ -1,4 +1,4 @@
-import type { MediaKind } from './media';
+import { getUploadedMediaPreview, type MediaKind } from './media';
 
 export type UploadedFileKind = MediaKind | 'file';
 
@@ -60,8 +60,11 @@ function normalizeFileCandidate(candidate: unknown, key: unknown, fallbackName: 
   const isObject = Boolean(candidate && typeof candidate === 'object' && !Array.isArray(candidate));
   const fileObject = isObject ? candidate as Record<string, unknown> : {};
   const rawKey = firstValue(key, fileObject.key, fileObject.file_key, fileObject.fileKey, fileObject.id, fileObject.url, fileObject.href, fileObject.src, candidate);
+  const keyText = stringValue(rawKey);
+  const rememberedPreview = keyText ? getUploadedMediaPreview(keyText) : undefined;
   const candidateText = stringValue(candidate);
   const rawPreview = firstValue(
+    rememberedPreview?.previewUrl,
     fileObject.previewUrl,
     fileObject.url,
     fileObject.href,
@@ -72,11 +75,13 @@ function normalizeFileCandidate(candidate: unknown, key: unknown, fallbackName: 
     fileObject.publicUrl,
     !isObject && isPreviewUrl(candidateText) ? candidateText : undefined,
   );
-  const keyText = stringValue(rawKey);
   const previewText = stringValue(rawPreview || (isPreviewUrl(keyText) ? keyText : ''));
   const rawName = firstValue(fileObject.name, fileObject.filename, fileObject.file_name, fileObject.fileName);
-  const name = stringValue(rawName || getUploadedFileName(previewText || keyText, fallbackName));
-  const kind = inferUploadedFileKind(firstValue(previewText, name, keyText), firstValue(fileObject.kind, fileObject.type, fileObject.mime_type, fileObject.mimeType));
+  const name = stringValue(rawName || rememberedPreview?.name || getUploadedFileName(previewText || keyText, fallbackName));
+  const kind = inferUploadedFileKind(
+    firstValue(previewText, name, keyText),
+    firstValue(fileObject.kind, fileObject.type, fileObject.mime_type, fileObject.mimeType, rememberedPreview?.kind),
+  );
 
   return {
     key: keyText || previewText || name,
@@ -102,9 +107,13 @@ export function normalizeUploadedFiles({ keys, resolvedFiles, fallbackPrefix }: 
 }
 
 export function getUploadedFilePreviewSource(file: UploadedFileItem) {
-  const kind = file.kind || inferUploadedFileKind(file.previewUrl || file.name || file.key);
+  const kind = getUploadedFilePreviewKind(file);
   if (kind !== 'image' && kind !== 'video') return '';
   return file.previewUrl || (isPreviewUrl(file.key) ? file.key : '');
+}
+
+export function getUploadedFilePreviewKind(file: UploadedFileItem) {
+  return file.kind || inferUploadedFileKind(file.previewUrl || file.name || file.key);
 }
 
 export function areUploadedFilesEqual(left: UploadedFileItem[] = [], right: UploadedFileItem[] = []) {

@@ -1,7 +1,7 @@
 import { FileText, Image as ImageIcon, Play, Video, X } from 'lucide-react';
 import {
   getUploadedFilePreviewSource,
-  inferUploadedFileKind,
+  getUploadedFilePreviewKind,
   type UploadedFileItem,
 } from '../lib/uploadedFiles';
 
@@ -13,7 +13,7 @@ interface UploadedFilesGridProps {
 }
 
 function getIcon(file: UploadedFileItem) {
-  const kind = file.kind || inferUploadedFileKind(file.previewUrl || file.name || file.key);
+  const kind = getUploadedFilePreviewKind(file);
   if (kind === 'image') return <ImageIcon className="w-6 h-6 text-gray-400" />;
   if (kind === 'video') return <Video className="w-6 h-6 text-gray-400" />;
   return <FileText className="w-6 h-6 text-gray-400" />;
@@ -26,7 +26,7 @@ export default function UploadedFilesGrid({ files, onRemove, onPreview, classNam
     <div className={`flex flex-wrap gap-2 ${className}`}>
       {files.map((file) => {
         const previewSource = getUploadedFilePreviewSource(file);
-        const kind = file.kind || inferUploadedFileKind(previewSource || file.name || file.key);
+        const kind = getUploadedFilePreviewKind(file);
         const canPreview = Boolean(previewSource && onPreview);
         const previewContent = kind === 'image' && previewSource ? (
           <img src={previewSource} alt={file.name} className="w-full h-full object-cover" />

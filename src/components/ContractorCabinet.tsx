@@ -16,7 +16,7 @@ import { normalizeNamedList } from '../lib/profileDisplay';
 import UploadedFilesGrid from './UploadedFilesGrid';
 import {
   getUploadedFilePreviewSource,
-  inferUploadedFileKind,
+  getUploadedFilePreviewKind,
   normalizeUploadedFiles,
   type UploadedFileItem,
 } from '../lib/uploadedFiles';
@@ -438,7 +438,7 @@ export default function ContractorCabinet({ onNavigate }: Props) {
   const openUploadedFile = (file: UploadedFileItem) => {
     const src = getUploadedFilePreviewSource(file);
     if (!src) return;
-    const kind = inferUploadedFileKind(src || file.name || file.key);
+    const kind = getUploadedFilePreviewKind(file);
     if (kind === 'image' || kind === 'video') {
       setSelectedMedia({ src, kind });
     }

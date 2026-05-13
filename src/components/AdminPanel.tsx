@@ -23,8 +23,8 @@ import { getSupportTicketUserLabel } from '../lib/supportTicketDisplay';
 import UploadedFilesGrid from './UploadedFilesGrid';
 import {
   areUploadedFilesEqual,
+  getUploadedFilePreviewKind,
   getUploadedFilePreviewSource,
-  inferUploadedFileKind,
   type UploadedFileItem,
 } from '../lib/uploadedFiles';
 
@@ -1385,7 +1385,7 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
     const openUploadedFile = (file: UploadedFileItem) => {
       const src = getUploadedFilePreviewSource(file);
       if (!src) return;
-      const kind = inferUploadedFileKind(src || file.name || file.key);
+      const kind = getUploadedFilePreviewKind(file);
       if (kind === 'image' || kind === 'video') {
         setSelectedMedia({ src, kind });
       }

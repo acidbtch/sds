@@ -16,7 +16,7 @@ import {
   type UploadedRegistrationFile,
   validateContractorRegistrationForm,
 } from '../lib/contractorRegistration';
-import { getUploadedFilePreviewSource, inferUploadedFileKind, type UploadedFileItem } from '../lib/uploadedFiles';
+import { getUploadedFilePreviewKind, getUploadedFilePreviewSource, type UploadedFileItem } from '../lib/uploadedFiles';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -207,7 +207,7 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
   const openUploadedFile = (file: UploadedFileItem) => {
     const src = getUploadedFilePreviewSource(file);
     if (!src) return;
-    const kind = inferUploadedFileKind(src || file.name || file.key);
+    const kind = getUploadedFilePreviewKind(file);
     if (kind === 'image' || kind === 'video') {
       setSelectedMedia({ src, kind });
     }
