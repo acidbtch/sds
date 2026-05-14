@@ -6,6 +6,14 @@ import { useAuth } from '../context/AuthContext';
 import { customerApi } from '../lib/api';
 import { BANNER_ROTATION_INTERVAL_MS, getNextBannerIndex, getVisibleBannerIndex } from '../lib/bannerRotation';
 import { filterCustomerOrdersForUser, mapCustomerOrderFromApi } from '../lib/customerOrders';
+import UploadedFilesGrid from './UploadedFilesGrid';
+import MediaPreviewModal, { type MediaPreviewValue } from './MediaPreviewModal';
+import {
+  getUploadedFilePreviewKind,
+  getUploadedFilePreviewSource,
+  normalizeOrderMediaFiles,
+  type UploadedFileItem,
+} from '../lib/uploadedFiles';
 
 const REVIEW_CRITERIA = [
   'Быстрый отклик',
@@ -43,7 +51,7 @@ export default function CustomerOrders({ onNavigate }: Props) {
   const [expandedOrders, setExpandedOrders] = useState<string[]>([]);
   const [reviews, setReviews] = useState<Record<string, { rating: number, criteria: string[], text: string }>>({});
   const [isCriteriaOpen, setIsCriteriaOpen] = useState<Record<string, boolean>>({});
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<MediaPreviewValue>(null);
   const [selectedContractor, setSelectedContractor] = useState<Contractor | null>(null);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -92,6 +100,15 @@ export default function CustomerOrders({ onNavigate }: Props) {
   }, [setOrders, user]);
 
   const activeBanners = banners.filter(b => b.status === 'active');
+
+  const openUploadedFile = (file: UploadedFileItem) => {
+    const src = getUploadedFilePreviewSource(file);
+    if (!src) return;
+    const kind = getUploadedFilePreviewKind(file);
+    if (kind === 'image' || kind === 'video') {
+      setSelectedMedia({ src, kind, title: file.name });
+    }
+  };
 
   React.useEffect(() => {
     if (activeBanners.length <= 1) return;
@@ -358,35 +375,17 @@ export default function CustomerOrders({ onNavigate }: Props) {
                         {order.region && <div className="col-span-2"><span className="text-gray-500">Регион:</span> <span className="font-medium text-gray-900">{order.region}</span></div>}
                         {order.phone && <div className="col-span-2"><span className="text-gray-500">Телефон:</span> <span className="font-medium text-gray-900">{order.phone}</span></div>}
                       </div>
-                      {order.media && order.media.length > 0 && (
-                        <div className="pt-2 border-t border-gray-200">
-                          <span className="text-xs text-gray-500 block mb-2">Прикрепленные медиафайлы:</span>
-                          <div className="flex gap-2 overflow-x-auto pb-1">
-                            {order.media.map((file: any, idx) => (
-                              <div key={idx} className="relative w-16 h-16 flex-shrink-0">
-                                {file.type === 'video' ? (
-                                  <video 
-                                    src={file.url} 
-                                    className="w-full h-full object-cover rounded-lg border border-gray-200"
-                                    controls
-                                  />
-                                ) : (
-                                  <img 
-                                    src={file.url || file} 
-                                    alt={`Фото ${idx + 1}`} 
-                                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=No+Image'; }}
-                                    className="w-full h-full object-contain bg-gray-50 rounded-lg cursor-pointer border border-gray-200 hover:opacity-80 transition-opacity"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedImage(file.url || file);
-                                    }}
-                                  />
-                                )}
-                              </div>
-                            ))}
+                      {(() => {
+                        const mediaFiles = normalizeOrderMediaFiles(order.media);
+                        if (mediaFiles.length === 0) return null;
+
+                        return (
+                          <div className="pt-2 border-t border-gray-200">
+                            <span className="text-xs text-gray-500 block mb-2">Прикрепленные медиафайлы:</span>
+                            <UploadedFilesGrid files={mediaFiles} onPreview={openUploadedFile} />
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </div>
                   )}
                   
@@ -767,7 +766,7 @@ export default function CustomerOrders({ onNavigate }: Props) {
                         alt={`Фото работы ${idx + 1}`} 
                         onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/200x200?text=No+Photo'; }}
                         className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => setSelectedImage(photo)}
+                        onClick={() => setSelectedMedia({ src: photo, kind: 'image', title: `Фото работы ${idx + 1}` })}
                       />
                     </div>
                   ))}
@@ -797,28 +796,7 @@ export default function CustomerOrders({ onNavigate }: Props) {
         </button>
       </div>
 
-      {/* Image Modal */}
-      {selectedImage && (
-        <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 max-w-md mx-auto w-full" 
-          onClick={() => setSelectedImage(null)}
-        >
-          <button 
-            className="absolute top-4 right-4 z-10 text-white hover:text-gray-300 p-2 bg-black/50 rounded-full transition-colors"
-            onClick={() => setSelectedImage(null)}
-          >
-            <X className="w-6 h-6" />
-          </button>
-          <div className="relative w-full h-full flex items-center justify-center">
-            <img 
-              src={selectedImage} 
-              alt="Preview" 
-              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" 
-              onClick={(e) => e.stopPropagation()} 
-            />
-          </div>
-        </div>
-      )}
+      <MediaPreviewModal media={selectedMedia} onClose={() => setSelectedMedia(null)} />
     </div>
   );
 }

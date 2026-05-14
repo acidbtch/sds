@@ -4,6 +4,7 @@ import {
   canManageCustomerAdminRole,
   getCustomerStateDotClass,
   getCustomerStateBadge,
+  getAdminCustomerOrderSummary,
   getCustomerContactRows,
   getCustomerDisplayContact,
   getNextCustomerAdminRole,
@@ -78,6 +79,27 @@ assert.deepEqual(
   getOrdersForCustomer([orderByUserId, orderByTelegramId, orderByPhoneFallback, unrelatedOrder], customer).map(order => order.id),
   ['order-user', 'order-telegram', 'order-phone'],
   'customer order history should use backend ids and then safe phone fallback',
+);
+
+assert.deepEqual(
+  getAdminCustomerOrderSummary(mapOrderFromApi({
+    id: '813662f4-57ba-4ac6-bf11-b11111111111',
+    customer_user_id: 'user-1',
+    service_name: 'Engine repair',
+    car_brand_name: 'BMW',
+    car_model_name: 'X5',
+    year: 2020,
+    description: 'Noise under hood',
+    created_at: '2026-05-06T10:42:35.000Z',
+    status: 'NEW',
+  })),
+  {
+    title: 'Engine repair',
+    car: 'BMW X5 (2020)',
+    description: 'Noise under hood',
+    meta: '№ 813662f4 · 06.05.2026',
+  },
+  'customer order history should show useful order details instead of a truncated uuid as the main text',
 );
 
 assert.deepEqual(

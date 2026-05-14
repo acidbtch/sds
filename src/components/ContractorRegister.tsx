@@ -10,6 +10,7 @@ import { uploadMediaFile } from '../lib/media';
 import { ALL_BELARUS_LABEL, expandSelectedRegionsForApi } from '../lib/regionSelection';
 import { formatBelarusPhoneInput } from '../lib/phoneInput';
 import UploadedFilesGrid from './UploadedFilesGrid';
+import MediaPreviewModal, { type MediaPreviewValue } from './MediaPreviewModal';
 import {
   ContractorRegistrationFieldErrors,
   removeUploadedRegistrationFile,
@@ -53,7 +54,7 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
   const [logoKey, setLogoKey] = useState('');
   const [documentFiles, setDocumentFiles] = useState<UploadedRegistrationFile[]>([]);
   const [workPhotos, setWorkPhotos] = useState<UploadedRegistrationFile[]>([]);
-  const [selectedMedia, setSelectedMedia] = useState<{ src: string; kind: 'image' | 'video' } | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<MediaPreviewValue>(null);
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
   const [uploading, setUploading] = useState({
     documents: false,
@@ -209,7 +210,7 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
     if (!src) return;
     const kind = getUploadedFilePreviewKind(file);
     if (kind === 'image' || kind === 'video') {
-      setSelectedMedia({ src, kind });
+      setSelectedMedia({ src, kind, title: file.name });
     }
   };
 
@@ -667,38 +668,7 @@ export default function ContractorRegister({ onNavigate, previousView }: Props) 
         multiSelect={true}
       />
 
-      {selectedMedia && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 max-w-md mx-auto w-full"
-          onClick={() => setSelectedMedia(null)}
-        >
-          <button
-            type="button"
-            className="absolute top-4 right-4 z-10 text-white hover:text-gray-300 p-2 bg-black/50 rounded-full transition-colors"
-            onClick={() => setSelectedMedia(null)}
-            aria-label="Закрыть просмотр"
-          >
-            <X className="w-6 h-6" />
-          </button>
-          <div className="relative w-full h-full flex items-center justify-center">
-            {selectedMedia.kind === 'video' ? (
-              <video
-                src={selectedMedia.src}
-                controls
-                className="max-w-full max-h-full rounded-lg shadow-2xl"
-                onClick={(event) => event.stopPropagation()}
-              />
-            ) : (
-              <img
-                src={selectedMedia.src}
-                alt="Просмотр файла"
-                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                onClick={(event) => event.stopPropagation()}
-              />
-            )}
-          </div>
-        </div>
-      )}
+      <MediaPreviewModal media={selectedMedia} onClose={() => setSelectedMedia(null)} />
     </div>
   );
 }

@@ -70,17 +70,55 @@ function readFileAsDataUrl(file: File) {
   });
 }
 
-async function createLocalPreviewUrl(file: File, kind: MediaKind) {
-  const objectUrl = URL.createObjectURL(file);
+function loadImage(url: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Failed to load image preview'));
+    image.src = url;
+  });
+}
 
-  if (kind !== 'image' || file.size > 5 * 1024 * 1024) {
-    return objectUrl;
+async function createCompressedImagePreview(file: File) {
+  if (getFileExtension(file.name) === 'svg') {
+    return readFileAsDataUrl(file);
   }
 
+  const objectUrl = URL.createObjectURL(file);
   try {
-    return await readFileAsDataUrl(file);
+    const image = await loadImage(objectUrl);
+    const maxSide = 1200;
+    const width = image.naturalWidth || image.width || maxSide;
+    const height = image.naturalHeight || image.height || maxSide;
+    const scale = Math.min(1, maxSide / Math.max(width, height));
+    const canvas = document.createElement('canvas');
+
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return readFileAsDataUrl(file);
+    }
+
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.86);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function createLocalPreviewUrl(file: File, kind: MediaKind) {
+  if (kind !== 'image') {
+    return URL.createObjectURL(file);
+  }
+
+  // Store a small durable preview instead of the original image. It survives in-session
+  // refreshes and lets moderation render files when the API only returns file keys.
+  try {
+    return await createCompressedImagePreview(file);
   } catch {
-    return objectUrl;
+    return URL.createObjectURL(file);
   }
 }
 

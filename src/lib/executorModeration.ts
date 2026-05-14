@@ -95,7 +95,14 @@ function mapProfileData(profile: any, dictionaries: ExecutorModerationDictionari
     logo: firstValue(profile?.logo_url, profile?.logo, profile?.logo_key),
     logoFiles: normalizeUploadedFiles({
       keys: firstValue(profile?.logo_key, profile?.logoKey),
-      resolvedFiles: firstValue(profile?.logo_url, profile?.logoUrl, profile?.logo),
+      resolvedFiles: firstValue(
+        profile?.logo_url,
+        profile?.logoUrl,
+        profile?.logo,
+        firstValue(profile?.logo_key, profile?.logoKey)
+          ? { key: firstValue(profile?.logo_key, profile?.logoKey), name: 'Логотип', kind: 'image' }
+          : undefined,
+      ),
       fallbackPrefix: 'Логотип',
     }),
     legalDocumentFiles: normalizeUploadedFiles({
@@ -167,4 +174,13 @@ export function mapExecutorModerationFromApi(
     data,
     oldData,
   };
+}
+
+export function getExecutorModerationProfileId(request: Pick<ExecutorModerationItem, 'data'>) {
+  const id = firstValue(request.data?.id, request.data?.profileId, request.data?.profile_id);
+  return id ? String(id) : null;
+}
+
+export function removeExecutorModerationItem<T extends Pick<ExecutorModerationItem, 'id'>>(items: T[], id: number) {
+  return items.filter((item) => item.id !== id);
 }

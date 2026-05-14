@@ -33,7 +33,7 @@ function stringValue(value: unknown) {
 }
 
 function isPreviewUrl(value: string) {
-  return /^(https?:|blob:|data:)/i.test(value);
+  return /^(https?:|blob:|data:|\/(?!\/))/i.test(value);
 }
 
 export function getUploadedFileName(value: unknown, fallback: string) {
@@ -104,6 +104,13 @@ export function normalizeUploadedFiles({ keys, resolvedFiles, fallbackPrefix }: 
   return resolvedList
     .map((file, index) => normalizeFileCandidate(file, undefined, `${fallbackPrefix} ${index + 1}`))
     .filter(file => file.key);
+}
+
+export function normalizeOrderMediaFiles(media: unknown) {
+  return normalizeUploadedFiles({
+    resolvedFiles: media,
+    fallbackPrefix: 'Медиафайл',
+  });
 }
 
 export function getUploadedFilePreviewSource(file: UploadedFileItem) {

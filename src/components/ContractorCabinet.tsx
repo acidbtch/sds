@@ -14,12 +14,15 @@ import { formatBelarusPhoneInput, isBelarusPhoneComplete } from '../lib/phoneInp
 import { expandSelectedRegionsForApi, formatRegionValue } from '../lib/regionSelection';
 import { normalizeNamedList } from '../lib/profileDisplay';
 import UploadedFilesGrid from './UploadedFilesGrid';
+import MediaPreviewModal, { type MediaPreviewValue } from './MediaPreviewModal';
 import {
   getUploadedFilePreviewSource,
   getUploadedFilePreviewKind,
+  normalizeOrderMediaFiles,
   normalizeUploadedFiles,
   type UploadedFileItem,
 } from '../lib/uploadedFiles';
+import { getExecutorModerationStatus, isExecutorApproved } from '../lib/executorAccess';
 import {
   buildExecutorProfileUpdatePayload,
   getExecutorProfileModerationResult,
@@ -152,8 +155,7 @@ export default function ContractorCabinet({ onNavigate }: Props) {
 
   // UI
   const [isRegionModalOpen, setIsRegionModalOpen] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [selectedMedia, setSelectedMedia] = useState<{ src: string; kind: 'image' | 'video' } | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<MediaPreviewValue>(null);
   const [logoPreview, setLogoPreview] = useState<string>('');
 
   // Derived
@@ -190,6 +192,13 @@ export default function ContractorCabinet({ onNavigate }: Props) {
         previewUrl: logoPreview || editForm.logo,
       }]
     : [];
+  const profileModerationStatus = getExecutorModerationStatus(profile);
+  const canUseExecutorOrders = isExecutorApproved(profile);
+  const orderAccessMessage = profileModerationStatus === 'PENDING'
+    ? 'Заказы станут доступны после проверки профиля администратором.'
+    : profileModerationStatus === 'REJECTED'
+      ? 'Заказы недоступны, пока профиль отклонён. Исправьте данные и отправьте профиль на повторную модерацию.'
+      : 'Заказы станут доступны после успешного прохождения модерации.';
 
   // --- Load profile on mount ---
   useEffect(() => {
@@ -214,6 +223,11 @@ export default function ContractorCabinet({ onNavigate }: Props) {
 
   // --- Load orders when switching tabs ---
   const loadFeed = useCallback(async () => {
+    if (!canUseExecutorOrders) {
+      setFeedOrders([]);
+      return;
+    }
+
     setFeedLoading(true);
     try {
       const data = await executorApi.getFeed();
@@ -223,9 +237,14 @@ export default function ContractorCabinet({ onNavigate }: Props) {
     } finally {
       setFeedLoading(false);
     }
-  }, []);
+  }, [canUseExecutorOrders]);
 
   const loadActiveOrders = useCallback(async () => {
+    if (!canUseExecutorOrders) {
+      setActiveOrders([]);
+      return;
+    }
+
     setActiveLoading(true);
     try {
       const data = await executorApi.getActiveOrders();
@@ -235,16 +254,22 @@ export default function ContractorCabinet({ onNavigate }: Props) {
     } finally {
       setActiveLoading(false);
     }
-  }, []);
+  }, [canUseExecutorOrders]);
 
   useEffect(() => {
     if (profileLoading) return;
+    if (!canUseExecutorOrders) {
+      setFeedOrders([]);
+      setActiveOrders([]);
+      return;
+    }
+
     if (activeTab === 'incoming') {
       loadFeed();
     } else if (activeTab === 'active') {
       loadActiveOrders();
     }
-  }, [activeTab, profileLoading, loadFeed, loadActiveOrders]);
+  }, [activeTab, profileLoading, canUseExecutorOrders, loadFeed, loadActiveOrders]);
 
   useEffect(() => {
     if (submissionResult !== 'success') return;
@@ -262,6 +287,8 @@ export default function ContractorCabinet({ onNavigate }: Props) {
   // --- Order actions ---
 
   const handleRespond = async (orderId: string) => {
+    if (!canUseExecutorOrders) return;
+
     setActionLoadingOrderId(orderId);
     try {
       await executorApi.respondToOrder(orderId, { comment: 'Готов выполнить' });
@@ -278,6 +305,8 @@ export default function ContractorCabinet({ onNavigate }: Props) {
   };
 
   const handleReject = async (orderId: string) => {
+    if (!canUseExecutorOrders) return;
+
     setActionLoadingOrderId(orderId);
     try {
       await executorApi.rejectOrder(orderId);
@@ -290,6 +319,8 @@ export default function ContractorCabinet({ onNavigate }: Props) {
   };
 
   const handleComplete = async (orderId: string) => {
+    if (!canUseExecutorOrders) return;
+
     setActionLoadingOrderId(orderId);
     try {
       await executorApi.completeOrder(orderId);
@@ -440,7 +471,7 @@ export default function ContractorCabinet({ onNavigate }: Props) {
     if (!src) return;
     const kind = getUploadedFilePreviewKind(file);
     if (kind === 'image' || kind === 'video') {
-      setSelectedMedia({ src, kind });
+      setSelectedMedia({ src, kind, title: file.name });
     }
   };
 
@@ -657,7 +688,12 @@ export default function ContractorCabinet({ onNavigate }: Props) {
       <div className="p-4 flex-1 overflow-y-auto pb-24">
         {activeTab === 'incoming' && (
           <div className="flex flex-col gap-4">
-            {feedLoading ? (
+            {!canUseExecutorOrders ? (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 text-sm text-yellow-800">
+                <p className="font-bold mb-1">Заказы пока недоступны</p>
+                <p>{orderAccessMessage}</p>
+              </div>
+            ) : feedLoading ? (
               <div className="flex flex-col items-center justify-center py-10">
                 <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-3" />
                 <span className="text-gray-500 text-sm">Загрузка заказов...</span>
@@ -704,25 +740,17 @@ export default function ContractorCabinet({ onNavigate }: Props) {
                           {order.region && <div className="col-span-2"><span className="text-gray-500">Регион:</span> <span className="font-medium text-gray-900">{order.region}</span></div>}
                           {order.phone && <div className="col-span-2"><span className="text-gray-500">Телефон:</span> <span className="font-medium text-gray-900">{order.phone}</span></div>}
                         </div>
-                        {order.media && order.media.length > 0 && (
-                          <div className="pt-2 border-t border-gray-200">
-                            <span className="text-xs text-gray-500 block mb-2">Прикрепленные медиафайлы:</span>
-                            <div className="flex gap-2 overflow-x-auto pb-1">
-                              {order.media.map((file, idx) => (
-                                <img
-                                  key={idx}
-                                  src={file}
-                                  alt={`Фото ${idx + 1}`}
-                                  className="w-16 h-16 object-cover rounded-lg flex-shrink-0 cursor-pointer border border-gray-200 hover:opacity-80 transition-opacity"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedImage(file);
-                                  }}
-                                />
-                              ))}
+                        {(() => {
+                          const mediaFiles = normalizeOrderMediaFiles(order.media);
+                          if (mediaFiles.length === 0) return null;
+
+                          return (
+                            <div className="pt-2 border-t border-gray-200">
+                              <span className="text-xs text-gray-500 block mb-2">Прикрепленные медиафайлы:</span>
+                              <UploadedFilesGrid files={mediaFiles} onPreview={openUploadedFile} />
                             </div>
-                          </div>
-                        )}
+                          );
+                        })()}
                         <div className="pt-2 border-t border-gray-200">
                           <span className="text-xs text-gray-500 block mb-1">Описание:</span>
                           <p className="text-sm text-gray-800">"{order.description}"</p>
@@ -761,7 +789,12 @@ export default function ContractorCabinet({ onNavigate }: Props) {
 
         {activeTab === 'active' && (
           <div className="flex flex-col gap-4">
-            {activeLoading ? (
+            {!canUseExecutorOrders ? (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 text-sm text-yellow-800">
+                <p className="font-bold mb-1">Заказы пока недоступны</p>
+                <p>{orderAccessMessage}</p>
+              </div>
+            ) : activeLoading ? (
               <div className="flex flex-col items-center justify-center py-10">
                 <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-3" />
                 <span className="text-gray-500 text-sm">Загрузка заказов...</span>
@@ -1272,62 +1305,7 @@ export default function ContractorCabinet({ onNavigate }: Props) {
         multiSelect={true}
       />
 
-      {/* Uploaded Media Modal */}
-      {selectedMedia && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 max-w-md mx-auto w-full"
-          onClick={() => setSelectedMedia(null)}
-        >
-          <button
-            type="button"
-            className="absolute top-4 right-4 z-10 text-white hover:text-gray-300 p-2 bg-black/50 rounded-full transition-colors"
-            onClick={() => setSelectedMedia(null)}
-            aria-label="Закрыть просмотр"
-          >
-            <X className="w-6 h-6" />
-          </button>
-          <div className="relative w-full h-full flex items-center justify-center">
-            {selectedMedia.kind === 'video' ? (
-              <video
-                src={selectedMedia.src}
-                controls
-                className="max-w-full max-h-full rounded-lg shadow-2xl"
-                onClick={(event) => event.stopPropagation()}
-              />
-            ) : (
-              <img
-                src={selectedMedia.src}
-                alt="Просмотр файла"
-                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                onClick={(event) => event.stopPropagation()}
-              />
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Image Modal */}
-      {selectedImage && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 max-w-md mx-auto w-full"
-          onClick={() => setSelectedImage(null)}
-        >
-          <button
-            className="absolute top-4 right-4 z-10 text-white hover:text-gray-300 p-2 bg-black/50 rounded-full transition-colors"
-            onClick={() => setSelectedImage(null)}
-          >
-            <X className="w-6 h-6" />
-          </button>
-          <div className="relative w-full h-full flex items-center justify-center">
-            <img
-              src={selectedImage}
-              alt="Preview"
-              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-        </div>
-      )}
+      <MediaPreviewModal media={selectedMedia} onClose={() => setSelectedMedia(null)} />
 
       {/* Bottom Back Button */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 z-20 max-w-md mx-auto w-full">

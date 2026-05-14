@@ -97,6 +97,33 @@ export function getOrdersForCustomer(orders: Order[], customer: CustomerOrderOwn
   });
 }
 
+function shortOrderId(id: unknown) {
+  const value = displayValue(id);
+  if (!value) return '';
+  return value.length > 8 ? value.slice(0, 8) : value;
+}
+
+export function getAdminCustomerOrderSummary(order: Pick<Order, 'id' | 'serviceType' | 'carMake' | 'carModel' | 'year' | 'description' | 'date'>) {
+  const title = displayValue(order.serviceType) || `Заказ #${shortOrderId(order.id)}`;
+  const car = [order.carMake, order.carModel]
+    .map(displayValue)
+    .filter(Boolean)
+    .join(' ');
+  const carWithYear = car && order.year ? `${car} (${order.year})` : car;
+  const id = shortOrderId(order.id);
+  const meta = [
+    id ? `№ ${id}` : '',
+    displayValue(order.date),
+  ].filter(Boolean).join(' · ');
+
+  return {
+    title,
+    car: carWithYear,
+    description: displayValue(order.description),
+    meta,
+  };
+}
+
 function orderTimestamp(order: Order) {
   const timestamp = Date.parse(order.createdAt || '');
   return Number.isNaN(timestamp) ? 0 : timestamp;

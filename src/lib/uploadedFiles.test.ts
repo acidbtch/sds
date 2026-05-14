@@ -4,6 +4,7 @@ import {
   areUploadedFilesEqual,
   getUploadedFilePreviewKind,
   getUploadedFilePreviewSource,
+  normalizeOrderMediaFiles,
   normalizeUploadedFiles,
 } from './uploadedFiles';
 
@@ -65,6 +66,13 @@ const imageOnly = normalizeUploadedFiles({
 assert.equal(imageOnly[0].kind, 'image');
 assert.equal(imageOnly[0].name, 'result.webp');
 
+const relativeUrlImage = normalizeUploadedFiles({
+  resolvedFiles: ['/media/orders/photo.png'],
+  fallbackPrefix: 'Фото',
+});
+
+assert.equal(getUploadedFilePreviewSource(relativeUrlImage[0]), '/media/orders/photo.png');
+
 assert.equal(
   areUploadedFilesEqual(files, files.map(file => ({ ...file }))),
   true,
@@ -75,5 +83,15 @@ assert.equal(
   false,
   'changed uploaded file keys should be detected',
 );
+
+const orderMedia = normalizeOrderMediaFiles([
+  { file_key: 'order-photo-key', url: 'https://cdn.example.com/orders/photo.jpg', name: 'Фото заказа.jpg' },
+  'https://cdn.example.com/orders/video.mp4',
+]);
+
+assert.equal(orderMedia[0].key, 'order-photo-key');
+assert.equal(orderMedia[0].kind, 'image');
+assert.equal(getUploadedFilePreviewSource(orderMedia[0]), 'https://cdn.example.com/orders/photo.jpg');
+assert.equal(orderMedia[1].kind, 'video');
 
 console.log('uploaded files helpers passed');

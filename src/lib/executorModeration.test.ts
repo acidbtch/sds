@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mapExecutorModerationFromApi } from './executorModeration';
+import { getExecutorModerationProfileId, mapExecutorModerationFromApi, removeExecutorModerationItem } from './executorModeration';
 
 const editRequest = mapExecutorModerationFromApi({
   id: 'profile-1',
@@ -72,5 +72,26 @@ const newRequest = mapExecutorModerationFromApi({
 assert.equal(newRequest.type, 'new');
 assert.equal(newRequest.oldData, undefined);
 assert.equal(newRequest.profile, 'leader');
+assert.equal(newRequest.data.logoFiles?.length || 0, 0);
+assert.equal(getExecutorModerationProfileId(newRequest), 'profile-2');
+assert.equal(getExecutorModerationProfileId({ ...newRequest, data: {} }), null);
+
+const logoOnlyKeyRequest = mapExecutorModerationFromApi({
+  id: 'profile-logo',
+  moderation_status: 'PENDING',
+  logo_key: 'c49341f9-without-extension',
+}, 2);
+
+assert.equal(
+  logoOnlyKeyRequest.data.logoFiles?.[0].kind,
+  'image',
+  'moderation logo keys without extension should still render as image files',
+);
+
+assert.deepEqual(
+  removeExecutorModerationItem([editRequest, newRequest], newRequest.id).map((item) => item.id),
+  [editRequest.id],
+  'moderated request should be removed from the visible moderation queue',
+);
 
 console.log('executor moderation mapping passed');

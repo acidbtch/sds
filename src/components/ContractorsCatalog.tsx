@@ -6,6 +6,8 @@ import { useData } from '../context/DataContext';
 import { customerApi } from '../lib/api';
 import { getContractorServiceGroups } from '../lib/contractorServices';
 import { getFilteredContractors, ContractorCatalogFilters } from '../lib/contractorCatalog';
+import { filterApprovedExecutors } from '../lib/executorAccess';
+import MediaPreviewModal, { type MediaPreviewValue } from './MediaPreviewModal';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -51,7 +53,7 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [isRegionModalOpen, setIsRegionModalOpen] = useState(false);
   const [selectedContractor, setSelectedContractor] = useState<Contractor | null>(null);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<MediaPreviewValue>(null);
   const [expandedServiceCards, setExpandedServiceCards] = useState<string[]>([]);
   
   const [filters, setFilters] = useState<FilterState>({
@@ -72,7 +74,7 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
       try {
         const data = await customerApi.getExecutors();
         if (data) {
-          const mappedData = data.map((c: any) => ({
+          const mappedData = filterApprovedExecutors(data).map((c: any) => ({
             id: c.id,
             name: c.name || '',
             shortName: c.short_name || '',
@@ -827,7 +829,7 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
                         alt={`Фото работы ${idx + 1}`} 
                         onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/200x200?text=No+Photo'; }}
                         className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => setSelectedImage(photo)}
+                        onClick={() => setSelectedMedia({ src: photo, kind: 'image', title: `Фото работы ${idx + 1}` })}
                       />
                     </div>
                   ))}
@@ -847,7 +849,7 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
                         alt={`Документ ${idx + 1}`} 
                         onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/200x200?text=Doc'; }}
                         className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => setSelectedImage(doc)}
+                        onClick={() => setSelectedMedia({ src: doc, kind: 'image', title: `Документ ${idx + 1}` })}
                       />
                     </div>
                   ))}
@@ -867,23 +869,7 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
         </div>
       )}
 
-      {/* Image Modal */}
-      {selectedImage && (
-        <div className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4" onClick={() => setSelectedImage(null)}>
-          <button 
-            onClick={() => setSelectedImage(null)}
-            className="absolute top-4 right-4 p-2 text-white/70 hover:text-white bg-black/50 rounded-full"
-          >
-            <X className="w-6 h-6" />
-          </button>
-          <img 
-            src={selectedImage} 
-            alt="Full size" 
-            className="max-w-full max-h-[90vh] object-contain rounded-lg"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
+      <MediaPreviewModal media={selectedMedia} onClose={() => setSelectedMedia(null)} />
     </div>
   );
 }

@@ -15,18 +15,24 @@ import { adminApi } from '../lib/api';
 import { getAdminRoleUpdateErrorMessage, isAdminRoleEndpointMissing } from '../lib/adminRoleErrors';
 import type { AdminCarModelsByBrand } from '../lib/adminCars';
 import { getAdminCarBrandOptions, getAdminCarEntityId, getAdminCarModelOptions } from '../lib/adminCars';
-import { canManageCustomerAdminRole, canManageCustomerBlockStatus, getCustomerContactRows, getCustomerStateBadge, getCustomerStateDotClass, getNextCustomerAdminRole, getOrdersForCustomer } from '../lib/adminCustomerOrders';
+import { canManageCustomerAdminRole, canManageCustomerBlockStatus, getAdminCustomerOrderSummary, getCustomerContactRows, getCustomerStateBadge, getCustomerStateDotClass, getNextCustomerAdminRole, getOrdersForCustomer } from '../lib/adminCustomerOrders';
 import { uploadMediaFile } from '../lib/media';
 import { getFaqItemsForEditor, insertEditorBullet, insertFaqBullet, saveFaqEditorItem } from '../lib/faqEditor';
 import { SUPPORT_CHAT_BUBBLE_BASE_CLASS, SUPPORT_CHAT_MESSAGE_TEXT_CLASS } from '../lib/supportChatLayout';
 import { getSupportTicketUserLabel } from '../lib/supportTicketDisplay';
 import UploadedFilesGrid from './UploadedFilesGrid';
+import MediaPreviewModal, { type MediaPreviewValue } from './MediaPreviewModal';
 import {
   areUploadedFilesEqual,
   getUploadedFilePreviewKind,
   getUploadedFilePreviewSource,
+  normalizeOrderMediaFiles,
   type UploadedFileItem,
 } from '../lib/uploadedFiles';
+import {
+  getExecutorModerationProfileId,
+  removeExecutorModerationItem,
+} from '../lib/executorModeration';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -392,10 +398,22 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
           <h3 className="font-bold mb-2">История заказов</h3>
           <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600 mb-6 space-y-2">
             {customerOrders.length > 0 ? (
-              customerOrders.map(o => (
-                <div key={o.id} className="flex justify-between items-center gap-2 border-b border-gray-200 last:border-0 pb-2 last:pb-0">
-                  <div className="min-w-0 flex-1 truncate">
-                    <span className="font-medium">Заказ #{o.id}</span> - {o.serviceType}
+              customerOrders.map(o => {
+                const summary = getAdminCustomerOrderSummary(o);
+
+                return (
+                <div key={o.id} className="flex justify-between items-start gap-2 border-b border-gray-200 last:border-0 pb-2 last:pb-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-gray-900 break-words leading-snug">{summary.title}</div>
+                    {summary.car && (
+                      <div className="text-xs text-gray-700 mt-1 break-words">{summary.car}</div>
+                    )}
+                    {summary.description && (
+                      <div className="text-xs text-gray-500 mt-1 break-words">{summary.description}</div>
+                    )}
+                    {summary.meta && (
+                      <div className="text-[11px] text-gray-400 mt-1 break-words">{summary.meta}</div>
+                    )}
                   </div>
                   <span className={`shrink-0 whitespace-nowrap text-xs font-bold px-2 py-1 rounded ${
                     o.status === 'completed' ? 'bg-green-100 text-green-700' : 
@@ -406,7 +424,8 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
                     {getStatusLabel(o.status)}
                   </span>
                 </div>
-              ))
+                );
+              })
             ) : (
               <p className="text-gray-500">Нет заказов</p>
             )}
@@ -1024,6 +1043,7 @@ function ContractorsView({ contractors, setContractors, orders }: { contractors:
 
 function OrdersView({ orders }: { orders: any[] }) {
   const [search, setSearch] = useState('');
+  const [selectedMedia, setSelectedMedia] = useState<MediaPreviewValue>(null);
   const filtered = orders.filter(o => o.serviceType?.toLowerCase().includes(search.toLowerCase()) || o.customerName?.toLowerCase().includes(search.toLowerCase()));
 
   const getStatusBadge = (status: string) => {
@@ -1051,10 +1071,22 @@ function OrdersView({ orders }: { orders: any[] }) {
         </div>
       </div>
 
-      {filtered.map(o => (
+      {filtered.map(o => {
+        const orderSummary = getAdminCustomerOrderSummary(o);
+        const mediaFiles = normalizeOrderMediaFiles(o.media);
+        const openOrderFile = (file: UploadedFileItem) => {
+          const src = getUploadedFilePreviewSource(file);
+          if (!src) return;
+          const kind = getUploadedFilePreviewKind(file);
+          if (kind === 'image' || kind === 'video') {
+            setSelectedMedia({ src, kind, title: file.name });
+          }
+        };
+
+        return (
         <div key={o.id} className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
           <div className="flex justify-between items-start gap-2 mb-2">
-            <span className="min-w-0 flex-1 truncate text-xs font-bold text-gray-500">#{o.id} от {o.date}</span>
+            <span className="min-w-0 flex-1 text-xs font-bold text-gray-500">{orderSummary.meta || 'Заказ'}</span>
             {getStatusBadge(o.status)}
           </div>
           <h3 className="font-bold text-gray-900 mb-1">{o.serviceType}</h3>
@@ -1071,14 +1103,14 @@ function OrdersView({ orders }: { orders: any[] }) {
               {o.deadline && <div className="col-span-2"><span className="text-gray-500">Срок:</span> <span className="font-medium text-gray-900">{o.deadline}</span></div>}
             </div>
             {o.description && <p><span className="font-medium text-gray-700">Описание:</span> {o.description}</p>}
-            {o.media && o.media.length > 0 && (
+            {mediaFiles.length > 0 && (
               <div className="mt-2">
                 <span className="font-medium text-gray-700 text-xs">Медиафайлы:</span>
-                <div className="flex gap-2 mt-1 overflow-x-auto">
-                  {o.media.map((file: string, idx: number) => (
-                    <img key={idx} src={file} alt={`Фото ${idx + 1}`} className="w-12 h-12 object-cover rounded-md border border-gray-200" />
-                  ))}
-                </div>
+                <UploadedFilesGrid
+                  files={mediaFiles}
+                  onPreview={openOrderFile}
+                  className="mt-1"
+                />
               </div>
             )}
             {o.responses && o.responses.length > 0 && (
@@ -1102,7 +1134,9 @@ function OrdersView({ orders }: { orders: any[] }) {
             )}
           </div>
         </div>
-      ))}
+        );
+      })}
+      <MediaPreviewModal media={selectedMedia} onClose={() => setSelectedMedia(null)} />
     </div>
   );
 }
@@ -1360,20 +1394,43 @@ function BannersView({ banners, setBanners, contractors, setContractors }: { ban
 function ModerationView({ moderation, setModeration, contractors, setContractors, banners, setBanners }: { moderation: any[], setModeration: any, contractors: any[], setContractors: any, banners: any[], setBanners: any }) {
   const { refreshAdminData } = useData();
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
-  const [selectedMedia, setSelectedMedia] = useState<{ src: string; kind: 'image' | 'video' } | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<MediaPreviewValue>(null);
+  const [moderationAction, setModerationAction] = useState<{ id: number; action: 'approve' | 'reject' } | null>(null);
+
+  const isModerationLocked = Boolean(moderationAction);
+  const isRequestBusy = (id: number) => moderationAction?.id === id;
+  const isButtonBusy = (id: number, action: 'approve' | 'reject') =>
+    moderationAction?.id === id && moderationAction.action === action;
+  const getActionLabel = (id: number, action: 'approve' | 'reject', label: string) => {
+    if (!isButtonBusy(id, action)) return label;
+    return action === 'approve' ? 'Одобряем...' : 'Отклоняем...';
+  };
 
   const handleAction = async (id: number, action: 'approve' | 'reject') => {
+    if (moderationAction) return;
+
     const request = moderation.find(m => m.id === id);
     if (!request) return;
+    const profileId = getExecutorModerationProfileId(request);
+
+    if (!profileId) {
+      alert('Не удалось определить ID профиля исполнителя для модерации.');
+      return;
+    }
 
     try {
-      await adminApi.moderateExecutor(request.data.id || String(id), action === 'approve' ? 'APPROVED' : 'REJECTED');
+      setModerationAction({ id, action });
+      await adminApi.moderateExecutor(profileId, action === 'approve' ? 'APPROVED' : 'REJECTED');
       
+      setModeration((prev: any[]) => removeExecutorModerationItem(prev, id));
       setSelectedRequest(null);
       await refreshAdminData();
+      setModeration((prev: any[]) => removeExecutorModerationItem(prev, id));
     } catch (error: any) {
       console.error('Failed to moderate executor:', error);
       alert(`Ошибка при модерации: ${error.message || 'Пожалуйста, попробуйте еще раз.'}`);
+    } finally {
+      setModerationAction(null);
     }
   };
 
@@ -1387,7 +1444,7 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
       if (!src) return;
       const kind = getUploadedFilePreviewKind(file);
       if (kind === 'image' || kind === 'video') {
-        setSelectedMedia({ src, kind });
+        setSelectedMedia({ src, kind, title: file.name });
       }
     };
 
@@ -1514,47 +1571,26 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
           {renderFileField('Фото и видео работ', 'portfolioPhotoFiles')}
 
           <div className="flex gap-3 mt-6">
-            <button onClick={() => handleAction(selectedRequest.id, 'reject')} className="flex-1 bg-red-100 text-red-600 text-sm font-bold py-3 rounded-xl hover:bg-red-200 transition-colors">
-              Отклонить
+            <button
+              onClick={() => handleAction(selectedRequest.id, 'reject')}
+              disabled={isModerationLocked}
+              aria-busy={isButtonBusy(selectedRequest.id, 'reject')}
+              className="flex-1 bg-red-100 text-red-600 text-sm font-bold py-3 rounded-xl hover:bg-red-200 transition-colors disabled:opacity-60 disabled:cursor-wait disabled:hover:bg-red-100 active:scale-[0.98] disabled:active:scale-100"
+            >
+              {getActionLabel(selectedRequest.id, 'reject', 'Отклонить')}
             </button>
-            <button onClick={() => handleAction(selectedRequest.id, 'approve')} className="flex-[2] bg-green-500 text-white text-sm font-bold py-3 rounded-xl hover:bg-green-600 transition-colors shadow-md">
-              Одобрить заявку
+            <button
+              onClick={() => handleAction(selectedRequest.id, 'approve')}
+              disabled={isModerationLocked}
+              aria-busy={isButtonBusy(selectedRequest.id, 'approve')}
+              className="flex-[2] bg-green-500 text-white text-sm font-bold py-3 rounded-xl hover:bg-green-600 transition-colors shadow-md disabled:opacity-60 disabled:cursor-wait disabled:hover:bg-green-500 active:scale-[0.98] disabled:active:scale-100"
+            >
+              {getActionLabel(selectedRequest.id, 'approve', 'Одобрить заявку')}
             </button>
           </div>
         </div>
 
-        {selectedMedia && (
-          <div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 max-w-md mx-auto w-full"
-            onClick={() => setSelectedMedia(null)}
-          >
-            <button
-              type="button"
-              className="absolute top-4 right-4 z-10 text-white hover:text-gray-300 p-2 bg-black/50 rounded-full transition-colors"
-              onClick={() => setSelectedMedia(null)}
-              aria-label="Закрыть просмотр"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            <div className="relative w-full h-full flex items-center justify-center">
-              {selectedMedia.kind === 'video' ? (
-                <video
-                  src={selectedMedia.src}
-                  controls
-                  className="max-w-full max-h-full rounded-lg shadow-2xl"
-                  onClick={(event) => event.stopPropagation()}
-                />
-              ) : (
-                <img
-                  src={selectedMedia.src}
-                  alt="Просмотр файла"
-                  className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                  onClick={(event) => event.stopPropagation()}
-                />
-              )}
-            </div>
-          </div>
-        )}
+        <MediaPreviewModal media={selectedMedia} onClose={() => setSelectedMedia(null)} />
       </div>
     );
   }
@@ -1582,12 +1618,27 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
           <p className="text-sm text-gray-600 mb-4">Профиль: {m.profile}</p>
           
           <div className="flex gap-2">
-            <button onClick={() => handleAction(m.id, 'approve')} className="flex-1 bg-green-500 text-white text-sm font-bold py-2 rounded-lg hover:bg-green-600 transition-colors">Одобрить</button>
-            <button onClick={() => handleAction(m.id, 'reject')} className="flex-1 bg-red-100 text-red-600 text-sm font-bold py-2 rounded-lg hover:bg-red-200 transition-colors">Отклонить</button>
+            <button
+              onClick={() => handleAction(m.id, 'approve')}
+              disabled={isModerationLocked}
+              aria-busy={isButtonBusy(m.id, 'approve')}
+              className="flex-1 bg-green-500 text-white text-sm font-bold py-2 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-60 disabled:cursor-wait disabled:hover:bg-green-500 active:scale-[0.98] disabled:active:scale-100"
+            >
+              {getActionLabel(m.id, 'approve', 'Одобрить')}
+            </button>
+            <button
+              onClick={() => handleAction(m.id, 'reject')}
+              disabled={isModerationLocked}
+              aria-busy={isButtonBusy(m.id, 'reject')}
+              className="flex-1 bg-red-100 text-red-600 text-sm font-bold py-2 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-60 disabled:cursor-wait disabled:hover:bg-red-100 active:scale-[0.98] disabled:active:scale-100"
+            >
+              {getActionLabel(m.id, 'reject', 'Отклонить')}
+            </button>
           </div>
           <button 
             onClick={() => setSelectedRequest(m)}
-            className="w-full mt-2 bg-[#E8EDF2] text-[#0F2846] text-sm font-bold py-2 rounded-lg hover:bg-[#D8DFE8] transition-colors"
+            disabled={isModerationLocked}
+            className="w-full mt-2 bg-[#E8EDF2] text-[#0F2846] text-sm font-bold py-2 rounded-lg hover:bg-[#D8DFE8] transition-colors disabled:opacity-60 disabled:cursor-wait disabled:hover:bg-[#E8EDF2]"
           >
             Смотреть анкету
           </button>
