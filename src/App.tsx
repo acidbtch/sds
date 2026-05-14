@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useCallback, useEffect, useRef, useState, Suspense, lazy } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ViewState } from './types';
 import Home from './components/Home';
@@ -22,6 +22,7 @@ const AdminPanel = lazy(() => import('./components/AdminPanel'));
 import { DataProvider, useData } from './context/DataContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { APP_IDLE_SESSION_MS, isLongAppPause } from './lib/appLifecycle';
+import { scheduleAppScrollReset } from './lib/scrollReset';
 
 const INITIAL_CAR_MODELS: Record<string, unknown[]> = {
   "Audi": ["A3", "A4", "A6", "Q3", "Q5", "Q7"],
@@ -108,8 +109,13 @@ function AppShell() {
   const [isSessionNoticeVisible, setIsSessionNoticeVisible] = useState(false);
   const hiddenAtRef = useRef<number | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const viewRootRef = useRef<HTMLDivElement | null>(null);
   const { refreshUser } = useAuth();
   const { refreshPublicData, refreshAdminData } = useData();
+
+  useLayoutEffect(() => {
+    return scheduleAppScrollReset(viewRootRef.current);
+  }, [currentView]);
 
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
@@ -268,6 +274,7 @@ function AppShell() {
     <AppFrame>
       <AnimatePresence mode="wait">
         <motion.div
+          ref={viewRootRef}
           key={currentView}
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
