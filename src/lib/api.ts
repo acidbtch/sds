@@ -333,7 +333,7 @@ export const adminApi = {
       body: JSON.stringify({ status, comment }),
     }),
   toggleUserBlock: (userId: string) => fetchApi<any>(`/admin/users/${userId}/block`, { method: 'POST' }),
-  updateUserRole: (userId: string, role: 'CUSTOMER' | 'EXECUTOR' | 'ADMIN') =>
+  updateUserRole: (userId: string, role: 'CUSTOMER' | 'EXECUTOR' | 'ADMIN' | 'SUPERADMIN') =>
     fetchApi<any>(`/admin/users/${userId}/role`, {
       method: 'PATCH',
       body: JSON.stringify({ role }),

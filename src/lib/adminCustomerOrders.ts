@@ -1,4 +1,5 @@
 import { Order } from '../types';
+import { isAdminRole, normalizeUserRole, type UserRole } from './authUser';
 
 type CustomerOrderOwner = {
   id?: string | number | null;
@@ -21,7 +22,7 @@ type CustomerContactRow = {
   value: string;
 };
 
-type AdminUserRole = 'CUSTOMER' | 'EXECUTOR' | 'ADMIN';
+type AdminUserRole = UserRole;
 type AdminCustomerStatus = 'active' | 'blocked';
 
 export type AdminCustomer = CustomerOrderOwner & {
@@ -61,8 +62,7 @@ function formatTelegramContact(value: unknown, isOfficialUsername = false) {
 }
 
 function normalizeRole(value: unknown): AdminUserRole | '' {
-  const role = displayValue(value).toUpperCase();
-  return role === 'ADMIN' || role === 'EXECUTOR' || role === 'CUSTOMER' ? role : '';
+  return normalizeUserRole(value);
 }
 
 function uniqueValues(values: unknown[]) {
@@ -153,7 +153,7 @@ export function getCustomerContactRows(customer: CustomerOrderOwner): CustomerCo
 }
 
 export function getNextCustomerAdminRole(customer: Pick<AdminCustomer, 'role' | 'previousRole'>): AdminUserRole {
-  return customer.role === 'ADMIN' ? customer.previousRole || 'CUSTOMER' : 'ADMIN';
+  return isAdminRole(customer.role) ? customer.previousRole || 'CUSTOMER' : 'ADMIN';
 }
 
 export function canManageCustomerAdminRole(currentUser: CurrentAdminUser | null | undefined, customer: CustomerOrderOwner): boolean {
@@ -177,8 +177,8 @@ export function getCustomerStateBadge(customer: Pick<AdminCustomer, 'role' | 'st
     return { label: 'Заблокирован', className: 'bg-red-100 text-red-700' };
   }
 
-  if (customer.role === 'ADMIN') {
-    return { label: 'Админ', className: 'bg-blue-100 text-blue-700' };
+  if (isAdminRole(customer.role)) {
+    return { label: customer.role === 'SUPERADMIN' ? 'Суперадмин' : 'Админ', className: 'bg-blue-100 text-blue-700' };
   }
 
   return { label: 'Активен', className: 'bg-green-100 text-green-700' };
@@ -186,7 +186,7 @@ export function getCustomerStateBadge(customer: Pick<AdminCustomer, 'role' | 'st
 
 export function getCustomerStateDotClass(customer: Pick<AdminCustomer, 'role' | 'status'>) {
   if (customer.status === 'blocked') return 'bg-red-500';
-  if (customer.role === 'ADMIN') return 'bg-blue-500';
+  if (isAdminRole(customer.role)) return 'bg-blue-500';
   return 'bg-green-500';
 }
 
@@ -198,7 +198,7 @@ export function mapAdminCustomerFromApi(user: any, orders: Order[]): AdminCustom
     normalizeRole(user.previousRole) ||
     normalizeRole(user.role_before_admin) ||
     normalizeRole(user.roleBeforeAdmin) ||
-    (role === 'ADMIN' ? 'CUSTOMER' : role);
+    (isAdminRole(role) ? 'CUSTOMER' : role);
   const telegramId = displayValue(
     user.telegram_id ??
     user.telegramId ??

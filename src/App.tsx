@@ -23,6 +23,7 @@ import { DataProvider, useData } from './context/DataContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { APP_IDLE_SESSION_MS, isLongAppPause } from './lib/appLifecycle';
 import { scheduleAppScrollReset } from './lib/scrollReset';
+import { isAdminRole } from './lib/authUser';
 
 const INITIAL_CAR_MODELS: Record<string, unknown[]> = {
   "Audi": ["A3", "A4", "A6", "Q3", "Q5", "Q7"],
@@ -235,7 +236,7 @@ function AppShell() {
     void (async () => {
       const refreshedUser = await refreshUser();
       await refreshPublicData(false);
-      await refreshAdminData({ force: refreshedUser?.role === 'ADMIN' });
+      await refreshAdminData({ force: isAdminRole(refreshedUser?.role) });
     })().finally(() => {
       resetIdleTimer();
     });

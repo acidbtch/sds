@@ -8,6 +8,7 @@ import { useAuth } from './AuthContext';
 import { shouldRefreshAfterAppResume } from '../lib/appLifecycle';
 import { getFulfilledAdminData } from '../lib/adminRefresh';
 import { getSupportTicketUserLabel } from '../lib/supportTicketDisplay';
+import { isAdminRole, normalizeUserRole } from '../lib/authUser';
 
 // Define the types for our context state
 interface Customer {
@@ -176,7 +177,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshAdminData = useCallback(async (options: { force?: boolean } = {}) => {
-    if (!options.force && user?.role !== 'ADMIN') return;
+    if (!options.force && !isAdminRole(user?.role)) return;
 
     try {
       const [usersResult, executorsResult, ordersResult, paymentsResult, bannersResult, faqResult, contentResult, brandsResult, categoriesResult, supportResult, regionsResult] = await Promise.allSettled([
@@ -210,7 +211,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         : undefined;
       const mappedCustomers = usersData !== undefined && mappedOrders !== undefined
         ? (usersData || [])
-          .filter((u: any) => ['CUSTOMER', 'ADMIN'].includes(String(u.role || '').toUpperCase()))
+          .filter((u: any) => {
+            const role = normalizeUserRole(u.role);
+            return role === 'CUSTOMER' || isAdminRole(role);
+          })
           .map((u: any) => mapAdminCustomerFromApi(u, mappedOrders))
         : undefined;
 
@@ -441,7 +445,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [refreshPublicData, refreshAdminData]);
 
   useEffect(() => {
-    if (user?.role !== 'ADMIN') return;
+    if (!isAdminRole(user?.role)) return;
 
     const intervalId = setInterval(() => {
       if (document.visibilityState !== 'visible') return;

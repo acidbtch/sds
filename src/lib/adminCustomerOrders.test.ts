@@ -215,6 +215,19 @@ assert.equal(
   'a regular customer should remember CUSTOMER as the role to restore',
 );
 
+const mappedSuperAdminCustomer = mapAdminCustomerFromApi({
+  id: 'super-admin-user',
+  role: 'SUPERADMIN',
+  username: 'super_admin',
+  created_at: '2026-05-21T07:57:00Z',
+}, []);
+
+assert.equal(
+  mappedSuperAdminCustomer.role,
+  'SUPERADMIN',
+  'admin customer mapping should keep the backend SUPERADMIN role',
+);
+
 assert.equal(
   getNextCustomerAdminRole(mappedAdminCustomer),
   'ADMIN',
@@ -279,6 +292,12 @@ assert.equal(
   getCustomerStateDotClass({ role: 'ADMIN', status: 'active' }),
   'bg-blue-500',
   'an active admin should use a blue list status dot',
+);
+
+assert.equal(
+  getCustomerStateDotClass({ role: 'SUPERADMIN', status: 'active' }),
+  'bg-blue-500',
+  'an active super admin should use the same blue list status dot',
 );
 
 assert.equal(

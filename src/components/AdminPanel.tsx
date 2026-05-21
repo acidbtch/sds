@@ -22,6 +22,7 @@ import { SUPPORT_CHAT_BUBBLE_BASE_CLASS, SUPPORT_CHAT_MESSAGE_TEXT_CLASS } from 
 import { getSupportTicketUserLabel } from '../lib/supportTicketDisplay';
 import UploadedFilesGrid from './UploadedFilesGrid';
 import MediaPreviewModal, { type MediaPreviewValue } from './MediaPreviewModal';
+import { isAdminRole, type UserRole } from '../lib/authUser';
 import {
   areUploadedFilesEqual,
   getUploadedFilePreviewKind,
@@ -265,7 +266,7 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
   const { user } = useAuth();
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [search, setSearch] = useState('');
-  const [roleConfirm, setRoleConfirm] = useState<{ customer: any; nextRole: 'CUSTOMER' | 'EXECUTOR' | 'ADMIN' } | null>(null);
+  const [roleConfirm, setRoleConfirm] = useState<{ customer: any; nextRole: UserRole } | null>(null);
   const [isRoleUpdating, setIsRoleUpdating] = useState(false);
   const [isRoleApiUnavailable, setIsRoleApiUnavailable] = useState(false);
 
@@ -303,6 +304,7 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
   const getRoleLabel = (role: string) => {
     switch (role) {
       case 'ADMIN': return 'Админ';
+      case 'SUPERADMIN': return 'Суперадмин';
       case 'EXECUTOR': return 'Исполнитель';
       case 'CUSTOMER': return 'Клиент';
       default: return role || 'Клиент';
@@ -324,7 +326,7 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
 
     const currentRole = roleConfirm.customer.role || 'CUSTOMER';
     const previousRole = roleConfirm.nextRole === 'ADMIN'
-      ? (currentRole === 'ADMIN' ? roleConfirm.customer.previousRole : currentRole)
+      ? (isAdminRole(currentRole) ? roleConfirm.customer.previousRole : currentRole)
       : roleConfirm.nextRole;
     const updatedCustomer = {
       ...roleConfirm.customer,
@@ -435,13 +437,13 @@ function CustomersView({ customers, setCustomers, orders }: { customers: any[], 
             <button
               onClick={openRoleConfirm}
               disabled={isRoleButtonDisabled}
-              className={`w-full py-3 rounded-lg font-bold text-white transition active:scale-[0.98] disabled:opacity-60 ${!canChangeAdminRole || isRoleApiUnavailable ? 'bg-gray-400' : selectedCustomer.role === 'ADMIN' ? 'bg-slate-700' : 'bg-blue-600'}`}
+              className={`w-full py-3 rounded-lg font-bold text-white transition active:scale-[0.98] disabled:opacity-60 ${!canChangeAdminRole || isRoleApiUnavailable ? 'bg-gray-400' : isAdminRole(selectedCustomer.role) ? 'bg-slate-700' : 'bg-blue-600'}`}
             >
               {!canChangeAdminRole
                 ? 'Нельзя изменить свой статус'
                 : isRoleApiUnavailable
                   ? 'Смена роли недоступна'
-                : selectedCustomer.role === 'ADMIN'
+                : isAdminRole(selectedCustomer.role)
                   ? `Вернуть статус ${getRoleLabel(selectedCustomer.previousRole)}`
                   : 'Сделать админом'}
             </button>
