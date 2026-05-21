@@ -4,6 +4,7 @@ export type ExecutorModerationProfileType = 'partner' | 'pro' | 'leader';
 
 export interface ExecutorModerationItem {
   id: number;
+  moderationRequestId?: string;
   type: 'new' | 'edit';
   name: string;
   profile: ExecutorModerationProfileType;
@@ -153,6 +154,23 @@ export function mapExecutorModerationFromApi(
 ): ExecutorModerationItem {
   const pendingChanges = firstValue(profile?.pending_changes, profile?.pendingChanges);
   const currentProfile = firstValue(profile?.current_profile, profile?.currentProfile);
+  const moderationRequest = firstValue(
+    profile?.moderation_request,
+    profile?.moderationRequest,
+    profile?.pending_moderation,
+    profile?.pendingModeration,
+  );
+  const moderationRequestId = firstValue(
+    profile?.moderation_request_id,
+    profile?.moderationRequestId,
+    profile?.active_moderation_request_id,
+    profile?.activeModerationRequestId,
+    moderationRequest?.id,
+    moderationRequest?.request_id,
+    moderationRequest?.requestId,
+    moderationRequest?.moderation_request_id,
+    moderationRequest?.moderationRequestId,
+  );
   const isEdit = hasObjectValue(pendingChanges);
   const oldSource = isEdit ? (hasObjectValue(currentProfile) ? currentProfile : profile) : undefined;
   const cleanPendingChanges = isEdit
@@ -166,6 +184,7 @@ export function mapExecutorModerationFromApi(
 
   return {
     id: index + 1,
+    moderationRequestId: moderationRequestId ? String(moderationRequestId) : undefined,
     type: isEdit ? 'edit' : 'new',
     name: data.shortName || data.name || '',
     profile: profileTypeFromTier(firstValue(newSource?.tier, profile?.tier)),
@@ -178,6 +197,21 @@ export function mapExecutorModerationFromApi(
 
 export function getExecutorModerationProfileId(request: Pick<ExecutorModerationItem, 'data'>) {
   const id = firstValue(request.data?.id, request.data?.profileId, request.data?.profile_id);
+  return id ? String(id) : null;
+}
+
+export function getExecutorModerationRequestId(
+  request: Pick<ExecutorModerationItem, 'data'> & Partial<Pick<ExecutorModerationItem, 'moderationRequestId'>>,
+) {
+  const id = firstValue(
+    request.moderationRequestId,
+    request.data?.moderationRequestId,
+    request.data?.moderation_request_id,
+    request.data?.moderationRequest?.id,
+    request.data?.moderation_request?.id,
+    request.data?.pendingModeration?.id,
+    request.data?.pending_moderation?.id,
+  );
   return id ? String(id) : null;
 }
 

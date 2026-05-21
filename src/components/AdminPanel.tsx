@@ -31,7 +31,7 @@ import {
   type UploadedFileItem,
 } from '../lib/uploadedFiles';
 import {
-  getExecutorModerationProfileId,
+  getExecutorModerationRequestId,
   removeExecutorModerationItem,
 } from '../lib/executorModeration';
 
@@ -1413,16 +1413,16 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
 
     const request = moderation.find(m => m.id === id);
     if (!request) return;
-    const profileId = getExecutorModerationProfileId(request);
+    const moderationRequestId = getExecutorModerationRequestId(request);
 
-    if (!profileId) {
-      alert('Не удалось определить ID профиля исполнителя для модерации.');
+    if (!moderationRequestId) {
+      alert('Не удалось определить ID заявки на модерацию.');
       return;
     }
 
     try {
       setModerationAction({ id, action });
-      await adminApi.moderateExecutor(profileId, action === 'approve' ? 'APPROVED' : 'REJECTED');
+      await adminApi.moderateExecutor(moderationRequestId, action === 'approve' ? 'APPROVED' : 'REJECTED');
       
       setModeration((prev: any[]) => removeExecutorModerationItem(prev, id));
       setSelectedRequest(null);

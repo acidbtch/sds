@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
-import { getExecutorModerationProfileId, mapExecutorModerationFromApi, removeExecutorModerationItem } from './executorModeration';
+import {
+  getExecutorModerationProfileId,
+  getExecutorModerationRequestId,
+  mapExecutorModerationFromApi,
+  removeExecutorModerationItem,
+} from './executorModeration';
 
 const editRequest = mapExecutorModerationFromApi({
   id: 'profile-1',
@@ -64,6 +69,11 @@ assert.equal(editRequest.data.logoFiles?.[0].key, 'new-logo.png');
 const newRequest = mapExecutorModerationFromApi({
   id: 'profile-2',
   moderation_status: 'PENDING',
+  moderation_request: {
+    id: 'moderation-request-2',
+    type: 'new',
+    status: 'PENDING',
+  },
   tier: 'LEADER',
   legal_name: 'New Executor',
   short_name: 'Executor',
@@ -74,7 +84,13 @@ assert.equal(newRequest.oldData, undefined);
 assert.equal(newRequest.profile, 'leader');
 assert.equal(newRequest.data.logoFiles?.length || 0, 0);
 assert.equal(getExecutorModerationProfileId(newRequest), 'profile-2');
+assert.equal(
+  getExecutorModerationRequestId(newRequest),
+  'moderation-request-2',
+  'moderation actions should use the backend moderation request id, not the executor profile id',
+);
 assert.equal(getExecutorModerationProfileId({ ...newRequest, data: {} }), null);
+assert.equal(getExecutorModerationRequestId({ ...newRequest, moderationRequestId: '', data: {} }), null);
 
 const logoOnlyKeyRequest = mapExecutorModerationFromApi({
   id: 'profile-logo',

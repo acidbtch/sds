@@ -327,8 +327,8 @@ export const adminApi = {
   getServiceCategories: () => fetchApi<any[]>('/admin/services/categories'),
   getSupportTickets: () => fetchApi<any[]>('/support/admin/tickets'),
   getSupportTicket: (ticketId: string) => fetchApi<any>(`/support/admin/tickets/${ticketId}`),
-  moderateExecutor: (profileId: string, status: 'APPROVED' | 'REJECTED', comment?: string) =>
-    fetchApi<any>(`/admin/executors/moderation/${profileId}`, {
+  moderateExecutor: (moderationRequestId: string, status: 'APPROVED' | 'REJECTED', comment?: string) =>
+    fetchApi<any>(`/admin/executors/moderation/${moderationRequestId}`, {
       method: 'POST',
       body: JSON.stringify({ status, comment }),
     }),
