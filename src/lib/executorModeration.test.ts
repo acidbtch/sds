@@ -109,11 +109,38 @@ assert.equal(
 );
 assert.equal(getExecutorModerationRequestId({ ...newRequest, moderationRequestId: '', data: {} }), null);
 
+const directModerationRequest = mapExecutorModerationFromApi({
+  id: 'moderation-request-direct',
+  type: 'edit',
+  status: 'PENDING',
+  executor_profile_id: 'profile-direct',
+  current_profile: {
+    id: 'profile-direct',
+    legal_name: 'Current Executor',
+    short_name: 'Current',
+  },
+  pending_changes: {
+    legal_name: 'Changed Executor',
+    short_name: 'Changed',
+  },
+}, 2);
+
+assert.equal(
+  getExecutorModerationRequestId(directModerationRequest),
+  'moderation-request-direct',
+  'direct moderation request responses should use their own id for moderation actions',
+);
+assert.equal(
+  getExecutorModerationProfileId(directModerationRequest),
+  'profile-direct',
+  'direct moderation request responses should keep the executor profile id separately',
+);
+
 const logoOnlyKeyRequest = mapExecutorModerationFromApi({
   id: 'profile-logo',
   moderation_status: 'PENDING',
   logo_key: 'c49341f9-without-extension',
-}, 2);
+}, 3);
 
 assert.equal(
   logoOnlyKeyRequest.data.logoFiles?.[0].kind,

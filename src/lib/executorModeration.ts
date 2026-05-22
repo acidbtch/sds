@@ -54,6 +54,24 @@ function moderationTypeFromRequest(moderationRequest: any): 'new' | 'edit' | nul
   return null;
 }
 
+function getDirectModerationProfileId(profile: any) {
+  return firstNonEmptyValue(
+    profile?.executor_profile_id,
+    profile?.executorProfileId,
+    profile?.profile_id,
+    profile?.profileId,
+    profile?.executor_id,
+    profile?.executorId,
+  );
+}
+
+function isDirectModerationRequest(profile: any) {
+  return Boolean(getDirectModerationProfileId(profile)) && Boolean(
+    moderationTypeFromRequest(profile) ||
+    String(profile?.status || '').toUpperCase() === 'PENDING',
+  );
+}
+
 function createNameLookup(items: any[] | undefined) {
   const lookup = new Map<string, string>();
 
@@ -176,27 +194,49 @@ export function mapExecutorModerationFromApi(
     profile?.pending_moderation,
     profile?.pendingModeration,
   );
+  const directModerationRequest = isDirectModerationRequest(profile) ? profile : undefined;
+  const profileId = firstNonEmptyValue(
+    getDirectModerationProfileId(profile),
+    currentProfile?.id,
+    currentProfile?.profile_id,
+    currentProfile?.profileId,
+    pendingChanges?.id,
+    pendingChanges?.profile_id,
+    pendingChanges?.profileId,
+    profile?.id,
+  );
   const moderationRequestId = firstNonEmptyValue(
     profile?.moderation_request_id,
     profile?.moderationRequestId,
     profile?.active_moderation_request_id,
     profile?.activeModerationRequestId,
+    profile?.pending_moderation_request_id,
+    profile?.pendingModerationRequestId,
+    profile?.latest_moderation_request_id,
+    profile?.latestModerationRequestId,
+    profile?.request_id,
+    profile?.requestId,
+    profile?.moderation_id,
+    profile?.moderationId,
     moderationRequest?.id,
     moderationRequest?.request_id,
     moderationRequest?.requestId,
     moderationRequest?.moderation_request_id,
     moderationRequest?.moderationRequestId,
+    moderationRequest?.moderation_id,
+    moderationRequest?.moderationId,
+    directModerationRequest?.id,
   );
-  const requestType = moderationTypeFromRequest(moderationRequest);
+  const requestType = moderationTypeFromRequest(moderationRequest) || moderationTypeFromRequest(profile);
   const isEdit = requestType ? requestType === 'edit' : hasObjectValue(pendingChanges);
   const oldSource = isEdit ? (hasObjectValue(currentProfile) ? currentProfile : profile) : undefined;
   const cleanPendingChanges = isEdit
     ? stripOldResolvedFilesFromPendingChanges(pendingChanges as Record<string, any>)
     : undefined;
   const newSource = isEdit
-    ? { ...(oldSource || {}), ...(cleanPendingChanges as Record<string, any>), id: profile?.id ?? (oldSource as any)?.id }
+    ? { ...(oldSource || {}), ...(cleanPendingChanges as Record<string, any>), id: profileId ?? (oldSource as any)?.id }
     : hasObjectValue(pendingChanges)
-      ? { ...(pendingChanges as Record<string, any>), id: profile?.id ?? (pendingChanges as Record<string, any>)?.id }
+      ? { ...(pendingChanges as Record<string, any>), id: profileId ?? (pendingChanges as Record<string, any>)?.id }
       : profile;
   const data = mapProfileData(newSource, dictionaries);
   const oldData = oldSource ? mapProfileData(oldSource, dictionaries) : undefined;
