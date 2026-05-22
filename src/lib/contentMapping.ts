@@ -6,7 +6,11 @@ export interface ContentFaqItem {
 }
 
 function textValue(value: unknown) {
-  return value === null || value === undefined ? '' : String(value);
+  if (value === null || value === undefined) return '';
+
+  return String(value)
+    .replace(/\u001E/g, '-')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001D\u001F\u007F]/g, ' ');
 }
 
 function numberValue(value: unknown, fallback: number) {
@@ -41,4 +45,11 @@ export function getContentTextByKey(items: unknown, key: string) {
 
   const item = items.find((entry: any) => entry?.key === key);
   return textValue(item?.content ?? item?.value ?? item?.body);
+}
+
+export function getContentTextFromApiItem(item: unknown, fallback = '') {
+  if (!item || typeof item !== 'object') return fallback;
+
+  const record = item as Record<string, unknown>;
+  return textValue(record.content ?? record.value ?? record.body ?? fallback);
 }

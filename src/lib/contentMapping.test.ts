@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   getContentTextByKey,
+  getContentTextFromApiItem,
   mapFaqItemsFromApi,
   prepareFaqItemsForSave,
 } from './contentMapping';
@@ -15,6 +16,14 @@ assert.deepEqual(
   faq.map(item => item.id),
   ['legacy', 'first', 'second'],
   'FAQ should be sorted by backend order fields before display',
+);
+
+assert.equal(
+  mapFaqItemsFromApi([
+    { id: 'bad-control', question: 'Как улучшить бизнес\u001eпроцессы?', answer: 'Ответ\u0007с текстом' },
+  ])[0].question,
+  'Как улучшить бизнес-процессы?',
+  'FAQ display text should replace backend control separators with readable punctuation',
 );
 
 assert.deepEqual(
@@ -42,6 +51,12 @@ assert.equal(
   getContentTextByKey([{ key: 'privacy', value: '# Legacy privacy' }], 'privacy'),
   '# Legacy privacy',
   'static content should keep a legacy value fallback during migration',
+);
+
+assert.equal(
+  getContentTextFromApiItem({ content: 'Строка 1\u001eстрока 2\nНовая строка' }),
+  'Строка 1-строка 2\nНовая строка',
+  'single content responses should be normalized without losing line breaks',
 );
 
 console.log('content mapping passed');

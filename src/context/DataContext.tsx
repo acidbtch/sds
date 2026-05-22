@@ -6,10 +6,15 @@ import { mapExecutorModerationFromApi } from '../lib/executorModeration';
 import { mapOrderFromApi } from '../lib/orderMapping';
 import { useAuth } from './AuthContext';
 import { shouldRefreshAfterAppResume } from '../lib/appLifecycle';
-import { getFulfilledAdminData } from '../lib/adminRefresh';
+import {
+  createAdminRefreshError,
+  getFulfilledAdminData,
+  getRejectedAdminRefreshError,
+  type AdminRefreshError,
+} from '../lib/adminRefresh';
 import { getSupportTicketUserLabel } from '../lib/supportTicketDisplay';
 import { isAdminRole, normalizeUserRole } from '../lib/authUser';
-import { getContentTextByKey, mapFaqItemsFromApi } from '../lib/contentMapping';
+import { getContentTextByKey, getContentTextFromApiItem, mapFaqItemsFromApi } from '../lib/contentMapping';
 import { getExecutorDisplayProfile, getExecutorMediaUrl } from '../lib/executorProfileDisplay';
 
 // Define the types for our context state
@@ -121,6 +126,7 @@ interface DataContextType {
   carModels: Record<string, any[]>;
   setCarModels: React.Dispatch<React.SetStateAction<Record<string, any[]>>>;
   isLoading: boolean;
+  adminRefreshErrors: AdminRefreshError[];
   refreshPublicData: (showLoading?: boolean) => Promise<void>;
   refreshAdminData: (options?: { force?: boolean }) => Promise<void>;
 }
@@ -177,12 +183,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [carBrands, setCarBrands] = useState<any[]>([]);
   const [carModels, setCarModels] = useState<Record<string, any[]>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [adminRefreshErrors, setAdminRefreshErrors] = useState<AdminRefreshError[]>([]);
 
   const refreshAdminData = useCallback(async (options: { force?: boolean } = {}) => {
-    if (!options.force && !isAdminRole(user?.role)) return;
+    if (!options.force && !isAdminRole(user?.role)) {
+      setAdminRefreshErrors([]);
+      return;
+    }
 
     try {
-      const [usersResult, executorsResult, ordersResult, paymentsResult, bannersResult, faqResult, contentResult, brandsResult, categoriesResult, supportResult, regionsResult] = await Promise.allSettled([
+      const [dashboardResult, usersResult, executorsResult, ordersResult, paymentsResult, bannersResult, faqResult, contentResult, brandsResult, categoriesResult, supportResult, regionsResult] = await Promise.allSettled([
+        adminApi.getDashboard(),
         adminApi.getUsers(),
         adminApi.getExecutors(),
         adminApi.getOrders(),
@@ -196,6 +207,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         dictsApi.getRegions(),
       ]);
 
+      getFulfilledAdminData(dashboardResult, 'dashboard');
       const usersData = getFulfilledAdminData(usersResult, 'users');
       const executorsData = getFulfilledAdminData(executorsResult, 'executors');
       const ordersData = getFulfilledAdminData(ordersResult, 'orders');
@@ -207,6 +219,21 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const categoriesData = getFulfilledAdminData(categoriesResult, 'service categories');
       const supportData = getFulfilledAdminData(supportResult, 'support tickets');
       const moderationRegionsData = getFulfilledAdminData(regionsResult, 'regions');
+      const refreshErrors = [
+        getRejectedAdminRefreshError(dashboardResult, 'Общая панель', 'dashboard'),
+        getRejectedAdminRefreshError(usersResult, 'Заказчики', 'users'),
+        getRejectedAdminRefreshError(executorsResult, 'Исполнители', 'executors'),
+        getRejectedAdminRefreshError(ordersResult, 'Заказы', 'orders'),
+        getRejectedAdminRefreshError(paymentsResult, 'Платежи', 'payments'),
+        getRejectedAdminRefreshError(bannersResult, 'Баннеры', 'banners'),
+        getRejectedAdminRefreshError(faqResult, 'FAQ', 'faq'),
+        getRejectedAdminRefreshError(contentResult, 'Контент', 'content'),
+        getRejectedAdminRefreshError(brandsResult, 'Марки авто', 'car-brands'),
+        getRejectedAdminRefreshError(categoriesResult, 'Услуги', 'service-categories'),
+        getRejectedAdminRefreshError(supportResult, 'Поддержка', 'support'),
+        getRejectedAdminRefreshError(regionsResult, 'Регионы', 'regions'),
+      ].filter((error): error is AdminRefreshError => Boolean(error));
+      setAdminRefreshErrors(refreshErrors);
 
       const mappedOrders = ordersData !== undefined
         ? (ordersData || []).map(mapOrderFromApi)
@@ -341,6 +368,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (error) {
       console.error('Failed to fetch admin data:', error);
+      setAdminRefreshErrors([createAdminRefreshError(error, 'Админка', 'admin')]);
     }
   }, [user?.role]);
 
@@ -366,8 +394,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (rulesContent || privacyContent) {
           setContent(prev => ({
             ...prev,
-            rules: rulesContent ? (rulesContent.content ?? rulesContent.value ?? prev.rules) : prev.rules,
-            privacy: privacyContent ? (privacyContent.content ?? privacyContent.value ?? prev.privacy) : prev.privacy,
+            rules: rulesContent ? getContentTextFromApiItem(rulesContent, prev.rules) : prev.rules,
+            privacy: privacyContent ? getContentTextFromApiItem(privacyContent, prev.privacy) : prev.privacy,
           }));
         }
         
@@ -490,6 +518,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       carBrands, setCarBrands,
       carModels, setCarModels,
       isLoading,
+      adminRefreshErrors,
       refreshPublicData,
       refreshAdminData
     }}>

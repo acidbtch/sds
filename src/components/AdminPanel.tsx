@@ -35,6 +35,7 @@ import {
   getExecutorModerationRequestId,
   removeExecutorModerationItem,
 } from '../lib/executorModeration';
+import type { AdminRefreshError } from '../lib/adminRefresh';
 
 interface Props {
   onNavigate: (view: ViewState) => void;
@@ -47,7 +48,7 @@ type AdminTab = 'dashboard' | 'customers' | 'contractors' | 'orders' | 'payments
 export default function AdminPanel({ onNavigate, carModels, setCarModels }: Props) {
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { refreshAdminData } = useData();
+  const { refreshAdminData, adminRefreshErrors } = useData();
 
   const {
     customers, setCustomers,
@@ -82,9 +83,13 @@ export default function AdminPanel({ onNavigate, carModels, setCarModels }: Prop
     setActiveTab(tabId);
     setIsMenuOpen(false);
     if (tabId === 'dashboard' || tabId === 'moderation' || tabId === 'support' || tabId === 'customers' || tabId === 'contractors') {
-      refreshAdminData();
+      refreshAdminData({ force: true });
     }
   };
+
+  useEffect(() => {
+    void refreshAdminData({ force: true });
+  }, [refreshAdminData]);
 
   return (
     <div className="flex flex-col min-h-screen bg-white relative [&_button]:transition-all [&_button:not(:disabled)]:active:scale-[0.98] [&_button:not(:disabled)]:active:opacity-90">
@@ -132,6 +137,17 @@ export default function AdminPanel({ onNavigate, carModels, setCarModels }: Prop
         </div>
       </div>
 
+      {adminRefreshErrors.length > 0 && (
+        <div className="px-4 pt-4">
+          <AdminDataLoadAlert
+            errors={adminRefreshErrors}
+            onRetry={() => {
+              void refreshAdminData({ force: true });
+            }}
+          />
+        </div>
+      )}
+
       <div className="p-4 flex-1 overflow-y-auto pb-24">
         {activeTab === 'dashboard' && <DashboardView onNavigateTab={setActiveTab} onNavigate={onNavigate} />}
         {activeTab === 'customers' && <CustomersView customers={customers} setCustomers={setCustomers} orders={orders} />}
@@ -150,6 +166,50 @@ export default function AdminPanel({ onNavigate, carModels, setCarModels }: Prop
 }
 
 // --- View Components ---
+
+function AdminDataLoadAlert({ errors, onRetry }: { errors: AdminRefreshError[]; onRetry: () => void }) {
+  const visibleErrors = errors.slice(0, 5);
+  const hiddenCount = errors.length - visibleErrors.length;
+  const hasAuthErrors = errors.some(error => error.isAuthError);
+
+  return (
+    <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900 shadow-sm">
+      <div className="flex items-start gap-2">
+        <AlertCircle className="mt-0.5 h-5 w-5 flex-none text-orange-600" />
+        <div className="min-w-0 flex-1">
+          <p className="font-bold">Данные админки загрузились не полностью</p>
+          <p className="mt-1 leading-snug">
+            Это не пустая база: часть запросов к API вернулась с ошибкой. Ниже видно, какие разделы не отдал сервер.
+          </p>
+          {hasAuthErrors && (
+            <p className="mt-1 leading-snug">
+              Если пользователю уже выдали роль админа, нужно проверить на бэке права этой роли и обновление токена после смены статуса.
+            </p>
+          )}
+          <ul className="mt-2 space-y-1 text-xs">
+            {visibleErrors.map(error => (
+              <li key={error.key} className="rounded bg-white/70 px-2 py-1">
+                <span className="font-bold">{error.label}:</span>{' '}
+                {error.status ? `${error.status} ` : ''}
+                {error.message}
+              </li>
+            ))}
+            {hiddenCount > 0 && (
+              <li className="px-2 py-1">Еще ошибок: {hiddenCount}</li>
+            )}
+          </ul>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="mt-3 w-full rounded-lg bg-orange-600 px-3 py-2 font-bold text-white"
+      >
+        Повторить загрузку
+      </button>
+    </div>
+  );
+}
 
 function DashboardView({ onNavigateTab, onNavigate }: { onNavigateTab: (tab: AdminTab) => void, onNavigate: (view: ViewState) => void }) {
   const { customers, orders, payments, contractors, moderation, support } = useData();
