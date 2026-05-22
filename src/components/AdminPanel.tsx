@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ViewState } from '../types';
 import { 
   ChevronLeft, Users, Briefcase, FileText, CreditCard, 
@@ -49,6 +49,7 @@ export default function AdminPanel({ onNavigate, carModels, setCarModels }: Prop
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { refreshAdminData, adminRefreshErrors } = useData();
+  const { login, refreshUser } = useAuth();
 
   const {
     customers, setCustomers,
@@ -79,17 +80,33 @@ export default function AdminPanel({ onNavigate, carModels, setCarModels }: Prop
     { id: 'services', label: 'Услуги', icon: <Settings className="w-5 h-5" /> },
   ];
 
+  const refreshAdminDataWithAuth = useCallback(async () => {
+    const initData = (window as any).Telegram?.WebApp?.initData;
+
+    if (initData) {
+      try {
+        await login(initData);
+      } catch (error) {
+        console.error('Failed to refresh Telegram auth before admin load:', error);
+      }
+    } else {
+      await refreshUser();
+    }
+
+    await refreshAdminData({ force: true });
+  }, [login, refreshAdminData, refreshUser]);
+
+  useEffect(() => {
+    void refreshAdminDataWithAuth();
+  }, [refreshAdminDataWithAuth]);
+
   const handleTabChange = (tabId: AdminTab) => {
     setActiveTab(tabId);
     setIsMenuOpen(false);
     if (tabId === 'dashboard' || tabId === 'moderation' || tabId === 'support' || tabId === 'customers' || tabId === 'contractors') {
-      refreshAdminData({ force: true });
+      void refreshAdminDataWithAuth();
     }
   };
-
-  useEffect(() => {
-    void refreshAdminData({ force: true });
-  }, [refreshAdminData]);
 
   return (
     <div className="flex flex-col min-h-screen bg-white relative [&_button]:transition-all [&_button:not(:disabled)]:active:scale-[0.98] [&_button:not(:disabled)]:active:opacity-90">
@@ -142,7 +159,7 @@ export default function AdminPanel({ onNavigate, carModels, setCarModels }: Prop
           <AdminDataLoadAlert
             errors={adminRefreshErrors}
             onRetry={() => {
-              void refreshAdminData({ force: true });
+              void refreshAdminDataWithAuth();
             }}
           />
         </div>
