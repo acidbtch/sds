@@ -108,8 +108,15 @@ function mapOrderStatus(status: unknown): Order['status'] {
 }
 
 export function mapOrderFromApi(o: any): Order {
+  const id = String(o.id || '');
+  const publicId = idString(o.public_id || o.publicId);
+  const orderNumber = idString(o.order_number || o.orderNumber);
+
   return {
-    id: String(o.id || ''),
+    id,
+    publicId,
+    orderNumber,
+    displayNumber: orderNumber || publicId,
     serviceType:
       firstDisplayValue(o.service_name, o.services, o.service, o.service_id) ||
       'Услуга',
@@ -135,8 +142,8 @@ export function mapOrderFromApi(o: any): Order {
     engine: firstDisplayValue(o.engine_type, o.engine),
     drive: firstDisplayValue(o.drive_type, o.drive),
     region: firstDisplayValue(o.region_name, o.region, o.region_id),
-    phone: displayString(o.owner_phone || o.phone),
-    customerName: firstDisplayValue(o.owner_name, o.customer_name, o.customer),
+    phone: displayString(o.customer_phone || o.customerPhone || o.owner_phone || o.phone),
+    customerName: firstDisplayValue(o.customer_name, o.customerName, o.owner_name, o.customer),
     customerId: firstIdValue(
       o.customer_id,
       o.customerId,
@@ -174,6 +181,8 @@ export function mapOrderFromApi(o: any): Order {
     customerUsername: firstDisplayValue(
       o.customer_username,
       o.customerUsername,
+      o.customer_telegram_username,
+      o.customerTelegramUsername,
       o.owner_username,
       o.ownerUsername,
       o.username,

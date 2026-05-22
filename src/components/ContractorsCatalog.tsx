@@ -7,6 +7,7 @@ import { customerApi } from '../lib/api';
 import { getContractorServiceGroups } from '../lib/contractorServices';
 import { getFilteredContractors, ContractorCatalogFilters } from '../lib/contractorCatalog';
 import { filterApprovedExecutors } from '../lib/executorAccess';
+import { getExecutorDisplayProfile, getExecutorMediaUrl } from '../lib/executorProfileDisplay';
 import MediaPreviewModal, { type MediaPreviewValue } from './MediaPreviewModal';
 
 interface Props {
@@ -74,30 +75,35 @@ export default function ContractorsCatalog({ onNavigate, isCustomer = false, pre
       try {
         const data = await customerApi.getExecutors();
         if (data) {
-          const mappedData = filterApprovedExecutors(data).map((c: any) => ({
-            id: c.id,
-            name: c.name || '',
-            shortName: c.short_name || '',
-            profileType: (c.tier === 'LEADER' ? 'leader' : c.tier === 'PROFI' ? 'pro' : 'partner') as Contractor['profileType'],
-            rating: c.rating || 5.0,
-            reviewsCount: c.reviews_count || 0,
-            completedOrders: c.completed_orders || 0,
-            registrationDate: c.created_at || new Date().toISOString(),
-            description: c.description || '',
-            services: (c.services || []).map((s: any) => s.name || s),
-            regions: (c.regions || []).map((r: any) => r.name || r),
-            address: c.address || '',
-            workingHours: c.working_hours || '',
-            phone: c.phone || '',
-            instagram: c.instagram || '',
-            website: c.website || '',
-            logo: c.logo_url || c.avatar_url || '',
-            photos: c.portfolio_photos || c.photos || [],
-            legalDocs: c.legal_documents || [],
-            video: c.video_url || '',
-            unp: c.unp || '',
-            legalStatus: c.legal_status || ''
-          }));
+          const mappedData = filterApprovedExecutors(data).map((c: any) => {
+            const profile = getExecutorDisplayProfile(c);
+            const tier = profile.tier || c.tier;
+
+            return {
+              id: c.id,
+              name: profile.name || profile.legal_name || profile.short_name || '',
+              shortName: profile.short_name || '',
+              profileType: (tier === 'LEADER' ? 'leader' : tier === 'PROFI' ? 'pro' : 'partner') as Contractor['profileType'],
+              rating: c.rating || profile.rating || 5.0,
+              reviewsCount: c.reviews_count || profile.reviews_count || 0,
+              completedOrders: c.completed_orders || c.completed_orders_count || profile.completed_orders || profile.completed_orders_count || 0,
+              registrationDate: c.created_at || new Date().toISOString(),
+              description: profile.description || '',
+              services: (c.services || profile.services || []).map((s: any) => s.name || s),
+              regions: (c.regions || profile.regions || []).map((r: any) => r.name || r),
+              address: profile.address || '',
+              workingHours: profile.working_hours || profile.workingHours || '',
+              phone: profile.phone || '',
+              instagram: profile.instagram || profile.instagram_url || '',
+              website: profile.website || profile.website_url || '',
+              logo: profile.logo_url || profile.avatar_url || getExecutorMediaUrl(profile.logo) || '',
+              photos: profile.portfolio_photos || profile.photos || [],
+              legalDocs: profile.legal_documents || [],
+              video: profile.video_url || '',
+              unp: profile.unp || '',
+              legalStatus: profile.legal_status || '',
+            };
+          });
           setContractors(mappedData);
         }
       } catch (error) {

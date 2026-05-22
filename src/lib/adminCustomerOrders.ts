@@ -103,14 +103,15 @@ function shortOrderId(id: unknown) {
   return value.length > 8 ? value.slice(0, 8) : value;
 }
 
-export function getAdminCustomerOrderSummary(order: Pick<Order, 'id' | 'serviceType' | 'carMake' | 'carModel' | 'year' | 'description' | 'date'>) {
-  const title = displayValue(order.serviceType) || `Заказ #${shortOrderId(order.id)}`;
+export function getAdminCustomerOrderSummary(order: Pick<Order, 'id' | 'displayNumber' | 'orderNumber' | 'publicId' | 'serviceType' | 'carMake' | 'carModel' | 'year' | 'description' | 'date'>) {
+  const displayId = displayValue(order.displayNumber || order.orderNumber || order.publicId) || shortOrderId(order.id);
+  const title = displayValue(order.serviceType) || `Заказ #${displayId}`;
   const car = [order.carMake, order.carModel]
     .map(displayValue)
     .filter(Boolean)
     .join(' ');
   const carWithYear = car && order.year ? `${car} (${order.year})` : car;
-  const id = shortOrderId(order.id);
+  const id = displayId;
   const meta = [
     id ? `№ ${id}` : '',
     displayValue(order.date),

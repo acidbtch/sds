@@ -94,4 +94,20 @@ assert.equal(orderMedia[0].kind, 'image');
 assert.equal(getUploadedFilePreviewSource(orderMedia[0]), 'https://cdn.example.com/orders/photo.jpg');
 assert.equal(orderMedia[1].kind, 'video');
 
+const backendDocument = normalizeUploadedFiles({
+  resolvedFiles: [
+    {
+      key: 'legal-doc-key',
+      url: 'https://cdn.example.com/legal.docx',
+      name: 'legal.docx',
+      kind: 'document',
+      mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    },
+  ],
+  fallbackPrefix: 'Document',
+});
+
+assert.equal(backendDocument[0].kind, 'document');
+assert.equal(backendDocument[0].previewUrl, 'https://cdn.example.com/legal.docx');
+
 console.log('uploaded files helpers passed');

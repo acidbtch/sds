@@ -339,7 +339,7 @@ export default function CustomerOrders({ onNavigate }: Props) {
                 >
                   <div className="flex justify-between items-start gap-2 mb-2">
                     <span className="min-w-0 flex-1 truncate text-xs font-semibold text-gray-400 bg-[#E8EDF2] px-2 py-1 rounded-md">
-                      № {order.id} от {order.date}
+                      № {order.displayNumber || (order.id.length > 8 ? order.id.slice(0, 8) : order.id)} от {order.date}
                     </span>
                     {order.status === 'pending' && (
                       <span className="flex shrink-0 items-center justify-center gap-1 whitespace-nowrap text-xs font-bold leading-none text-orange-500 bg-orange-50 px-2 py-1 rounded-md min-h-[30px]">

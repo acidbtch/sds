@@ -1,6 +1,6 @@
 import { getUploadedMediaPreview, type MediaKind } from './media';
 
-export type UploadedFileKind = MediaKind | 'file';
+export type UploadedFileKind = MediaKind | 'document' | 'file';
 
 export interface UploadedFileItem {
   name: string;
@@ -47,6 +47,14 @@ export function inferUploadedFileKind(value: unknown, explicitKind?: unknown): U
   const normalizedKind = stringValue(explicitKind).toLowerCase();
   if (normalizedKind === 'image' || normalizedKind.startsWith('image/')) return 'image';
   if (normalizedKind === 'video' || normalizedKind.startsWith('video/')) return 'video';
+  if (normalizedKind === 'document') return 'document';
+  if (
+    normalizedKind === 'application/pdf' ||
+    normalizedKind.includes('wordprocessingml') ||
+    normalizedKind.includes('spreadsheetml') ||
+    normalizedKind.includes('presentationml') ||
+    normalizedKind === 'text/plain'
+  ) return 'document';
 
   const text = stringValue(value).split('?')[0].split('#')[0].toLowerCase();
   const extension = text.includes('.') ? text.split('.').pop() || '' : '';

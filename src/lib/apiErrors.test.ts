@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { formatApiErrorMessage } from './api';
+import { formatApiErrorMessage, isUserBlockedErrorData } from './api';
 
 assert.equal(
   formatApiErrorMessage({
@@ -27,6 +27,18 @@ assert.equal(
 assert.equal(
   formatApiErrorMessage({ message: 'Token expired' }),
   'Token expired'
+);
+
+assert.equal(
+  isUserBlockedErrorData({ detail: { code: 'user-blocked', message: 'User is blocked' } }),
+  true,
+  'blocked users should be detected by the new backend detail.code value',
+);
+
+assert.equal(
+  isUserBlockedErrorData({ detail: { code: 'auth-error', message: 'Token expired' } }),
+  false,
+  'auth errors must not be treated as blocked users',
 );
 
 console.log('api error formatting passed');

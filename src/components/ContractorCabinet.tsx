@@ -718,7 +718,7 @@ export default function ContractorCabinet({ onNavigate }: Props) {
                     <div className={hasResponded ? 'opacity-40 blur-[1px] transition-all' : ''}>
                       <div className="flex justify-between items-start gap-2 mb-2">
                         <span className="min-w-0 flex-1 truncate text-xs font-semibold text-gray-400 bg-[#E8EDF2] px-2 py-1 rounded-md">
-                          № {order.id} от {order.date}
+                          № {order.displayNumber || (order.id.length > 8 ? order.id.slice(0, 8) : order.id)} от {order.date}
                         </span>
                         <span className="flex shrink-0 items-center justify-center gap-1 whitespace-nowrap text-xs font-bold leading-none text-blue-500 bg-blue-50 px-2 py-1 rounded-md min-h-[30px]">
                           <AlertCircle className="w-3 h-3 shrink-0" />
@@ -809,7 +809,7 @@ export default function ContractorCabinet({ onNavigate }: Props) {
                   <div className="p-4">
                     <div className="flex justify-between items-start gap-2 mb-2">
                       <span className="min-w-0 flex-1 truncate text-xs font-semibold text-gray-400 bg-[#E8EDF2] px-2 py-1 rounded-md">
-                        № {order.id} от {order.date}
+                        № {order.displayNumber || (order.id.length > 8 ? order.id.slice(0, 8) : order.id)} от {order.date}
                       </span>
                       <span className="flex shrink-0 items-center justify-center whitespace-nowrap text-xs font-bold leading-none text-green-500 bg-green-50 px-2 py-1 rounded-md min-h-[30px]">
                         В работе

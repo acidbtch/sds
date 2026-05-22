@@ -151,9 +151,10 @@ function findApiErrorCode(value: unknown): string | null {
   return null;
 }
 
-function isBlockedErrorData(errorData: unknown) {
+export function isUserBlockedErrorData(errorData: unknown) {
   const code = findApiErrorCode(errorData);
-  if (code === 'USER_BLOCKED') return true;
+  const normalizedCode = String(code || '').trim().toLowerCase().replace(/[_\s]/g, '-');
+  if (normalizedCode === 'user-blocked') return true;
 
   const message = formatApiErrorMessage(errorData, '').toLowerCase();
   return message.includes('user is blocked') || message.includes('account is blocked') || message.includes('заблок');
@@ -215,7 +216,7 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
       } catch (e) {
         errorMessage = response.statusText;
       }
-      if (response.status === 403 && isBlockedErrorData(errorData)) {
+      if (response.status === 403 && isUserBlockedErrorData(errorData)) {
         notifyUserBlocked();
         throw new ApiBlockedError(errorMessage);
       }
@@ -371,7 +372,7 @@ export const miscApi = {
   getFaq: () => fetchApi<any[]>('/faq'),
   getSupport: () => fetchApi<any>('/support'),
   getBanners: (position?: string) => fetchApi<any[]>(`/banners${position ? `?position=${position}` : ''}`),
-  getContent: (key: 'rules' | 'privacy' | 'templates') => fetchApi<{ key: string; value: string }>(`/content/${key}`),
+  getContent: (key: 'rules' | 'privacy' | 'templates') => fetchApi<{ key: string; content?: string; value?: string }>(`/content/${key}`),
 };
 
 // --- Support ---

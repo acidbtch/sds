@@ -9,6 +9,8 @@ import { shouldRefreshAfterAppResume } from '../lib/appLifecycle';
 import { getFulfilledAdminData } from '../lib/adminRefresh';
 import { getSupportTicketUserLabel } from '../lib/supportTicketDisplay';
 import { isAdminRole, normalizeUserRole } from '../lib/authUser';
+import { getContentTextByKey, mapFaqItemsFromApi } from '../lib/contentMapping';
+import { getExecutorDisplayProfile, getExecutorMediaUrl } from '../lib/executorProfileDisplay';
 
 // Define the types for our context state
 interface Customer {
@@ -223,32 +225,38 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       if (executorsData !== undefined) {
-        setContractors((executorsData || []).map((c: any) => ({
-        id: c.id,
-        userId: c.user_id,
-        name: c.legal_name || c.short_name || '',
-        shortName: c.short_name || '',
-        profileType: (c.tier === 'LEADER' ? 'leader' : c.tier === 'PROFI' ? 'pro' : 'partner') as Contractor['profileType'],
-        rating: c.rating || 5,
-        reviewsCount: c.reviews_count || 0,
-        completedOrders: c.completed_orders_count || 0,
-        registrationDate: c.created_at ? new Date(c.created_at).toLocaleDateString('ru-RU') : '',
-        description: c.description || '',
-        services: (c.services || []).map((s: any) => s.name),
-        regions: (c.regions || []).map((r: any) => r.name),
-        address: c.address || '',
-        workingHours: c.working_hours || '',
-        phone: c.phone || '',
-        instagram: c.instagram_url || '',
-        website: c.website_url || '',
-        logo: c.logo_url || '',
-        photos: c.portfolio_photos || [],
-        legalDocs: c.legal_documents || [],
-        video: '',
-        unp: c.unp || '',
-        legalStatus: c.legal_status || '',
-        subEnd: c.subscription_until ? new Date(c.subscription_until).toLocaleDateString('ru-RU') : '',
-        })));
+        setContractors((executorsData || []).map((c: any) => {
+          const profile = getExecutorDisplayProfile(c, {
+            preferPending: c.moderation_status === 'PENDING' && !c.current_profile && !c.currentProfile,
+          });
+
+          return {
+          id: c.id,
+          userId: c.user_id,
+          name: profile.legal_name || profile.name || profile.short_name || '',
+          shortName: profile.short_name || '',
+          profileType: ((profile.tier || c.tier) === 'LEADER' ? 'leader' : (profile.tier || c.tier) === 'PROFI' ? 'pro' : 'partner') as Contractor['profileType'],
+          rating: c.rating || profile.rating || 5,
+          reviewsCount: c.reviews_count || profile.reviews_count || 0,
+          completedOrders: c.completed_orders_count || profile.completed_orders_count || 0,
+          registrationDate: c.created_at ? new Date(c.created_at).toLocaleDateString('ru-RU') : '',
+          description: profile.description || '',
+          services: (c.services || profile.services || []).map((s: any) => s.name || s),
+          regions: (c.regions || profile.regions || []).map((r: any) => r.name || r),
+          address: profile.address || '',
+          workingHours: profile.working_hours || profile.workingHours || '',
+          phone: profile.phone || '',
+          instagram: profile.instagram_url || profile.instagram || '',
+          website: profile.website_url || profile.website || '',
+          logo: profile.logo_url || getExecutorMediaUrl(profile.logo) || '',
+          photos: profile.portfolio_photos || [],
+          legalDocs: profile.legal_documents || [],
+          video: '',
+          unp: profile.unp || '',
+          legalStatus: profile.legal_status || '',
+          subEnd: c.subscription_until ? new Date(c.subscription_until).toLocaleDateString('ru-RU') : '',
+          };
+        }));
 
         setModeration((executorsData || [])
           .filter((c: any) => c.moderation_status === 'PENDING')
@@ -292,16 +300,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (faqData !== undefined || contentData !== undefined) {
         setContent(prev => ({
           faq: faqData !== undefined
-            ? (faqData || []).map((f: any) => ({ id: f.id, question: f.question, answer: f.answer }))
+            ? mapFaqItemsFromApi(faqData)
             : prev.faq,
           rules: contentData !== undefined
-            ? (contentData || []).find((c: any) => c.key === 'rules')?.value || ''
+            ? getContentTextByKey(contentData, 'rules')
             : prev.rules,
           privacy: contentData !== undefined
-            ? (contentData || []).find((c: any) => c.key === 'privacy')?.value || ''
+            ? getContentTextByKey(contentData, 'privacy')
             : prev.privacy,
           templates: contentData !== undefined
-            ? (contentData || []).find((c: any) => c.key === 'templates')?.value || ''
+            ? getContentTextByKey(contentData, 'templates')
             : prev.templates,
         }));
       }
@@ -341,16 +349,26 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsLoading(true);
     }
     try {
-        const [faqData, bannersData, regionsApiData, categoriesData, brandsData] = await Promise.all([
+        const [faqData, bannersData, regionsApiData, categoriesData, brandsData, rulesContent, privacyContent] = await Promise.all([
           miscApi.getFaq().catch((e) => { console.error('API Error:', e); return []; }),
           miscApi.getBanners().catch((e) => { console.error('API Error:', e); return []; }),
           dictsApi.getRegions().catch((e) => { console.error('API Error:', e); return []; }),
           dictsApi.getServiceCategories().catch((e) => { console.error('API Error:', e); return []; }),
           Promise.resolve([]), // Removed getCarBrands() to save initial load
+          miscApi.getContent('rules').catch((e) => { console.error('API Error:', e); return null; }),
+          miscApi.getContent('privacy').catch((e) => { console.error('API Error:', e); return null; }),
         ]);
 
         if (faqData && faqData.length > 0) {
-          setContent(prev => ({ ...prev, faq: faqData }));
+          setContent(prev => ({ ...prev, faq: mapFaqItemsFromApi(faqData) }));
+        }
+
+        if (rulesContent || privacyContent) {
+          setContent(prev => ({
+            ...prev,
+            rules: rulesContent ? (rulesContent.content ?? rulesContent.value ?? prev.rules) : prev.rules,
+            privacy: privacyContent ? (privacyContent.content ?? privacyContent.value ?? prev.privacy) : prev.privacy,
+          }));
         }
         
         if (bannersData && bannersData.length > 0) {

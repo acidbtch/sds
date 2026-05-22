@@ -93,4 +93,25 @@ assert.equal(
   '@only_username'
 );
 
+assert.equal(
+  getSupportTicketUserLabel(
+    {
+      user_id: 'user-1',
+      user: {
+        name: 'Nested Backend User',
+        telegram_username: 'nested_backend',
+      },
+    },
+    [
+      {
+        id: 'user-1',
+        name: 'Old Matched User',
+        username: 'old_user',
+      },
+    ],
+  ),
+  'Nested Backend User (@nested_backend)',
+  'ticket.user from backend should be preferred over legacy user lookup',
+);
+
 console.log('support ticket display helpers passed');

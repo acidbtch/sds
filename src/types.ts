@@ -43,6 +43,9 @@ export interface Contractor {
 
 export interface Order {
   id: string;
+  publicId?: string;
+  orderNumber?: string;
+  displayNumber?: string;
   serviceType: string;
   carMake: string;
   carModel: string;

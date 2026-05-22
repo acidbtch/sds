@@ -24,6 +24,7 @@ export default function FAQ({ onNavigate }: Props) {
 
   // Shared classes for markdown content to match the original design
   const markdownClasses = "pt-3 text-sm text-gray-600 leading-normal [&_p]:mb-3 [&_p:last-child]:mb-0 [&_strong]:text-gray-800 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_li]:mb-1";
+  const questionMarkdownClasses = "text-lg font-bold text-gray-900 leading-snug [&_p]:mb-1 [&_p:last-child]:mb-0 [&_strong]:font-bold [&_em]:italic";
 
   return (
     <div className="flex flex-col min-h-screen bg-white pb-20">
@@ -49,7 +50,9 @@ export default function FAQ({ onNavigate }: Props) {
                 <HelpCircle className="w-5 h-5" />
               </div>
               <div className="flex-1">
-                <h2 className="text-lg font-bold text-gray-900">{item.question}</h2>
+                <div className={questionMarkdownClasses}>
+                  <ReactMarkdown remarkPlugins={[remarkBreaks]}>{item.question}</ReactMarkdown>
+                </div>
               </div>
               <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${openSections.includes(item.id) ? 'rotate-180' : ''}`} />
             </button>

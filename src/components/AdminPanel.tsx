@@ -18,6 +18,7 @@ import { getAdminCarBrandOptions, getAdminCarEntityId, getAdminCarModelOptions }
 import { canManageCustomerAdminRole, canManageCustomerBlockStatus, getAdminCustomerOrderSummary, getCustomerContactRows, getCustomerStateBadge, getCustomerStateDotClass, getNextCustomerAdminRole, getOrdersForCustomer } from '../lib/adminCustomerOrders';
 import { uploadMediaFile } from '../lib/media';
 import { getFaqItemsForEditor, insertEditorBullet, insertFaqBullet, saveFaqEditorItem } from '../lib/faqEditor';
+import { prepareFaqItemsForSave } from '../lib/contentMapping';
 import { SUPPORT_CHAT_BUBBLE_BASE_CLASS, SUPPORT_CHAT_MESSAGE_TEXT_CLASS } from '../lib/supportChatLayout';
 import { getSupportTicketUserLabel } from '../lib/supportTicketDisplay';
 import UploadedFilesGrid from './UploadedFilesGrid';
@@ -950,7 +951,7 @@ function ContractorsView({ contractors, setContractors, orders }: { contractors:
                     <div key={o.id} className="flex flex-col border-b border-gray-200 last:border-0 pb-3 last:pb-0">
                       <div className="flex justify-between items-center gap-2 mb-1">
                         <div className="min-w-0 flex-1 truncate">
-                          <span className="font-medium">Заказ #{o.id}</span> - {o.serviceType}
+                          <span className="font-medium">Заказ #{o.displayNumber || (o.id.length > 8 ? o.id.slice(0, 8) : o.id)}</span> - {o.serviceType}
                         </div>
                         <span className={`shrink-0 whitespace-nowrap text-[10px] font-bold px-2 py-1 rounded ${
                           o.status === 'completed' ? 'bg-green-100 text-green-700' : 
@@ -1414,15 +1415,27 @@ function ModerationView({ moderation, setModeration, contractors, setContractors
     const request = moderation.find(m => m.id === id);
     if (!request) return;
     const moderationRequestId = getExecutorModerationRequestId(request);
+    let comment: string | undefined;
 
     if (!moderationRequestId) {
       alert('Не удалось определить ID заявки на модерацию.');
       return;
     }
 
+    if (action === 'reject') {
+      const reason = window.prompt('Укажите причину отклонения заявки. Этот комментарий нужен для бэка.');
+      if (reason === null) return;
+
+      comment = reason.trim();
+      if (!comment) {
+        alert('Для отклонения заявки нужно указать причину.');
+        return;
+      }
+    }
+
     try {
       setModerationAction({ id, action });
-      await adminApi.moderateExecutor(moderationRequestId, action === 'approve' ? 'APPROVED' : 'REJECTED');
+      await adminApi.moderateExecutor(moderationRequestId, action === 'approve' ? 'APPROVED' : 'REJECTED', comment);
       
       setModeration((prev: any[]) => removeExecutorModerationItem(prev, id));
       setSelectedRequest(null);
@@ -2208,7 +2221,7 @@ function ContentView({ content }: { content: any }) {
           { id: editingFaqId, question: faqQuestion, answer: faqAnswer },
           isDraft,
         );
-        await adminApi.updateFaq(newFaq);
+        await adminApi.updateFaq(prepareFaqItemsForSave(newFaq));
         setEditingFaqId(null);
         if (isDraft) {
           setDraftFaqItem(null);
@@ -2249,7 +2262,7 @@ function ContentView({ content }: { content: any }) {
   const deleteFaq = async (id: string) => {
     try {
       const newFaq = content.faq.filter((item: any) => item.id !== id);
-      await adminApi.updateFaq(newFaq);
+      await adminApi.updateFaq(prepareFaqItemsForSave(newFaq));
       await refreshAdminData();
     } catch (error) {
       console.error('Failed to delete FAQ:', error);
@@ -2264,7 +2277,7 @@ function ContentView({ content }: { content: any }) {
     newFaq[index] = newFaq[index - 1];
     newFaq[index - 1] = temp;
     try {
-      await adminApi.updateFaq(newFaq);
+      await adminApi.updateFaq(prepareFaqItemsForSave(newFaq));
       await refreshAdminData();
     } catch (error) {
       console.error('Failed to move FAQ:', error);
@@ -2279,7 +2292,7 @@ function ContentView({ content }: { content: any }) {
     newFaq[index] = newFaq[index + 1];
     newFaq[index + 1] = temp;
     try {
-      await adminApi.updateFaq(newFaq);
+      await adminApi.updateFaq(prepareFaqItemsForSave(newFaq));
       await refreshAdminData();
     } catch (error) {
       console.error('Failed to move FAQ:', error);

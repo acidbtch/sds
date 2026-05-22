@@ -76,6 +76,14 @@ export function getSupportTicketUserLabel(ticket: Record<string, any>, users: Ar
   const stringUser = typeof ticket.user === 'string' ? ticket.user : '';
 
   const name = firstDisplayValue(
+    nestedUser.user_name,
+    nestedUser.userName,
+    nestedUser.full_name,
+    nestedUser.fullName,
+    nestedUser.display_name,
+    nestedUser.displayName,
+    nestedUser.name,
+    joinName(nestedUser.first_name, nestedUser.last_name),
     matchedUser.name,
     matchedUser.customerName,
     matchedUser.customer_name,
@@ -96,18 +104,15 @@ export function getSupportTicketUserLabel(ticket: Record<string, any>, users: Ar
     ticket.displayName,
     ticket.name,
     joinName(ticket.first_name, ticket.last_name),
-    nestedUser.user_name,
-    nestedUser.userName,
-    nestedUser.full_name,
-    nestedUser.fullName,
-    nestedUser.display_name,
-    nestedUser.displayName,
-    nestedUser.name,
-    joinName(nestedUser.first_name, nestedUser.last_name),
     looksLikeTechnicalUserLabel(stringUser) ? '' : stringUser
   );
 
   const username = firstDisplayValue(
+    nestedUser.telegram_username,
+    nestedUser.telegramUsername,
+    nestedUser.tg_username,
+    nestedUser.tgUsername,
+    nestedUser.username,
     matchedUser.username,
     matchedUser.telegram_username,
     matchedUser.telegramUsername,
@@ -119,15 +124,14 @@ export function getSupportTicketUserLabel(ticket: Record<string, any>, users: Ar
     ticket.tgUsername,
     ticket.customer_username,
     ticket.customerUsername,
-    ticket.username,
-    nestedUser.telegram_username,
-    nestedUser.telegramUsername,
-    nestedUser.tg_username,
-    nestedUser.tgUsername,
-    nestedUser.username
+    ticket.username
   );
   const displayNickname = firstDifferentDisplayValue(
     name,
+    nestedUser.user_name,
+    nestedUser.userName,
+    nestedUser.telegramNickname,
+    nestedUser.telegram_nickname,
     matchedUser.telegramNickname,
     matchedUser.telegram_nickname,
     matchedUser.telegramDisplayName,
@@ -137,11 +141,7 @@ export function getSupportTicketUserLabel(ticket: Record<string, any>, users: Ar
     ticket.telegram_name,
     ticket.telegramName,
     ticket.display_name,
-    ticket.displayName,
-    nestedUser.user_name,
-    nestedUser.userName,
-    nestedUser.telegramNickname,
-    nestedUser.telegram_nickname
+    ticket.displayName
   );
 
   const formattedUsername = formatTelegramUsername(username);

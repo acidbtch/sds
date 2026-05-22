@@ -3,7 +3,7 @@ export type ExecutorProfileType = 'partner' | 'pro' | 'leader';
 export interface ExecutorProfileFile {
   name: string;
   key: string;
-  kind?: 'image' | 'video' | 'file';
+  kind?: 'image' | 'video' | 'document' | 'file';
   previewUrl?: string;
 }
 

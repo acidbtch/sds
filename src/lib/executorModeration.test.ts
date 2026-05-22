@@ -70,19 +70,28 @@ const newRequest = mapExecutorModerationFromApi({
   id: 'profile-2',
   moderation_status: 'PENDING',
   moderation_request: {
-    id: 'moderation-request-2',
+    moderation_request_id: 'moderation-request-2',
     type: 'new',
     status: 'PENDING',
   },
   tier: 'LEADER',
-  legal_name: 'New Executor',
-  short_name: 'Executor',
+  pending_changes: {
+    legal_name: 'New Executor',
+    short_name: 'Executor',
+    logo: {
+      key: 'new-logo-key',
+      url: 'https://cdn.example.com/new-logo.jpg',
+      name: 'logo.jpg',
+      kind: 'image',
+    },
+  },
 }, 1);
 
 assert.equal(newRequest.type, 'new');
 assert.equal(newRequest.oldData, undefined);
 assert.equal(newRequest.profile, 'leader');
-assert.equal(newRequest.data.logoFiles?.length || 0, 0);
+assert.equal(newRequest.data.name, 'New Executor');
+assert.equal(newRequest.data.logoFiles?.[0].previewUrl, 'https://cdn.example.com/new-logo.jpg');
 assert.equal(getExecutorModerationProfileId(newRequest), 'profile-2');
 assert.equal(
   getExecutorModerationRequestId(newRequest),
@@ -90,6 +99,14 @@ assert.equal(
   'moderation actions should use the backend moderation request id, not the executor profile id',
 );
 assert.equal(getExecutorModerationProfileId({ ...newRequest, data: {} }), null);
+assert.equal(
+  getExecutorModerationRequestId({
+    ...newRequest,
+    moderationRequestId: '',
+    data: { moderation_request: { moderation_request_id: 'nested-action-id' } },
+  }),
+  'nested-action-id',
+);
 assert.equal(getExecutorModerationRequestId({ ...newRequest, moderationRequestId: '', data: {} }), null);
 
 const logoOnlyKeyRequest = mapExecutorModerationFromApi({

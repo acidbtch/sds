@@ -34,8 +34,24 @@ function firstValue(...values: any[]) {
   return values.find((value) => value !== undefined && value !== null);
 }
 
+function firstNonEmptyValue(...values: any[]) {
+  return values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');
+}
+
 function hasObjectValue(value: unknown) {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0);
+}
+
+function moderationTypeFromRequest(moderationRequest: any): 'new' | 'edit' | null {
+  const type = String(firstValue(
+    moderationRequest?.type,
+    moderationRequest?.request_type,
+    moderationRequest?.requestType,
+  ) || '').toLowerCase();
+
+  if (type === 'new' || type === 'create' || type === 'registration') return 'new';
+  if (type === 'edit' || type === 'update') return 'edit';
+  return null;
 }
 
 function createNameLookup(items: any[] | undefined) {
@@ -160,7 +176,7 @@ export function mapExecutorModerationFromApi(
     profile?.pending_moderation,
     profile?.pendingModeration,
   );
-  const moderationRequestId = firstValue(
+  const moderationRequestId = firstNonEmptyValue(
     profile?.moderation_request_id,
     profile?.moderationRequestId,
     profile?.active_moderation_request_id,
@@ -171,14 +187,17 @@ export function mapExecutorModerationFromApi(
     moderationRequest?.moderation_request_id,
     moderationRequest?.moderationRequestId,
   );
-  const isEdit = hasObjectValue(pendingChanges);
+  const requestType = moderationTypeFromRequest(moderationRequest);
+  const isEdit = requestType ? requestType === 'edit' : hasObjectValue(pendingChanges);
   const oldSource = isEdit ? (hasObjectValue(currentProfile) ? currentProfile : profile) : undefined;
   const cleanPendingChanges = isEdit
     ? stripOldResolvedFilesFromPendingChanges(pendingChanges as Record<string, any>)
     : undefined;
   const newSource = isEdit
     ? { ...(oldSource || {}), ...(cleanPendingChanges as Record<string, any>), id: profile?.id ?? (oldSource as any)?.id }
-    : profile;
+    : hasObjectValue(pendingChanges)
+      ? { ...(pendingChanges as Record<string, any>), id: profile?.id ?? (pendingChanges as Record<string, any>)?.id }
+      : profile;
   const data = mapProfileData(newSource, dictionaries);
   const oldData = oldSource ? mapProfileData(oldSource, dictionaries) : undefined;
 
@@ -196,21 +215,29 @@ export function mapExecutorModerationFromApi(
 }
 
 export function getExecutorModerationProfileId(request: Pick<ExecutorModerationItem, 'data'>) {
-  const id = firstValue(request.data?.id, request.data?.profileId, request.data?.profile_id);
+  const id = firstNonEmptyValue(request.data?.id, request.data?.profileId, request.data?.profile_id);
   return id ? String(id) : null;
 }
 
 export function getExecutorModerationRequestId(
   request: Pick<ExecutorModerationItem, 'data'> & Partial<Pick<ExecutorModerationItem, 'moderationRequestId'>>,
 ) {
-  const id = firstValue(
+  const id = firstNonEmptyValue(
     request.moderationRequestId,
     request.data?.moderationRequestId,
     request.data?.moderation_request_id,
     request.data?.moderationRequest?.id,
+    request.data?.moderationRequest?.moderationRequestId,
+    request.data?.moderationRequest?.moderation_request_id,
     request.data?.moderation_request?.id,
+    request.data?.moderation_request?.moderationRequestId,
+    request.data?.moderation_request?.moderation_request_id,
     request.data?.pendingModeration?.id,
+    request.data?.pendingModeration?.moderationRequestId,
+    request.data?.pendingModeration?.moderation_request_id,
     request.data?.pending_moderation?.id,
+    request.data?.pending_moderation?.moderationRequestId,
+    request.data?.pending_moderation?.moderation_request_id,
   );
   return id ? String(id) : null;
 }

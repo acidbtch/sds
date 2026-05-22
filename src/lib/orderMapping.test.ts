@@ -3,6 +3,8 @@ import { mapOrderFromApi } from './orderMapping';
 
 const orderWithNestedNames = mapOrderFromApi({
   id: 'order-1',
+  public_id: 'ORD-12345',
+  order_number: '12345',
   services: [
     { id: 'svc-1', name: 'Ремонт двигателя' },
     { id: 'svc-2', name: 'Ремонт турбины' },
@@ -16,15 +18,24 @@ const orderWithNestedNames = mapOrderFromApi({
   status: 'MATCHED',
   owner_name: '1111',
   owner_phone: '+375555555555',
+  customer_name: 'Ivan',
+  customer_phone: '+375291234567',
+  customer_telegram_username: 'ivanov',
   description: 'Test order',
   responses_count: 1,
 });
 
 assert.equal(orderWithNestedNames.serviceType, 'Ремонт двигателя, Ремонт турбины');
+assert.equal(orderWithNestedNames.publicId, 'ORD-12345');
+assert.equal(orderWithNestedNames.orderNumber, '12345');
+assert.equal(orderWithNestedNames.displayNumber, '12345');
 assert.equal(orderWithNestedNames.carMake, 'Abarth');
 assert.equal(orderWithNestedNames.carModel, '124 Spider');
 assert.equal(orderWithNestedNames.region, 'Белоозёрск');
 assert.equal(orderWithNestedNames.status, 'active');
+assert.equal(orderWithNestedNames.phone, '+375291234567');
+assert.equal(orderWithNestedNames.customerName, 'Ivan');
+assert.equal(orderWithNestedNames.customerUsername, 'ivanov');
 assert.equal(orderWithNestedNames.responsesCount, 1);
 
 const orderWithOnlyRawIds = mapOrderFromApi({
