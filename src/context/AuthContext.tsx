@@ -8,7 +8,7 @@ interface AuthContextType {
   user: UserProfile | null;
   isBlocked: boolean;
   isLoading: boolean;
-  login: (initData: string) => Promise<void>;
+  login: (initData: string) => Promise<UserProfile | null>;
   logout: () => void;
   refreshUser: (options?: { showLoading?: boolean }) => Promise<UserProfile | null>;
 }
@@ -27,7 +27,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isBlocked, setIsBlocked] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const loginPromiseRef = useRef<Promise<void> | null>(null);
+  const loginPromiseRef = useRef<Promise<UserProfile | null> | null>(null);
   const hiddenAtRef = useRef<number | null>(null);
   const lastResumeRefreshAtRef = useRef(0);
 
@@ -49,22 +49,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const loginWithTelegramInitData = useCallback(async (initData: string): Promise<UserProfile | null> => {
     if (loginPromiseRef.current) {
-      await loginPromiseRef.current;
-      return loadCurrentUser();
+      return await loginPromiseRef.current;
     }
 
-    let loggedUser: UserProfile | null = null;
     const loginPromise = (async () => {
       const { access_token } = await authApi.telegramLogin(initData);
       localStorage.setItem('access_token', access_token);
-      loggedUser = await loadCurrentUser();
+      return await loadCurrentUser();
     })();
 
     loginPromiseRef.current = loginPromise;
 
     try {
-      await loginPromise;
-      return loggedUser;
+      return await loginPromise;
     } finally {
       loginPromiseRef.current = null;
     }
@@ -120,12 +117,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = useCallback(async (initData: string) => {
     try {
-      await loginWithTelegramInitData(initData);
+      return await loginWithTelegramInitData(initData);
     } catch (error) {
       console.error('Login failed:', error);
       if (isUserBlockedError(error)) {
         setIsBlocked(true);
-        return;
+        return null;
       }
       clearSession();
       throw error;
@@ -137,6 +134,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [clearSession]);
 
   useEffect(() => {
+    (window as any).Telegram?.WebApp?.ready?.();
     const token = localStorage.getItem('access_token');
     const initData = getTelegramInitData();
     const startupAction = getTelegramStartupAuthAction({ initData, accessToken: token });

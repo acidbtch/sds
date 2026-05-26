@@ -82,15 +82,21 @@ export default function AdminPanel({ onNavigate, carModels, setCarModels }: Prop
 
   const refreshAdminDataWithAuth = useCallback(async () => {
     const initData = (window as any).Telegram?.WebApp?.initData;
+    let refreshedUser = null;
 
     if (initData) {
       try {
-        await login(initData);
+        refreshedUser = await login(initData);
       } catch (error) {
         console.error('Failed to refresh Telegram auth before admin load:', error);
+        return;
       }
     } else {
-      await refreshUser();
+      refreshedUser = await refreshUser();
+    }
+
+    if (!isAdminRole(refreshedUser?.role)) {
+      return;
     }
 
     await refreshAdminData({ force: true });

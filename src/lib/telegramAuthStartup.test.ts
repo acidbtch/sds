@@ -18,8 +18,8 @@ assert.equal(
 );
 assert.equal(
   getTelegramStartupAuthAction({ initData: 'telegram-init-data', accessToken: 'stored-token' }),
-  'refresh',
-  'Stored tokens should be refreshed before showing the app',
+  'login',
+  'Telegram startup with initData should prefer a fresh Telegram login over a stored token',
 );
 assert.equal(
   getTelegramStartupAuthAction({ initData: '', accessToken: null }),

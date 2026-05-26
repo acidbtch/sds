@@ -65,6 +65,10 @@ export function getRejectedAdminRefreshError<T>(
   return createAdminRefreshError(result.reason, label, key);
 }
 
+export function hasAdminAuthRefreshError(errors: AdminRefreshError[]) {
+  return errors.some(error => error.isAuthError);
+}
+
 export function getFulfilledAdminData<T>(
   result: PromiseSettledResult<T>,
   label: string,

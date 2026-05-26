@@ -10,6 +10,7 @@ import {
   createAdminRefreshError,
   getFulfilledAdminData,
   getRejectedAdminRefreshError,
+  hasAdminAuthRefreshError,
   type AdminRefreshError,
 } from '../lib/adminRefresh';
 import { getSupportTicketUserLabel } from '../lib/supportTicketDisplay';
@@ -164,7 +165,7 @@ export const useData = () => {
 };
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -192,7 +193,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     try {
-      const [dashboardResult, usersResult, executorsResult, ordersResult, paymentsResult, bannersResult, faqResult, contentResult, brandsResult, categoriesResult, supportResult, regionsResult] = await Promise.allSettled([
+      const refreshedUser = await refreshUser();
+      if (!isAdminRole(refreshedUser?.role)) {
+        setAdminRefreshErrors([createAdminRefreshError(
+          { status: 403, message: 'Текущая сессия не подтверждает доступ к админке' },
+          'Авторизация',
+          'auth',
+        )]);
+        return;
+      }
+
+      const loadAdminResults = () => Promise.allSettled([
         adminApi.getDashboard(),
         adminApi.getUsers(),
         adminApi.getExecutors(),
@@ -206,6 +217,33 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         adminApi.getSupportTickets(),
         dictsApi.getRegions(),
       ]);
+      const collectRefreshErrors = (results: PromiseSettledResult<unknown>[]) => [
+        getRejectedAdminRefreshError(results[0], 'Общая панель', 'dashboard'),
+        getRejectedAdminRefreshError(results[1], 'Заказчики', 'users'),
+        getRejectedAdminRefreshError(results[2], 'Исполнители', 'executors'),
+        getRejectedAdminRefreshError(results[3], 'Заказы', 'orders'),
+        getRejectedAdminRefreshError(results[4], 'Платежи', 'payments'),
+        getRejectedAdminRefreshError(results[5], 'Баннеры', 'banners'),
+        getRejectedAdminRefreshError(results[6], 'FAQ', 'faq'),
+        getRejectedAdminRefreshError(results[7], 'Контент', 'content'),
+        getRejectedAdminRefreshError(results[8], 'Марки авто', 'car-brands'),
+        getRejectedAdminRefreshError(results[9], 'Услуги', 'service-categories'),
+        getRejectedAdminRefreshError(results[10], 'Поддержка', 'support'),
+        getRejectedAdminRefreshError(results[11], 'Регионы', 'regions'),
+      ].filter((error): error is AdminRefreshError => Boolean(error));
+
+      let adminResults = await loadAdminResults();
+      let refreshErrors = collectRefreshErrors(adminResults);
+
+      if (hasAdminAuthRefreshError(refreshErrors)) {
+        const recoveredUser = await refreshUser();
+        if (isAdminRole(recoveredUser?.role)) {
+          adminResults = await loadAdminResults();
+          refreshErrors = collectRefreshErrors(adminResults);
+        }
+      }
+
+      const [dashboardResult, usersResult, executorsResult, ordersResult, paymentsResult, bannersResult, faqResult, contentResult, brandsResult, categoriesResult, supportResult, regionsResult] = adminResults;
 
       getFulfilledAdminData(dashboardResult, 'dashboard');
       const usersData = getFulfilledAdminData(usersResult, 'users');
@@ -219,20 +257,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const categoriesData = getFulfilledAdminData(categoriesResult, 'service categories');
       const supportData = getFulfilledAdminData(supportResult, 'support tickets');
       const moderationRegionsData = getFulfilledAdminData(regionsResult, 'regions');
-      const refreshErrors = [
-        getRejectedAdminRefreshError(dashboardResult, 'Общая панель', 'dashboard'),
-        getRejectedAdminRefreshError(usersResult, 'Заказчики', 'users'),
-        getRejectedAdminRefreshError(executorsResult, 'Исполнители', 'executors'),
-        getRejectedAdminRefreshError(ordersResult, 'Заказы', 'orders'),
-        getRejectedAdminRefreshError(paymentsResult, 'Платежи', 'payments'),
-        getRejectedAdminRefreshError(bannersResult, 'Баннеры', 'banners'),
-        getRejectedAdminRefreshError(faqResult, 'FAQ', 'faq'),
-        getRejectedAdminRefreshError(contentResult, 'Контент', 'content'),
-        getRejectedAdminRefreshError(brandsResult, 'Марки авто', 'car-brands'),
-        getRejectedAdminRefreshError(categoriesResult, 'Услуги', 'service-categories'),
-        getRejectedAdminRefreshError(supportResult, 'Поддержка', 'support'),
-        getRejectedAdminRefreshError(regionsResult, 'Регионы', 'regions'),
-      ].filter((error): error is AdminRefreshError => Boolean(error));
       setAdminRefreshErrors(refreshErrors);
 
       const mappedOrders = ordersData !== undefined
@@ -370,7 +394,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error('Failed to fetch admin data:', error);
       setAdminRefreshErrors([createAdminRefreshError(error, 'Админка', 'admin')]);
     }
-  }, [user?.role]);
+  }, [refreshUser, user?.role]);
 
   const refreshPublicData = useCallback(async (showLoading = false) => {
     if (showLoading) {

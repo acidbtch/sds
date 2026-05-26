@@ -12,8 +12,9 @@ export function getTelegramStartupAuthAction({
   initData: string | undefined;
   accessToken: string | null;
 }): TelegramStartupAuthAction {
-  if (accessToken) return 'refresh';
   if (shouldAttemptTelegramLogin(initData, accessToken)) return 'login';
+  if (initData) return 'login';
+  if (accessToken) return 'refresh';
   return 'anonymous';
 }
 

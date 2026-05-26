@@ -3,6 +3,7 @@ import {
   createAdminRefreshError,
   getFulfilledAdminData,
   getRejectedAdminRefreshError,
+  hasAdminAuthRefreshError,
 } from './adminRefresh';
 
 const emptySuccess = getFulfilledAdminData<string[]>(
@@ -60,6 +61,18 @@ assert.equal(
   getRejectedAdminRefreshError({ status: 'fulfilled', value: [] }, 'orders'),
   null,
   'fulfilled admin refresh results should not create visible errors',
+);
+
+assert.equal(
+  hasAdminAuthRefreshError([authError]),
+  true,
+  'admin refresh should detect auth failures so callers can recover and retry once',
+);
+
+assert.equal(
+  hasAdminAuthRefreshError([timeoutError!]),
+  false,
+  'non-auth admin refresh failures should not trigger auth recovery retry',
 );
 
 console.log('admin refresh helpers passed');
