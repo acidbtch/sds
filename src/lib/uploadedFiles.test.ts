@@ -94,6 +94,28 @@ assert.equal(orderMedia[0].kind, 'image');
 assert.equal(getUploadedFilePreviewSource(orderMedia[0]), 'https://cdn.example.com/orders/photo.jpg');
 assert.equal(orderMedia[1].kind, 'video');
 
+const backendMediaAliases = normalizeOrderMediaFiles([
+  {
+    file_key: 'order-photo-alias-key',
+    preview_url: 'https://cdn.example.com/orders/photo-preview.webp',
+    original_name: 'Фара после ремонта.webp',
+    content_type: 'image/webp',
+  },
+  {
+    fileKey: 'order-video-alias-key',
+    downloadUrl: 'https://cdn.example.com/orders/diagnostic-video.mp4',
+    displayName: 'Видео диагностики.mp4',
+    mime: 'video/mp4',
+  },
+]);
+
+assert.equal(backendMediaAliases[0].name, 'Фара после ремонта.webp');
+assert.equal(backendMediaAliases[0].kind, 'image');
+assert.equal(getUploadedFilePreviewSource(backendMediaAliases[0]), 'https://cdn.example.com/orders/photo-preview.webp');
+assert.equal(backendMediaAliases[1].name, 'Видео диагностики.mp4');
+assert.equal(backendMediaAliases[1].kind, 'video');
+assert.equal(getUploadedFilePreviewSource(backendMediaAliases[1]), 'https://cdn.example.com/orders/diagnostic-video.mp4');
+
 const backendDocument = normalizeUploadedFiles({
   resolvedFiles: [
     {

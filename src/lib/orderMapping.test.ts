@@ -53,4 +53,51 @@ assert.equal(orderWithOnlyRawIds.carMake, '');
 assert.equal(orderWithOnlyRawIds.carModel, '');
 assert.equal(orderWithOnlyRawIds.region, '');
 
+const orderWithResolvedMedia = mapOrderFromApi({
+  id: 'order-3',
+  photos: ['https://cdn.example.com/orders/photo-1.jpg'],
+  video: 'https://cdn.example.com/orders/video-1.mp4',
+  attachments: ['raw-storage-key-that-should-not-win'],
+  created_at: '2026-04-28T00:00:00.000Z',
+  status: 'SEARCHING',
+});
+
+assert.deepEqual(orderWithResolvedMedia.media, [
+  'https://cdn.example.com/orders/photo-1.jpg',
+  'https://cdn.example.com/orders/video-1.mp4',
+]);
+
+const orderWithOnlyVideo = mapOrderFromApi({
+  id: 'order-4',
+  photos: [],
+  video: 'https://cdn.example.com/orders/video-only.mp4',
+  created_at: '2026-04-28T00:00:00.000Z',
+  status: 'SEARCHING',
+});
+
+assert.deepEqual(orderWithOnlyVideo.media, [
+  'https://cdn.example.com/orders/video-only.mp4',
+]);
+
+const orderWithRawAttachmentFallback = mapOrderFromApi({
+  id: 'order-5',
+  attachments: ['raw-storage-key'],
+  created_at: '2026-04-28T00:00:00.000Z',
+  status: 'SEARCHING',
+});
+
+assert.deepEqual(orderWithRawAttachmentFallback.media, ['raw-storage-key']);
+
+const orderWithResolvedMediaPreferred = mapOrderFromApi({
+  id: 'order-6',
+  photos: ['raw-photo-key'],
+  media: [{ key: 'raw-photo-key', url: 'https://cdn.example.com/orders/resolved-photo.jpg' }],
+  created_at: '2026-04-28T00:00:00.000Z',
+  status: 'SEARCHING',
+});
+
+assert.deepEqual(orderWithResolvedMediaPreferred.media, [
+  { key: 'raw-photo-key', url: 'https://cdn.example.com/orders/resolved-photo.jpg' },
+]);
+
 console.log('order mapping passed');

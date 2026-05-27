@@ -36,6 +36,13 @@ function isPreviewUrl(value: string) {
   return /^(https?:|blob:|data:|\/(?!\/))/i.test(value);
 }
 
+function objectValue(value: unknown, ...keys: string[]) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+
+  const record = value as Record<string, unknown>;
+  return firstValue(...keys.map((key) => record[key]));
+}
+
 export function getUploadedFileName(value: unknown, fallback: string) {
   if (!value) return fallback;
   const text = stringValue(value);
@@ -74,6 +81,13 @@ function normalizeFileCandidate(candidate: unknown, key: unknown, fallbackName: 
   const rawPreview = firstValue(
     rememberedPreview?.previewUrl,
     fileObject.previewUrl,
+    fileObject.preview_url,
+    fileObject.thumbnailUrl,
+    fileObject.thumbnail_url,
+    fileObject.downloadUrl,
+    fileObject.download_url,
+    fileObject.mediaUrl,
+    fileObject.media_url,
     fileObject.url,
     fileObject.href,
     fileObject.src,
@@ -81,14 +95,42 @@ function normalizeFileCandidate(candidate: unknown, key: unknown, fallbackName: 
     fileObject.fileUrl,
     fileObject.public_url,
     fileObject.publicUrl,
+    objectValue(fileObject.file, 'previewUrl', 'preview_url', 'downloadUrl', 'download_url', 'url', 'href', 'src', 'file_url', 'fileUrl', 'public_url', 'publicUrl'),
+    objectValue(fileObject.media, 'previewUrl', 'preview_url', 'downloadUrl', 'download_url', 'url', 'href', 'src', 'file_url', 'fileUrl', 'public_url', 'publicUrl'),
+    objectValue(fileObject.preview, 'url', 'href', 'src'),
+    objectValue(fileObject.thumbnail, 'url', 'href', 'src'),
     !isObject && isPreviewUrl(candidateText) ? candidateText : undefined,
   );
   const previewText = stringValue(rawPreview || (isPreviewUrl(keyText) ? keyText : ''));
-  const rawName = firstValue(fileObject.name, fileObject.filename, fileObject.file_name, fileObject.fileName);
+  const rawName = firstValue(
+    fileObject.name,
+    fileObject.displayName,
+    fileObject.display_name,
+    fileObject.originalName,
+    fileObject.original_name,
+    fileObject.filename,
+    fileObject.file_name,
+    fileObject.fileName,
+    objectValue(fileObject.file, 'name', 'displayName', 'display_name', 'originalName', 'original_name', 'filename', 'file_name', 'fileName'),
+    objectValue(fileObject.media, 'name', 'displayName', 'display_name', 'originalName', 'original_name', 'filename', 'file_name', 'fileName'),
+  );
   const name = stringValue(rawName || rememberedPreview?.name || getUploadedFileName(previewText || keyText, fallbackName));
   const kind = inferUploadedFileKind(
     firstValue(previewText, name, keyText),
-    firstValue(fileObject.kind, fileObject.type, fileObject.mime_type, fileObject.mimeType, rememberedPreview?.kind),
+    firstValue(
+      fileObject.kind,
+      fileObject.type,
+      fileObject.content_type,
+      fileObject.contentType,
+      fileObject.mime,
+      fileObject.mime_type,
+      fileObject.mimeType,
+      fileObject.media_type,
+      fileObject.mediaType,
+      objectValue(fileObject.file, 'kind', 'type', 'content_type', 'contentType', 'mime', 'mime_type', 'mimeType', 'media_type', 'mediaType'),
+      objectValue(fileObject.media, 'kind', 'type', 'content_type', 'contentType', 'mime', 'mime_type', 'mimeType', 'media_type', 'mediaType'),
+      rememberedPreview?.kind,
+    ),
   );
 
   return {

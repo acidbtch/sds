@@ -77,6 +77,93 @@ function firstDisplayValue(...candidates: unknown[]) {
   return '';
 }
 
+function asArray(value: unknown) {
+  if (Array.isArray(value)) return value;
+  if (value === undefined || value === null || value === '') return [];
+  return [value];
+}
+
+function isPreviewUrl(value: string) {
+  return /^(https?:|blob:|data:|\/(?!\/))/i.test(value);
+}
+
+function objectPreviewValue(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+
+  const record = value as Record<string, unknown>;
+  return idString(
+    record.previewUrl ||
+    record.preview_url ||
+    record.thumbnailUrl ||
+    record.thumbnail_url ||
+    record.downloadUrl ||
+    record.download_url ||
+    record.mediaUrl ||
+    record.media_url ||
+    record.url ||
+    record.href ||
+    record.src ||
+    record.file_url ||
+    record.fileUrl ||
+    record.public_url ||
+    record.publicUrl
+  );
+}
+
+function hasResolvedMedia(value: unknown) {
+  if (typeof value === 'string') return isPreviewUrl(value);
+  return Boolean(objectPreviewValue(value));
+}
+
+function mediaIdentity(value: unknown) {
+  if (typeof value === 'string') return value;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return String(value ?? '');
+
+  const record = value as Record<string, unknown>;
+  return idString(
+    record.key ||
+    record.file_key ||
+    record.fileKey ||
+    record.id ||
+    objectPreviewValue(value) ||
+    JSON.stringify(value)
+  );
+}
+
+function uniqueMedia(items: unknown[]) {
+  const seen = new Set<string>();
+  const result: unknown[] = [];
+
+  items.forEach((item) => {
+    const identity = mediaIdentity(item);
+    if (!identity || seen.has(identity)) return;
+
+    seen.add(identity);
+    result.push(item);
+  });
+
+  return result;
+}
+
+function collectOrderMedia(o: any) {
+  const responseMedia = uniqueMedia([
+    ...asArray(o.photos),
+    ...asArray(o.video),
+  ]);
+  const directMedia = uniqueMedia(asArray(o.media));
+  const attachments = uniqueMedia(asArray(o.attachments));
+  const resolvedMedia = uniqueMedia([
+    ...responseMedia,
+    ...directMedia,
+    ...attachments,
+  ].filter(hasResolvedMedia));
+
+  if (resolvedMedia.length > 0) return resolvedMedia;
+  if (directMedia.length > 0) return directMedia;
+  if (responseMedia.length > 0) return responseMedia;
+  return attachments;
+}
+
 function formatDate(value: unknown) {
   const raw = displayString(value);
   if (!raw) return '';
@@ -191,7 +278,7 @@ export function mapOrderFromApi(o: any): Order {
     ),
     deadline: formatDate(o.deadline),
     vin: displayString(o.vin),
-    media: o.photos || o.media || o.attachments || [],
+    media: collectOrderMedia(o),
     status: mapOrderStatus(o.status),
     date: formatDate(o.created_at || o.date),
     createdAt: idString(o.created_at || o.date),

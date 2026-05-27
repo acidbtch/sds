@@ -63,7 +63,7 @@ export interface Order {
   customerUsername?: string;
   deadline?: string;
   vin?: string;
-  media?: string[];
+  media?: unknown[];
   status: 'pending' | 'active' | 'completed' | 'cancelled';
   date: string;
   createdAt?: string;
