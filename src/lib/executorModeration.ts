@@ -62,6 +62,9 @@ function getDirectModerationProfileId(profile: any) {
     profile?.profileId,
     profile?.executor_id,
     profile?.executorId,
+    profile?.executor_profile?.id,
+    profile?.executorProfile?.id,
+    profile?.profile?.id,
   );
 }
 
@@ -218,7 +221,16 @@ export function mapExecutorModerationFromApi(
     profile?.requestId,
     profile?.moderation_id,
     profile?.moderationId,
+    pendingChanges?.moderation_request_id,
+    pendingChanges?.moderationRequestId,
+    pendingChanges?.request_id,
+    pendingChanges?.requestId,
+    pendingChanges?.moderation_id,
+    pendingChanges?.moderationId,
     moderationRequest?.id,
+    moderationRequest?.uuid,
+    moderationRequest?.request_uuid,
+    moderationRequest?.requestUuid,
     moderationRequest?.request_id,
     moderationRequest?.requestId,
     moderationRequest?.moderation_request_id,
@@ -226,6 +238,9 @@ export function mapExecutorModerationFromApi(
     moderationRequest?.moderation_id,
     moderationRequest?.moderationId,
     directModerationRequest?.id,
+    directModerationRequest?.uuid,
+    directModerationRequest?.request_uuid,
+    directModerationRequest?.requestUuid,
   );
   const requestType = moderationTypeFromRequest(moderationRequest) || moderationTypeFromRequest(profile);
   const isEdit = requestType ? requestType === 'edit' : hasObjectValue(pendingChanges);
@@ -267,9 +282,15 @@ export function getExecutorModerationRequestId(
     request.data?.moderationRequestId,
     request.data?.moderation_request_id,
     request.data?.moderationRequest?.id,
+    request.data?.moderationRequest?.uuid,
+    request.data?.moderationRequest?.request_uuid,
+    request.data?.moderationRequest?.requestUuid,
     request.data?.moderationRequest?.moderationRequestId,
     request.data?.moderationRequest?.moderation_request_id,
     request.data?.moderation_request?.id,
+    request.data?.moderation_request?.uuid,
+    request.data?.moderation_request?.request_uuid,
+    request.data?.moderation_request?.requestUuid,
     request.data?.moderation_request?.moderationRequestId,
     request.data?.moderation_request?.moderation_request_id,
     request.data?.pendingModeration?.id,

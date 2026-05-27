@@ -136,11 +136,67 @@ assert.equal(
   'direct moderation request responses should keep the executor profile id separately',
 );
 
+const directModerationWithNestedProfile = mapExecutorModerationFromApi({
+  id: 'moderation-request-nested-profile',
+  request_type: 'edit',
+  status: 'PENDING',
+  executor_profile: {
+    id: 'profile-nested',
+    legal_name: 'Nested Executor',
+    short_name: 'Nested',
+  },
+  pending_changes: {
+    legal_name: 'Nested Executor Changed',
+  },
+}, 3);
+
+assert.equal(
+  getExecutorModerationRequestId(directModerationWithNestedProfile),
+  'moderation-request-nested-profile',
+  'direct moderation request responses with nested executor_profile should use their own id',
+);
+assert.equal(
+  getExecutorModerationProfileId(directModerationWithNestedProfile),
+  'profile-nested',
+  'direct moderation request responses with nested executor_profile should keep the nested profile id',
+);
+
+const pendingRequestIdInChanges = mapExecutorModerationFromApi({
+  id: 'profile-pending-change-id',
+  moderation_status: 'PENDING',
+  pending_changes: {
+    moderation_request_id: 'moderation-request-from-pending-changes',
+    legal_name: 'Pending Change Executor',
+  },
+}, 4);
+
+assert.equal(
+  getExecutorModerationRequestId(pendingRequestIdInChanges),
+  'moderation-request-from-pending-changes',
+  'moderation_request_id inside pending_changes should be used for moderation actions',
+);
+
+const moderationRequestWithUuid = mapExecutorModerationFromApi({
+  id: 'profile-request-uuid',
+  moderation_status: 'PENDING',
+  moderation_request: {
+    uuid: 'moderation-request-uuid',
+    type: 'new',
+    status: 'PENDING',
+  },
+}, 5);
+
+assert.equal(
+  getExecutorModerationRequestId(moderationRequestWithUuid),
+  'moderation-request-uuid',
+  'moderation request uuid aliases should be accepted as action ids',
+);
+
 const logoOnlyKeyRequest = mapExecutorModerationFromApi({
   id: 'profile-logo',
   moderation_status: 'PENDING',
   logo_key: 'c49341f9-without-extension',
-}, 3);
+}, 6);
 
 assert.equal(
   logoOnlyKeyRequest.data.logoFiles?.[0].kind,

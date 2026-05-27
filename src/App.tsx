@@ -55,12 +55,30 @@ function AppFrame({ children }: { children: React.ReactNode }) {
   );
 }
 
+function AppLoadingIndicator() {
+  return (
+    <div role="status" aria-label="Загрузка" className="relative flex h-28 w-28 items-center justify-center">
+      <div className="absolute inset-0 animate-spin rounded-full border-[3px] border-orange-500 border-t-transparent" />
+      <div className="flex h-20 w-20 items-center justify-center">
+        <img src="/logo1.png" alt="SDS" className="h-full w-full scale-150 object-contain" />
+      </div>
+      <span className="sr-only">Загрузка</span>
+    </div>
+  );
+}
+
+function LoadingContent() {
+  return (
+    <div className="flex min-h-screen min-h-[100dvh] items-center justify-center bg-white">
+      <AppLoadingIndicator />
+    </div>
+  );
+}
+
 function LoadingScreen() {
   return (
     <AppFrame>
-      <div className="flex min-h-screen min-h-[100dvh] items-center justify-center bg-white">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
+      <LoadingContent />
     </AppFrame>
   );
 }
@@ -283,7 +301,7 @@ function AppShell() {
           transition={{ duration: 0.2 }}
           className="w-full min-h-screen min-h-[100dvh] bg-white relative"
         >
-          <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div></div>}>
+          <Suspense fallback={<LoadingContent />}>
             {renderView()}
           </Suspense>
         </motion.div>
