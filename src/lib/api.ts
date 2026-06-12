@@ -271,6 +271,11 @@ export const mediaApi = {
       method: 'POST',
       body: JSON.stringify({ file_name: fileName, content_type: contentType }),
     }),
+  resolve: (keys: string[]) =>
+    fetchApi<any[]>('/media/resolve', {
+      method: 'POST',
+      body: JSON.stringify({ keys }),
+    }),
   uploadToS3: async (uploadUrl: string, file: File) => {
     const response = await fetch(uploadUrl, {
       method: 'PUT',
@@ -354,7 +359,7 @@ export const adminApi = {
   deleteCarModel: (brandId: string, id: string) => fetchApi<any>(`/admin/cars/brands/${brandId}/models/${id}`, { method: 'DELETE' }),
   updateContractor: (id: string, data: any) => fetchApi<any>(`/admin/executors/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   updateServiceCategories: (categories: any[]) => fetchApi<any>('/admin/services/categories', { method: 'PUT', body: JSON.stringify(categories) }),
-  resolveSupportTicket: (id: string | number) => fetchApi<any>(`/support/admin/tickets/${id}/close`, { method: 'POST' }),
+  resolveSupportTicket: (id: string | number) => fetchApi<any>(`/admin/support/${id}/resolve`, { method: 'POST' }),
   replySupportTicket: (id: string | number, text: string) => fetchApi<any>(`/support/admin/tickets/${id}/messages`, { method: 'POST', body: JSON.stringify({ content: text }) }),
 };
 

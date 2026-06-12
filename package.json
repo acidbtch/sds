@@ -28,6 +28,7 @@
     "test:faq-editor": "tsx src/lib/faqEditor.test.ts",
     "test:order-mapping": "tsx src/lib/orderMapping.test.ts",
     "test:uploaded-files": "tsx src/lib/uploadedFiles.test.ts",
+    "test:media-resolve": "tsx src/lib/mediaResolve.test.ts",
     "test:order-services": "tsx src/lib/orderServiceSelection.test.ts",
     "test:support-validation": "tsx src/lib/supportValidation.test.ts",
     "test:support-ticket-display": "tsx src/lib/supportTicketDisplay.test.ts",

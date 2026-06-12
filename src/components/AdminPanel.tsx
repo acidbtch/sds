@@ -1256,12 +1256,26 @@ function BannersView({ banners, setBanners, contractors, setContractors }: { ban
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<any>(null);
 
+  const buildBannerPayload = (banner: any) => ({
+    executor_id: banner.contractorId || banner.executor_id,
+    title: banner.contractor || banner.title || '',
+    description: banner.description || '',
+    image_key: banner.imageKey || banner.image_key || '',
+    link_url: banner.link_url || null,
+    position: banner.position || 'main',
+  });
+
   const toggleBanner = async (id: number) => {
     const banner = banners.find(b => b.id === id);
     if (!banner) return;
     try {
       const newStatus = banner.status === 'active' ? 'inactive' : 'active';
-      await adminApi.updateBanner(id, { ...banner, status: newStatus });
+      const payload = buildBannerPayload(banner);
+      if (!payload.executor_id || !payload.title || !payload.image_key) {
+        alert('РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ РёР·РјРµРЅРµРЅРёСЏ СЃС‚Р°С‚СѓСЃР° Р±Р°РЅРЅРµСЂР°');
+        return;
+      }
+      await adminApi.updateBanner(id, { ...payload, is_active: newStatus === 'active' });
       await refreshAdminData();
     } catch (error) {
       console.error('Failed to toggle banner:', error);
@@ -1303,14 +1317,7 @@ function BannersView({ banners, setBanners, contractors, setContractors }: { ban
         return;
       }
 
-      const payload = {
-        executor_id: executorId,
-        title: editForm.contractor || editForm.title || '',
-        description: editForm.description || '',
-        image_key: editForm.imageKey || editForm.image_key || '',
-        link_url: editForm.link_url || null,
-        position: editForm.position || 'main',
-      };
+      const payload = buildBannerPayload({ ...editForm, contractorId: executorId });
 
       if (editingId === -1) {
         await adminApi.createBanner(payload);

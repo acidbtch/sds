@@ -8,6 +8,7 @@ import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { executorApi, dictsApi } from '../lib/api';
 import { uploadMediaFile } from '../lib/media';
+import { resolveOrdersMedia } from '../lib/mediaResolve';
 import { mapOrderFromApi } from '../lib/orderMapping';
 import { REGIONS_DATA as FALLBACK_REGIONS } from '../data/regions';
 import { formatBelarusPhoneInput, isBelarusPhoneComplete } from '../lib/phoneInput';
@@ -231,7 +232,7 @@ export default function ContractorCabinet({ onNavigate }: Props) {
     setFeedLoading(true);
     try {
       const data = await executorApi.getFeed();
-      setFeedOrders((data || []).map(mapOrderFromApi));
+      setFeedOrders(await resolveOrdersMedia((data || []).map(mapOrderFromApi)));
     } catch (error) {
       console.error('Failed to load feed:', error);
     } finally {
@@ -248,7 +249,7 @@ export default function ContractorCabinet({ onNavigate }: Props) {
     setActiveLoading(true);
     try {
       const data = await executorApi.getActiveOrders();
-      setActiveOrders((data || []).map(mapOrderFromApi));
+      setActiveOrders(await resolveOrdersMedia((data || []).map(mapOrderFromApi)));
     } catch (error) {
       console.error('Failed to load active orders:', error);
     } finally {

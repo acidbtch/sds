@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { customerApi } from '../lib/api';
 import { BANNER_ROTATION_INTERVAL_MS, getNextBannerIndex, getVisibleBannerIndex } from '../lib/bannerRotation';
 import { filterCustomerOrdersForUser, mapCustomerOrderFromApi } from '../lib/customerOrders';
+import { resolveOrdersMedia } from '../lib/mediaResolve';
 import UploadedFilesGrid from './UploadedFilesGrid';
 import MediaPreviewModal, { type MediaPreviewValue } from './MediaPreviewModal';
 import {
@@ -63,7 +64,9 @@ export default function CustomerOrders({ onNavigate }: Props) {
         const fetchedOrders = await customerApi.getOrders();
         if (fetchedOrders) {
           // Map API orders to our Order interface
-          const mappedOrders = filterCustomerOrdersForUser(fetchedOrders, user).map(mapCustomerOrderFromApi);
+          const mappedOrders = await resolveOrdersMedia(
+            filterCustomerOrdersForUser(fetchedOrders, user).map(mapCustomerOrderFromApi)
+          );
 
           const responseCounts = await Promise.all(
             mappedOrders.map(async (order) => {
@@ -298,7 +301,7 @@ export default function CustomerOrders({ onNavigate }: Props) {
       {/* Leader Ads Banner */}
       {currentBanner && (
         <div className="px-4 mt-4">
-          <div className="bg-white rounded-md p-3 shadow-lg border-l-4 border-orange-500 flex items-center gap-3 relative overflow-hidden">
+          <div className="bg-orange-100 rounded-md p-3 shadow-lg border border-orange-200 border-l-4 border-l-orange-500 flex items-center gap-3 relative overflow-hidden">
             <div className="absolute top-0 right-0 bg-orange-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-md uppercase tracking-wider">
               Лидер
             </div>

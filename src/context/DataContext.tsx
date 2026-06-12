@@ -17,6 +17,7 @@ import { getSupportTicketUserLabel } from '../lib/supportTicketDisplay';
 import { isAdminRole, normalizeUserRole } from '../lib/authUser';
 import { getContentTextByKey, getContentTextFromApiItem, mapFaqItemsFromApi } from '../lib/contentMapping';
 import { getExecutorDisplayProfile, getExecutorMediaUrl } from '../lib/executorProfileDisplay';
+import { resolveOrdersMedia } from '../lib/mediaResolve';
 
 // Define the types for our context state
 interface Customer {
@@ -260,7 +261,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setAdminRefreshErrors(refreshErrors);
 
       const mappedOrders = ordersData !== undefined
-        ? (ordersData || []).map(mapOrderFromApi)
+        ? await resolveOrdersMedia((ordersData || []).map(mapOrderFromApi))
         : undefined;
       const mappedCustomers = usersData !== undefined && mappedOrders !== undefined
         ? (usersData || [])
